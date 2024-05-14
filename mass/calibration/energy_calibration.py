@@ -267,7 +267,7 @@ class EnergyCalibration:  # noqa: PLR0904
             try:
                 curvetype = self.CURVETYPE.index(curvetype.lower())
             except ValueError:
-                raise ValueError("EnergyCalibration.CURVETYPE does not contain '%s'" % curvetype)
+                raise ValueError(f"EnergyCalibration.CURVETYPE does not contain '{curvetype}'")
         assert 0 <= curvetype < len(self.CURVETYPE)
 
         if curvetype != self._curvetype:
@@ -369,13 +369,13 @@ class EnergyCalibration:  # noqa: PLR0904
         if name and name in self._names:  # Update an existing point by name
             if not overwrite:
                 raise ValueError(
-                    "Calibration point '%s' is already known and overwrite is False" % name)
+                    f"Calibration point '{name}' is already known and overwrite is False")
             update_index = self._names.index(name)
 
         elif self.npts > 0 and np.abs(energy - self._energies).min() <= e_error:  # Update existing point
             if not overwrite:
                 raise ValueError(
-                    "Calibration point at energy %.2f eV is already known and overwrite is False" % energy)
+                    f"Calibration point at energy {energy:.2f} eV is already known and overwrite is False")
             update_index = np.abs(energy - self._energies).argmin()
 
         if update_index is None:   # Add a new point
@@ -657,9 +657,8 @@ class EnergyCalibration:  # noqa: PLR0904
                 ylabel = "Energy (eV)"
                 axis.set_title("Energy calibration curve")
             else:
-                ylabel = "Energy (eV) / PH^%.4f" % ph_rescale_power
-                axis.set_title("Energy calibration curve, scaled by %.4f power of PH" %
-                               ph_rescale_power)
+                ylabel = f"Energy (eV) / PH^{ph_rescale_power:.4f}"
+                axis.set_title(f"Energy calibration curve, scaled by {ph_rescale_power:.4f} power of PH")
         elif plottype == "gain":
             yplot = gplot
             if self._use_approximation:
@@ -710,7 +709,7 @@ class EnergyCalibration:  # noqa: PLR0904
                       mec='black', mfc=markercolor, capsize=0)
         axis.grid(True)
         if removeslope:
-            ylabel = "%s slope removed" % ylabel
+            ylabel = f"{ylabel} slope removed"
         axis.set_ylabel(ylabel)
         if showtext:
             for xval, name, yval in zip(x, self._names, y):

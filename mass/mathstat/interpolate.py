@@ -84,7 +84,7 @@ class CubicSpline:
         self.xstep = self._x[1:] - self._x[:-1]
 
         u = self.ystep / self.xstep
-        u[1:] = u[1:] - u[:-1]
+        u[1:] -= u[:-1]
 
         # For natural boundary conditions, u[0]=y2[0]=0.
         if self.yprime1 is None:

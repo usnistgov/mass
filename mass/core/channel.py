@@ -110,7 +110,7 @@ class NoiseRecords:
             else:
                 file_format = "ljh"
         if file_format not in self.ALLOWED_TYPES:
-            raise ValueError("file_format must be None or one of %s" % ",".join(self.ALLOWED_TYPES))
+            raise ValueError("file_format must be None or one of {}".format(",".join(self.ALLOWED_TYPES)))
 
         if file_format == "ljh":
             self.datafile = LJHFile.open(filename)
@@ -262,7 +262,7 @@ class NoiseRecords:
         axis.set_xlim([10, 3e5])
         axis.set_xlabel("Frequency (Hz)")
         axis.set_ylabel(r"Power Spectral Density (counts$^2$ Hz$^{-1}$)")
-        axis.set_title("Noise power spectrum for %s" % self.filename)
+        axis.set_title(f"Noise power spectrum for {self.filename}")
 
     def _compute_continuous_autocorrelation(self, n_lags=None, data_samples=None,
                                             max_excursion=1000):
@@ -273,8 +273,7 @@ class NoiseRecords:
         samples_per_segment = self.records_per_segment * self.nSamples
         if n_lags is None:
             n_lags = samples_per_segment
-        if n_lags > samples_per_segment:
-            n_lags = samples_per_segment
+        n_lags = min(n_lags, samples_per_segment)
 
         def padded_length(n):
             """Return a sensible number in the range [n, 2n] which is not too
@@ -456,7 +455,7 @@ class PulseRecords:
             else:
                 file_format = "ljh"
         if file_format not in self.ALLOWED_TYPES:
-            raise ValueError("file_format must be None or one of %s" % ",".join(self.ALLOWED_TYPES))
+            raise ValueError("file_format must be None or one of {}".format(",".join(self.ALLOWED_TYPES)))
 
         if file_format == "ljh":
             self.datafile = LJHFile.open(filename)
@@ -541,7 +540,7 @@ def _add_group_loop():
         wrapper.__name__ = method_name
 
         # Generate a good doc-string.
-        lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
+        lines = [f"Loop over self, calling the {method_name}(...) method for each channel."]
         try:
             argtext = inspect.signature(method)  # Python 3.3 and later
         except AttributeError:
@@ -694,23 +693,25 @@ class MicrocalDataSet:  # noqa: PLR0904
                                   (bool, bool_fields),
                                   (np.int64, int64_fields)):
             for field in fieldnames:
-                self.__dict__['p_%s' % field] = h5grp.require_dataset(field, shape=(npulses,),
-                                                                      dtype=dtype)
+                self.__dict__[f'p_{field}'] = h5grp.require_dataset(
+                    field, shape=(npulses,), dtype=dtype)
 
         # Workaround for fact that this value changed names in Feb 2024 from "rowcount" to "subframecount"
         if "rowcount" in h5grp:
-            self.p_subframecount = h5grp.require_dataset("rowcount", shape=(npulses,), dtype=np.int64)
+            self.p_subframecount = h5grp.require_dataset(
+                "rowcount", shape=(npulses,), dtype=np.int64)
         else:
-            self.p_subframecount = h5grp.require_dataset("subframecount", shape=(npulses,), dtype=np.int64)
+            self.p_subframecount = h5grp.require_dataset(
+                "subframecount", shape=(npulses,), dtype=np.int64)
 
         if "peak_samplenumber" in self.p_peak_index.attrs:
             self.peak_samplenumber = self.p_peak_index.attrs["peak_samplenumber"]
 
         # Other vectors needed per-channel
-        self.average_pulse = h5grp.require_dataset('average_pulse', shape=(self.nSamples,),
-                                                   dtype=np.float32)
-        self.noise_autocorr = h5grp.require_dataset('noise_autocorr', shape=(self.nSamples,),
-                                                    dtype=np.float64)
+        self.average_pulse = h5grp.require_dataset(
+            'average_pulse', shape=(self.nSamples,), dtype=np.float32)
+        self.noise_autocorr = h5grp.require_dataset(
+            'noise_autocorr', shape=(self.nSamples,), dtype=np.float64)
         nfreq = 1 + self.nSamples // 2
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                dtype=np.float64)
@@ -974,8 +975,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         first, end = idx_range
         if first >= self.nPulses:
             return
-        if end > self.nPulses:
-            end = self.nPulses
+        end = min(end, self.nPulses)
 
         if len(self.p_timestamp) <= 0:
             self.__setup_vectors(npulses=self.nPulses)
@@ -1138,7 +1138,7 @@ class MicrocalDataSet:  # noqa: PLR0904
     def shortname(self):
         """return a string containing part of the filename and the channel number, useful for labelling plots"""
         s = os.path.split(self.filename)[-1]
-        chanstr = "chan%g" % self.channum
+        chanstr = f"chan{self.channum:g}"
         if chanstr not in s:
             s += chanstr
         return s
@@ -1310,7 +1310,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         if self.filter is not None:
             filter_values = self.filter.__dict__[filter_name]
         else:
-            filter_values = self.hdf5_group['filters/%s' % filter_name][()]
+            filter_values = self.hdf5_group[f'filters/{filter_name}'][()]
 
         if use_cython:
             if self._filter_type == "ats":
@@ -1512,15 +1512,13 @@ class MicrocalDataSet:  # noqa: PLR0904
             nrecs = valid.sum()
             if downsample is None:
                 downsample = nrecs // 10000
-                if downsample < 1:
-                    downsample = 1
+                downsample = max(downsample, 1)
             hour = self.p_timestamp[valid][::downsample] / 3600.0
         else:
             nrecs = self.nPulses
             if downsample is None:
                 downsample = self.nPulses // 10000
-                if downsample < 1:
-                    downsample = 1
+                downsample = max(downsample, 1)
             hour = self.p_timestamp[::downsample] / 3600.0
         LOG.info("%s (%d records; %d in scatter plots)", status, nrecs, len(hour))
 
@@ -1887,7 +1885,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                     fitter = eval(fittername)
                 except AttributeError:
                     raise ValueError(
-                        "Cannot understand line=%s as an energy or a known calibration line." % line)
+                        f"Cannot understand line={line} as an energy or a known calibration line.")
 
         params, covar = fitter.fit(contents, bin_ctrs, plot=plot, **kwargs)
         if plot:
@@ -2019,10 +2017,9 @@ class MicrocalDataSet:  # noqa: PLR0904
                 data[0] = 0
             elif residual:
                 model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
-                # Careful! The following was `data -= model`, but that fails because data
-                # is now a read-only memmap.
                 # `data = data - model` rebinds data to a numpy vector, which is allowed.
-                data = data - model
+                # Disable QA test for augmented assignment, b/c we're replacing a memmap with a vector
+                data = data - model  # NOQA: PLR6104
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
             if fcut is not None:
@@ -2030,8 +2027,9 @@ class MicrocalDataSet:  # noqa: PLR0904
                     data, 1. / self.timebase, fcut)
             if subtract_baseline:
                 # Recalculate the pretrigger mean here, to avoid issues due to flux slipping when
-                # plotting umux data
-                data = data - np.mean(data[:self.nPresamples - self.pretrigger_ignore_samples])
+                # plotting umux data.
+                # Disable QA test for augmented assignment, b/c we're replacing a memmap with a vector
+                data = data - np.mean(data[:self.nPresamples - self.pretrigger_ignore_samples])  # NOQA: PLR6104
 
             cutchar, alpha, linestyle, linewidth = ' ', 1.0, '-', 1
 
@@ -2316,13 +2314,13 @@ class MicrocalDataSet:  # noqa: PLR0904
             h5grp = self.hdf5_group.require_group('crosstalk_flags')
 
             crosstalk_array_dtype = bool
-            self.__dict__['p_%s' % crosstalk_key] = h5grp.require_dataset(
+            self.__dict__[f'p_{crosstalk_key}'] = h5grp.require_dataset(
                 crosstalk_key, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
 
             if not combineCategories:
                 for neighborCategory in self.hdf5_group[nn_channel_key]:
                     categoryField = str(crosstalk_key + '_' + neighborCategory)
-                    self.__dict__['p_%s' % categoryField] = h5grp.require_dataset(
+                    self.__dict__[f'p_{categoryField}'] = h5grp.require_dataset(
                         categoryField, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
 
             # Check to see if crosstalk list has already been written and skip, unless forceNew
@@ -2375,7 +2373,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                         else:
                             msg = "channel %d skipping %s crosstalk cuts because" % (
                                 self.channum, neighborCategory)
-                            msg = msg * " no nearest neighbors matching criteria in category"
+                            msg += " no nearest neighbors matching criteria in category"
                             LOG.info(msg)
 
             else:
@@ -2476,13 +2474,13 @@ class MicrocalDataSet:  # noqa: PLR0904
         h5grp.require_group(nearestNeighborCategory)
 
         # Victim channel position dataset
-        self.__dict__['position_%s' % nearestNeighborCategory] = \
+        self.__dict__[f'position_{nearestNeighborCategory}'] = \
             h5grp[nearestNeighborCategory].require_dataset(
                 'position', shape=(nDims,), dtype=np.int64)
 
         # Perpetrator channels dataset
         hnnc = h5grp[nearestNeighborCategory]
-        self.__dict__['neighbors_list_%s' % nearestNeighborCategory] = \
+        self.__dict__[f'neighbors_list_{nearestNeighborCategory}'] = \
             hnnc.require_dataset('neighbors_list', shape=((len(channelNumbers), 3)),
                                  dtype=np.int64)
 
@@ -2536,7 +2534,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         g = np.logical_and(tg, self.good(**category))
         g = np.logical_and(g, ~np.isnan(vals))
         if g_func is not None:
-            g = g & g_func(self)
+            g &= g_func(self)
 
         counts, _ = np.histogram(vals[g], bin_edges)
         return bin_centers, counts

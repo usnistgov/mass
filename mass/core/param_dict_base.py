@@ -119,7 +119,7 @@ class PrmDictBase:
                     self.user_prm[prm] = kwargs[prm]
                     message(f'{prm}={kwargs[prm]} assigned in self.user_prm')
                 else:
-                    raise NameError('parameter "%s" not registered' % prm)
+                    raise NameError(f'parameter "{prm}" not registered')
         self._update()
 
     def set_in_dict(self, prm, value, d):
@@ -189,7 +189,7 @@ class PrmDictBase:
             else:
                 for key in d:
                     if key in namespace and not overwrite:
-                        print('cannot overwrite %s' % key)
+                        print(f'cannot overwrite {key}')
                     else:
                         namespace[key] = d[key]
 

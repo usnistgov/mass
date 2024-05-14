@@ -120,7 +120,7 @@ class MLEModel(lmfit.Model):
         out = self._name
         opts = []
         if len(self._prefix) > 0:
-            opts.append("prefix='%s'" % (self._prefix))
+            opts.append(f"prefix='{self._prefix}'")
         if long:
             for k, v in self.opts.items():
                 opts.append(f"{k}='{v}'")

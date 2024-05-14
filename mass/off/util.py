@@ -261,7 +261,7 @@ def add_group_loop(method):
     wrapper.__name__ = method_name
 
     # Generate a good doc-string.
-    lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
+    lines = [f"Loop over self, calling the {method_name}(...) method for each channel."]
     lines.append("pass _rethrow=True to see stacktrace from first error")
     try:
         argtext = inspect.signature(method)  # Python 3.3 and later

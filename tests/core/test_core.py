@@ -581,7 +581,7 @@ class TestTESHDF5Only:
             for c in cnums[1:]:
                 os.link(chan1_dest, dest_name % (dir, c))
 
-            data1 = mass.TESGroup("%s/temporary_chan*.ljh" % dir)
+            data1 = mass.TESGroup(f"{dir}/temporary_chan*.ljh")
             # Make sure the usual TESGroup is in the right order
             for i, ds in enumerate(data1):
                 assert ds.channum == cnums[i]

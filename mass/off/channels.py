@@ -246,7 +246,7 @@ class Channel(CorG):  # noqa: PLR0904
 
     def learnChannumAndShortname(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
-        self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
+        self.shortName = os.path.split(basename)[-1] + f" chan{self.channum:g}"
 
     @add_group_loop
     def learnResidualStdDevCut(self, n_sigma_equiv=15,   # noqa: PLR0914, PLR0917
@@ -325,7 +325,7 @@ class Channel(CorG):  # noqa: PLR0904
         return inds
 
     def __repr__(self):
-        return "Channel based on %s" % self.offFile
+        return f"Channel based on {self.offFile}"
 
     @property
     def statesDict(self):
@@ -450,8 +450,8 @@ class Channel(CorG):  # noqa: PLR0904
         elif self.isOffAttr(attr):
             return offAttrValues[attr]
         else:
-            raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(
-                attr, list(self._offAttrs), list(self._recipeAttrs)))
+            raise Exception(f"attr {attr} must be an OffAttr or a RecipeAttr or a list. OffAttrs: " +
+                            f"{list(self._offAttrs)}\nRecipeAttrs: {list(self._recipeAttrs)}")
 
     def plotAvsB2d(self, nameA, nameB, binEdgesAB, axis=None, states=None, cutRecipeName=None, norm=None):
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
@@ -801,8 +801,9 @@ class Channel(CorG):  # noqa: PLR0904
                     "thresholdSigmaFromMedianAbsoluteValue"))
         if thresholdAbsolute is not None:
             if maxAbsError > thresholdAbsolute:
-                self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
-                    maxAbsError, thresholdAbsolute))
+                msg = f"qualityCheckDropOneErrors: maximum absolute drop one error {maxAbsError} >" + \
+                    f" theshold {thresholdAbsolute} (thresholdAbsolute)"
+                self.markBad(msg)
 
     def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges=np.arange(0, 16000, 4)):
         calibration = self.recipes[calibratedName].f
