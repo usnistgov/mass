@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.8.3** February 2024-
+**0.8.3** May 14, 2024
 
 * Read LJH file row number correctly (issue 268).
 * Improve behavior of powerspectrum and `ExperimentalFilter` objects.
@@ -8,6 +8,7 @@
 * Move primary repository to GitHub. Update README.
 * Set up GitHub Actions for our new hosting service (issues 273, 274)
 * Make ruff warnings go away (issue 277).
+* Update/fix how we save (pickle) OFF recipes.
 
 
 **0.8.2** February 23, 2024

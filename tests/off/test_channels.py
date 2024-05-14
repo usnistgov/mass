@@ -473,7 +473,6 @@ def test_recipes():
     assert rb.craft("a", args) == 3
     assert rb.craft("b", args) == 6
     assert rb.craft("c", args) == 9
-    assert rb.craft("c", args) == 9
     assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
     assert rb.craft(lambda a, b, c: a + b + c, args) == 18
 
@@ -483,7 +482,6 @@ def test_recipes():
 
     assert rb2.craft("a", args) == 3
     assert rb2.craft("b", args) == 6
-    assert rb2.craft("c", args) == 9
     assert rb2.craft("c", args) == 9
 
 
