@@ -38,11 +38,12 @@ Virtual environments are easy to set up. They let you keep up with separate depe
 python3 -m venv ~/analysis
 source ~/analysis/bin/activate
 pip install --upgrade pip
-pip install -e git+ssh://git@github.com/joe_fowler/mass.git#egg=mass
+pip install -e git+ssh://git@github.com/usnistgov/mass.git#egg=mass
 ```
 
+Comments on these commands:
 1. The first line is safe (but optional) if you already have a virtualenv at `~/analysis/`. If you don't, it creates one.
-2. The second line must be used in every shell where you want that virtualenv to be active. We suggest making a short alias, or even running this among your shell startup commands.
+2. The second line must be used in _every_ shell where you want that virtualenv to be active. We suggest making a short alias, or (if you're willing to work in this enviroment by default) running this among your shell startup commands.
 3. The third is optional but not a bad idea.
 4. The fourth installs mass in `~/analysis/src/mass/`, which is within your virtual environment.
 
