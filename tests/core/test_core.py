@@ -503,14 +503,13 @@ class TestTESGroup:
         del data
 
     @staticmethod
-    def test_projectors_script():
+    def test_projectors_script(tmp_path):
 
         class Args:
             def __init__(self):
                 self.pulse_path = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
                 self.noise_path = os.path.join('tests', 'regression_test', 'regress_noise_chan1.ljh')
-                self.output_path = os.path.join(
-                    'tests', 'regression_test', 'projectors_script_test.hdf5')
+                self.output_path = os.path.join(tmp_path, 'projectors_script_test.hdf5')
                 self.replace_output = True
                 self.max_channels = 4
                 self.n_ignore_presamples = 2
@@ -519,9 +518,8 @@ class TestTESGroup:
                 self.n_basis = 5
                 self.maximum_n_pulses = 4000
                 self.silent = False
-                self.mass_hdf5_path = os.path.join(
-                    'tests', 'regression_test', 'projectors_script_test_mass.hdf5')
-                self.mass_hdf5_noise_path = None
+                self.mass_hdf5_path = os.path.join(tmp_path, 'projectors_script_test_mass.hdf5')
+                self.mass_hdf5_noise_path = os.path.join(tmp_path, 'projectors_script_test_noise_mass.hdf5')
                 self.invert_data = False
                 self.dont_optimize_dp_dt = True
                 self.extra_n_basis_5lag = 1
@@ -530,8 +528,6 @@ class TestTESGroup:
                 self.f_3db_5lag = None
 
         mass.core.projectors_script.main(Args())
-        import gc
-        gc.collect()
 
     @staticmethod
     def test_expt_state_files():
@@ -582,7 +578,7 @@ class TestTESHDF5Only:
         hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5')
         hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5')
         data = mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_file.name,
-                      hdf5_noisefilename=hdf5_noisefile.name)
+                             hdf5_noisefilename=hdf5_noisefile.name)
 
         data2 = mass.TESGroupHDF5(hdf5_file.name)
         LOG.info("Testing printing of a TESGroupHDF5")
