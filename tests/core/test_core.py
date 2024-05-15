@@ -507,7 +507,7 @@ class TestTESGroup:
                 self.maximum_n_pulses = 4000
                 self.silent = False
                 self.mass_hdf5_path = tmp_path / 'projectors_script_test_mass.hdf5'
-                self.mass_hdf5_noise_path = None
+                self.mass_hdf5_noise_path = tmp_path / 'projectors_script_test_mass_noise.hdf5'
                 self.invert_data = False
                 self.dont_optimize_dp_dt = True
                 self.extra_n_basis_5lag = 1
