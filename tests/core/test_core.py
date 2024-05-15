@@ -421,7 +421,7 @@ class TestTESGroup:
         ds = data.datasets[0]
         n_basis = 5
         hdf5_filename = data.pulse_model_to_hdf5(replace_output=True, n_basis=n_basis)
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as output_dir:
+        with tempfile.TemporaryDirectory() as output_dir:
             max_channels = 100
             n_ignore_presamples = 0
             _ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
@@ -448,7 +448,7 @@ class TestTESGroup:
             assert np.amax(wrongness) < 0.16
             pulse_model.plot()
         
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as output_dir:
+        with tempfile.TemporaryDirectory() as output_dir:
             # test multi_ljh2off_loop with multiple ljhfiles
             basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
             N = len(off)
@@ -537,7 +537,7 @@ class TestTESGroup:
             return mass.TESGroup([src_name], hdf5_filename=hdf5_filename)
 
         for have_esf in (False, True):
-            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as dirname:
+            with tempfile.TemporaryDirectory() as dirname:
                 data = make_data(have_esf, dirname)
                 # data.summarize_data()
                 ds = data.channel[1]
@@ -575,7 +575,7 @@ class TestTESHDF5Only:
     @staticmethod
     def test_ordering_hdf5only():
         src_name = "tests/regression_test/regress_chan1.ljh"
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as dirname:
+        with tempfile.TemporaryDirectory() as dirname:
             dest_name = "%s/temporary_chan%d.ljh"
             chan1_dest = dest_name % (dirname, 1)
             shutil.copy(src_name, chan1_dest)
