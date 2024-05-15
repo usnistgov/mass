@@ -246,8 +246,6 @@ class TestTESGroup:
         # 252 of the 300 records valid because of their timestamps.
         esf = "tests/regression_test/regress_experiment_state_v2.txt"
 
-
-
         data = self.load_data(experimentStateFile=esf, hdf5dir=tmp_path_factory.mktemp("2"))
         data.summarize_data()
         assert data.n_good_channels() == 1
@@ -447,13 +445,13 @@ class TestTESGroup:
             print(np.amax(wrongness))
             assert np.amax(wrongness) < 0.16
             pulse_model.plot()
-        
+
         with tempfile.TemporaryDirectory() as output_dir:
             # test multi_ljh2off_loop with multiple ljhfiles
             basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
             N = len(off)
             prefix = os.path.split(basename)[1]
-            offbase = os.path.join(output_dir,prefix)
+            offbase = os.path.join(output_dir, prefix)
             ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
                 [basename] * 2, hdf5_filename, offbase, max_channels,
                 n_ignore_presamples)
