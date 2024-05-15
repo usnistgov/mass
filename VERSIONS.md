@@ -1,5 +1,9 @@
 ## Note on version numbers of Mass
 
+**0.8.4** May, 2024-
+
+* Fix test failures on Py 3.12: store HDF5 cache files in temp directories, so tests don't share them. (issue 272). Correctly use the modern `tempfile` library's API.
+
 **0.8.3** May 14, 2024
 
 * Read LJH file row number correctly (issue 268).
