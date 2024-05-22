@@ -18,7 +18,7 @@ from . import LORENTZIAN_PEAK_HEIGHT
 import xraydb
 
 INVCM_TO_EV = sp_const.c * sp_const.physical_constants['Planck constant in eV s'][0] * 100.0
-DEFAULT_PICKLE_NAME = 'nist_asd.pickle'
+DEFAULT_PICKLE_NAME = 'nist_asd_2023.pickle'
 
 
 class NIST_ASD:
