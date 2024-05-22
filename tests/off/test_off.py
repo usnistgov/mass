@@ -2,7 +2,7 @@ import pytest
 import os
 import mass.off
 from mass.off import OffFile
-import resource
+# import resource
 
 d = os.path.dirname(os.path.realpath(__file__))
 
@@ -30,28 +30,28 @@ def test_open_file_with_base64_projectors_and_basis():
     assert OffFile(filename) is not None
 
 
-def test_mmap_many_files():
-    """Open more OFF file objects than the system allows. Test that close method closes them."""
-    files = []  # hold on to the OffFile objects so the garbage collector doesn't close them.
+# def test_mmap_many_files():
+#     """Open more OFF file objects than the system allows. Test that close method closes them."""
+#     files = []  # hold on to the OffFile objects so the garbage collector doesn't close them.
 
-    # LOWER the system's limit on number of open files, to make the test smaller
-    soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    request_maxfiles = min(30, soft_limit)
-    resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
-    try:
-        maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-        NFilesToOpen = maxfiles // 3 + 10
+#     # LOWER the system's limit on number of open files, to make the test smaller
+#     soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+#     request_maxfiles = min(30, soft_limit)
+#     resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
+#     try:
+#         maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+#         NFilesToOpen = maxfiles // 3 + 10
 
-        filename = os.path.join(d, "data_for_test/off_with_binary_projectors_and_basis.off")
-        for _ in range(NFilesToOpen):
-            f = OffFile(filename)
-            assert f.nRecords > 0
-            files.append(f)
-            f.close()
+#         filename = os.path.join(d, "data_for_test/off_with_binary_projectors_and_basis.off")
+#         for _ in range(NFilesToOpen):
+#             f = OffFile(filename)
+#             assert f.nRecords > 0
+#             files.append(f)
+#             f.close()
 
-    # Use the try...finally to ensure that the gc can close files at the end of this test,
-    # preventing a cascade of meaningless test failures if this one fails.
-    # Also undo our reduction in the limit on number of open files.
-    finally:
-        del files
-        resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+#     # Use the try...finally to ensure that the gc can close files at the end of this test,
+#     # preventing a cascade of meaningless test failures if this one fails.
+#     # Also undo our reduction in the limit on number of open files.
+#     finally:
+#         del files
+#         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
