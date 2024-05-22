@@ -114,8 +114,13 @@ class ExperimentStateFile:
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
-            s = statesDict[last_key]
-            s2 = slice(s.start, i0_unixnanos + len(unixnanos))  # set the slice from the start of the state to the last new record
+                s = statesDict[last_key]
+            if isinstance(s, slice):
+                s2 = slice(s.start, i0_unixnanos+len(unixnanos))  # set the slice from the start of the state to the last new record
+            if isinstance(s, list):
+                s_ = s[-1] # get last instance of same state
+                s[-1] = slice(s_.start, i0_unixnanos+len(unixnanos))  # set the slice from the start of the state to the last new record
+                s2 = s    
             statesDict[k] = s2
             return statesDict
 
