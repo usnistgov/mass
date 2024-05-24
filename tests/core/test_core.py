@@ -366,16 +366,21 @@ class TestTESGroup:
         data.phase_correct()
         data.time_drift_correct()
 
-    @pytest.mark.xfail
-    def test_invert_data(self, tmp_path):
-        data = self.load_data(hdf5dir=tmp_path)
-        ds = data.channel[1]
-        raw = ds.data
-        rawinv = 0xffff - raw
 
-        ds.invert_data = True
-        raw2 = ds.data
-        assert np.all(rawinv == raw2)
+    def test_invert_data(self, tmp_path_factory):
+        data = self.load_data(hdf5dir=tmp_path_factory.mktemp("1"))
+        ds = data.channel[1]
+        ds.summarize_data(positive_going_pulses=True) # this is the default
+
+        data2 = self.load_data(hdf5dir=tmp_path_factory.mktemp("2"))
+        ds2 = data2.channel[1]
+        ds2.summarize_data(positive_going_pulses=False)
+        assert np.allclose(ds.p_pulse_average[:], -ds2.p_pulse_average[:])
+
+        data3 = self.load_data(hdf5dir=tmp_path_factory.mktemp("3"))
+        ds3 = data3.channel[1]
+        ds3.summarize_data() # test that the default matches True
+        assert np.allclose(ds.p_pulse_average[:], ds3.p_pulse_average[:])        
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):

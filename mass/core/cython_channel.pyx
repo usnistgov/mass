@@ -22,6 +22,7 @@ def summarize_data_cython(
     long nPresamples,
     long first=0,
     long end=0,
+    positive_going_pulses=True
 ):
     """Summarize one segment of the data file, loading it into cache."""
     cdef:
@@ -92,8 +93,16 @@ def summarize_data_cython(
     results["min_value"] = p_min_value_array
     results["shift1"] = p_shift1_array
 
+    # Create a temporary array for pulse operations
+    temp_pulse = np.empty(nSamples, dtype=np.uint16)
+
     for j in range(seg_size):
-        pulse = rawdata[j+first, :]
+        if positive_going_pulses:
+            pulse = rawdata[j + first, :]
+        else:
+            for k in range(nSamples):
+                temp_pulse[k] = 0xFFFF - rawdata[j + first, k]
+            pulse = temp_pulse
         pretrig_sum = 0.0
         pretrig_rms_sum = 0.0
         pulse_sum = 0.0
