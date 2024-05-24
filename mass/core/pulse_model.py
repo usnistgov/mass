@@ -49,6 +49,7 @@ class PulseModel:
         self.noise_psd = noise_psd
         self.noise_psd_delta_f = noise_psd_delta_f
         self.noise_autocorr = noise_autocorr
+        self.was_saved_inverted = None
 
     def toHDF5(self, hdf5_group, save_inverted):
         projectors, basis = self.projectors[()], self.basis[()]
@@ -92,12 +93,15 @@ class PulseModel:
         noise_psd = hdf5_group["svdbasis/noise_psd"][()]
         noise_psd_delta_f = hdf5_group["svdbasis/noise_psd_delta_f"][()]
         noise_autocorr = hdf5_group["svdbasis/noise_autocorr"][()]
+        was_saved_inverted = hdf5_group["svdbasis/was_saved_inverted"][()]
 
         if version != cls.version:
             raise Exception(f"loading not implemented for other versions, version={version}")
-        return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median,
+        model =  cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median,
                    pretrig_rms_sigma, file_name, extra_n_basis_5lag, f_5lag, average_pulse_for_5lag,
                    noise_psd, noise_psd_delta_f, noise_autocorr, _from_hdf5=True)
+        model.was_saved_inverted = was_saved_inverted
+        return model
 
     @staticmethod
     def _additional_projectors_tsvd(projectors, basis, n_basis, pulses_for_svd):

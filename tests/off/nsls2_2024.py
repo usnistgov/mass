@@ -27,7 +27,7 @@ ppderiv2 = ds0.p_postpeak_deriv[:]
 assert np.allclose(ppderiv1, ppderiv2)
 ds0.auto_cuts(nsigma_pt_rms=5000, nsigma_max_deriv=20, forceNew=True)
 ds0.plot_traces(np.arange(30))
-print(ds0.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"])
+
 
 
 temp_d = tempfile.mkdtemp()
@@ -61,6 +61,10 @@ data.setDefaultBinsize(10)  # set the default bin size in eV for fits
 for ds in data.values():
     ds.recipes.add("pretriggerMeanCorrected", lambda pretriggerMean: pretriggerMean % 2**12)
 data.add5LagRecipes(model_hdf5_path)
+with h5py.File(model_hdf5_path, "r") as h5:
+    models = {int(ch): mass.pulse_model.PulseModel.fromHDF5(h5[ch]) for ch in h5.keys()}
+model = models[1]
+model.plot()
 data.learnDriftCorrection()
 data.learnDriftCorrection(indicatorName="pretriggerMeanCorrected", uncorrectedName="filtValue5Lag",
                             correctedName="filtValue5LagDC")

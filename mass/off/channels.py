@@ -842,8 +842,10 @@ class Channel(CorG):  # noqa: PLR0904
     def add5LagRecipes(self, f):
         _filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
             f[:], self.offFile.basis)
-        self.recipes.add("cba5Lag", recipe_classes.MatMulAB_FixedB(B=filter_5lag_fit_in_basis),
-                         ingredients=["coefs"])
+        # hack for nsls for now
+        self.recipes.add("cba5Lag", recipe_classes.MatMulAB_FixedB(B=-filter_5lag_fit_in_basis),
+                        ingredients=["coefs"])
+
         self.recipes.add("filtValue5Lag", fivelag.filtValue5Lag, ingredients=["cba5Lag"])
         self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
 

@@ -1259,6 +1259,8 @@ class MicrocalDataSet:  # noqa: PLR0904
         ptm = self.p_pretrig_mean[:][pulsenums]
         ptm.shape = (len(pulsenums), 1)
         raw = (raw - ptm)[use, :]
+        if self.invert_data:
+            raw = 0xFFFF-raw
         if transform is not None:
             raw = transform(raw)
         rawscale = raw.max(axis=1)
@@ -1412,7 +1414,9 @@ class MicrocalDataSet:  # noqa: PLR0904
             self.filter, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag,
             maximum_n_pulses=maximum_n_pulses, noise_weight_basis=noise_weight_basis, category=category)
         hdf5_group = hdf5_file.create_group(f"{self.channum}")
-        pulse_model.toHDF5(hdf5_group, self.invert_data)
+        # since we no longer invert the data for the purposes of calculating filters
+        # we dont need to invert the model components
+        pulse_model.toHDF5(hdf5_group, save_inverted=False)
 
     def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
         """Traditional 5-lag filter used by default until 2015."""
@@ -2189,7 +2193,6 @@ class MicrocalDataSet:  # noqa: PLR0904
         if clearCuts:
             self.clear_cuts()
 
-        print(f"{nsigma_max_deriv=}")
         # Step 1: peak and rise times
         if self.peak_samplenumber is None:
             self._compute_peak_samplenumber()
