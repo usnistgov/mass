@@ -11,13 +11,24 @@ plt.ion()
 
 d = os.path.dirname(os.path.realpath(__file__))
 
-pulse_files = [os.path.join(d, "data_for_test", "nsls2_2024_pulses", "20240405_run0001_chan1.ljh")]
-noise_files = [os.path.join(d, "data_for_test", "nsls2_2024_pulses", "20240405_run0000_chan1.ljh")]
+pulse_files = os.path.join(d, "data_for_test", "nsls2_2024_pulses", "20240405_run0001_chan*.ljh")
+noise_files = os.path.join(d, "data_for_test", "nsls2_2024_pulses", "20240405_run0000_chan*.ljh")
 off_filenames = mass.off.getOffFileListFromOneFile(os.path.join(d, "data_for_test", 
 "nsls2_2024_pulses", "20240405_run0002_chan1.off"))
 
-data0 = mass.TESGroup(pulse_files, noise_files)
+data0 = mass.TESGroup(pulse_files, noise_files, overwrite_hdf5_file=True)
+for ds0 in data0:
+    ds0.invert_data = True
 ds0 = data0.channel[1]
+ds0.summarize_data(use_cython=False,forceNew=True)
+ppderiv1 = ds0.p_postpeak_deriv[:]
+ds0.summarize_data(use_cython=True, forceNew=True)
+ppderiv2 = ds0.p_postpeak_deriv[:]
+assert np.allclose(ppderiv1, ppderiv2)
+ds0.auto_cuts(nsigma_pt_rms=5000, nsigma_max_deriv=20, forceNew=True)
+ds0.plot_traces(np.arange(30))
+print(ds0.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"])
+
 
 temp_d = tempfile.mkdtemp()
 model_hdf5_path = os.path.join(temp_d, "model.hdf5")

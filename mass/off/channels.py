@@ -1163,9 +1163,13 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):  # noqa: PLR0904
         for channum, ds in self.items():
             # define recipes for "filtValue5Lag", "peakX5Lag" and "cba5Lag"
             # where cba refers to the coefficiencts of a polynomial fit to the 5 lags of the filter
-            ds.model = models[ds.channum]
+            try:
+                model = models[ds.channum]
+            except Exception:
+                ds.markBad(f"{model_hdf5_path} did not contain model for this channel during add5LagRecipes")
+            ds.model = model
             filter_5lag = ds.model.f_5lag
-            ds.add5LagRecipes(filter_5lag)
+            ds.add5LagRecipes(filter_5lag) 
         return models
 
     def loadChannels(self):
