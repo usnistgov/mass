@@ -1,2 +1,53 @@
+[project]
+name = "mass"
+dynamic = ["version"]
+description = "Microcalorimeter Analysis Software Suite"
+authors = [
+    {name = "Joe Fowler", email = "drjoefowler@gmail.com"},
+    {name = "Galen O'Neil", email = "ggggggggg@github.com"},
+]
+dependencies = [
+    "cycler",
+    "deprecation",
+    "dill",
+    "fastdtw",
+    "h5py>=2.7",
+    "lmfit>=0.9.11",
+    "matplotlib>1.5",
+    "numpy>=1.14",
+    "packaging",
+    "palettable",
+    "pandas",
+    "progress",
+    "pytest",
+    "scikit-learn",
+    "scipy>=0.19, !=1.11.2",
+    # Bitbucket pipeline tests failed with scipy-1.11.2 but passed with .1 or .3. Weird, but remember it!
+    "statsmodels>0.8",
+    "uncertainties",
+    "xraydb"
+]
+requires-python = ">=3.8"
+readme = "README.md"
+license = {text = "MIT"}
+
+[project.urls]
+Repository = "https://github.com/usnistgov/mass.git"
+Issues = "https://github.com/usnistgov/mass/issues"
+
+# [project.scripts]
+# ljh_truncate = "bin/ljh_truncate:main"
+
 [build-system]
-requires = ["setuptools>=40.8.0", "wheel", "Cython>=0.29", "numpy>=1.14"]
+requires = ["setuptools>=61", "setuptools_scm>=8", "wheel", "Cython>=0.29", "numpy>=1.14"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+mass = [
+    "calibration/nist_xray_data.dat",
+    "calibration/low_z_xray_data.dat",
+    "calibration/nist_asd.pickle",
+]
+
+[tool.setuptools_scm]
+version_file = "mass/_version.py"
