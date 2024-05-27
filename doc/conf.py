@@ -20,7 +20,14 @@ from recommonmark.transform import AutoStructify
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-from mass import __version__  # nopep8
+
+try:
+    from ._version import version as __version__
+    from ._version import version_tuple
+except ImportError:
+    __version__ = "unknown version"
+    version_tuple = (0, 0, "unknown version")
+
 # from better import better_theme_path
 # html_theme_path = [better_theme_path]
 # html_theme = 'better'
