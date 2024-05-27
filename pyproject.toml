@@ -35,8 +35,11 @@ license = {text = "MIT"}
 Repository = "https://github.com/usnistgov/mass.git"
 Issues = "https://github.com/usnistgov/mass/issues"
 
-# [project.scripts]
-# ljh_truncate = "bin/ljh_truncate:main"
+[project.scripts]
+ljh_truncate = "mass.ljh_truncate:main"
+ljh2off = "mass.core.ljh2off:main"
+make_projectors = "mass.core.projectors_script:main"
+
 
 [build-system]
 requires = ["setuptools>=61", "setuptools_scm>=8", "wheel", "Cython>=0.29", "numpy>=1.14"]
@@ -44,6 +47,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 mass = [
+    "bin/ljh_truncate",
     "calibration/nist_xray_data.dat",
     "calibration/low_z_xray_data.dat",
     "calibration/nist_asd.pickle",
