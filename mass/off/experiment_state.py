@@ -116,11 +116,13 @@ class ExperimentStateFile:
                 last_key = k
                 s = statesDict[last_key]
             if isinstance(s, slice):
-                s2 = slice(s.start, i0_unixnanos+len(unixnanos))  # set the slice from the start of the state to the last new record
+                # set the slice from the start of the state to the last new record
+                s2 = slice(s.start, i0_unixnanos + len(unixnanos))
             if isinstance(s, list):
-                s_ = s[-1] # get last instance of same state
-                s[-1] = slice(s_.start, i0_unixnanos+len(unixnanos))  # set the slice from the start of the state to the last new record
-                s2 = s    
+                s_ = s[-1]  # get last instance of same state
+                # set the slice from the start of the state to the last new record
+                s[-1] = slice(s_.start, i0_unixnanos + len(unixnanos))
+                s2 = s
             statesDict[k] = s2
             return statesDict
 

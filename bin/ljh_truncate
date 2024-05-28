@@ -10,7 +10,8 @@ import re
 import mass
 from mass.core.ljh_util import filename_glob_expand
 
-if __name__ == '__main__':
+
+def main():
     parser = argparse.ArgumentParser(description='Truncate a set of LJH files')
     parser.add_argument('pattern',
                         type=str,
@@ -27,7 +28,7 @@ if __name__ == '__main__':
                        help='Keep only pulses before this timestamp')
     args = parser.parse_args()
 
-    pattern = "%s_chan*.ljh" % (args.pattern)
+    pattern = f"{args.pattern}_chan*.ljh"
 
     filenames = filename_glob_expand(pattern)
 
@@ -36,3 +37,7 @@ if __name__ == '__main__':
         out_fname = f"{args.pattern}_{args.out}_chan{ch}.ljh"
         mass.core.ljh_modify.ljh_truncate(
             in_fname, out_fname, n_pulses=args.npulses, timestamp=args.timestamp)
+
+
+if __name__ == '__main__':
+    main()

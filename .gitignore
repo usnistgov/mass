@@ -32,3 +32,5 @@ TAGS
 __pycache__
 .*_cache
 *.code-workspace
+
+mass/_version.py
