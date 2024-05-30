@@ -95,8 +95,10 @@ class CorG:
         if states is None:
             states = self.stateLabels
         if coAddStates:
+            # Passing a sequence as a label is deprecated in Matplotlib 3.9, so make it a string
+            label = ", ".join(states)
             x, y = self.hist(binEdges, attr, states=states, cutRecipeName=cutRecipeName)
-            axis.plot(x, y, drawstyle="steps-mid", label=states)
+            axis.plot(x, y, drawstyle="steps-mid", label=label)
         else:
             for state in util.iterstates(states):
                 x, y = self.hist(binEdges, attr, states=state, cutRecipeName=cutRecipeName)
