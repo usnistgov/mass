@@ -315,15 +315,17 @@ class LJHFile(MicrocalFile):
 
     @property
     def alldata(self):
+        "Return all raw data from this file"
+        d = self._mm["data"]
         if self.invert_data:
-            return ~self._mm["data"]
-        else:
-            return self._mm["data"]
+            return ~d
+        return d
 
     def __getitem__(self, item):
+        "Return a slice or other indexed subset of raw data from this file"
         d = self.alldata[item]
         if self.invert_data:
-            d = ~d
+            return ~d
         return d
 
     def read_trace(self, trace_num):
