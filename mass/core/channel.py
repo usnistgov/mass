@@ -928,12 +928,9 @@ class MicrocalDataSet:  # noqa: PLR0904
         use_cython: whether to use cython for summarizing the data (default True).
         doPretrigFit: whether to do a linear fit of the pretrigger data
         """
-        self.number_of_rows = self.pulse_records.datafile.number_of_rows
-        self.row_number = self.pulse_records.datafile.row_number
-        self.number_of_columns = self.pulse_records.datafile.number_of_columns
-        self.column_number = self.pulse_records.datafile.column_number
-        self.subframe_divisions = self.pulse_records.datafile.subframe_divisions
-        self.subframe_offset = self.pulse_records.datafile.subframe_offset
+        for name in ("number_of_rows", "row_number", "number_of_columns", "column_number",
+                     "subframe_divisions", "subframe_offset"):
+            setattr(self, name, getattr(self.pulse_records.datafile, name))
         self.subframe_timebase = self.timebase / float(self.subframe_divisions)
 
         not_done = all(self.p_pretrig_mean[:] == 0)
@@ -967,38 +964,37 @@ class MicrocalDataSet:  # noqa: PLR0904
             for segnum in range(self.pulse_records.n_segments):
                 first = segnum * self.pulse_records.pulses_per_seg
                 end = min(first + self.pulse_records.pulses_per_seg, self.nPulses)
-                results = sumdata(self.data, self.timebase, self.peak_samplenumber,
+                idx_slice = slice(first, end)
+                results = sumdata(self.data[idx_slice], self.timebase, self.peak_samplenumber,
                                   self.pretrigger_ignore_samples, self.nPresamples,
-                                  first, end)
-                self.p_pretrig_mean[first:end] = results["pretrig_mean"][:]
-                self.p_pretrig_rms[first:end] = results["pretrig_rms"][:]
-                self.p_pulse_average[first:end] = results["pulse_average"][:]
-                self.p_pulse_rms[first:end] = results["pulse_rms"][:]
-                self.p_promptness[first:end] = results["promptness"][:]
-                self.p_postpeak_deriv[first:end] = results["postpeak_deriv"][:]
-                self.p_peak_index[first:end] = results["peak_index"][:]
-                self.p_peak_value[first:end] = results["peak_value"][:]
-                self.p_min_value[first:end] = results["min_value"][:]
-                self.p_rise_time[first:end] = results["rise_times"][:]
-                self.p_shift1[first:end] = results["shift1"][:]
+                                  0, end - first)
+                self.p_pretrig_mean[idx_slice] = results["pretrig_mean"][:]
+                self.p_pretrig_rms[idx_slice] = results["pretrig_rms"][:]
+                self.p_pulse_average[idx_slice] = results["pulse_average"][:]
+                self.p_pulse_rms[idx_slice] = results["pulse_rms"][:]
+                self.p_promptness[idx_slice] = results["promptness"][:]
+                self.p_postpeak_deriv[idx_slice] = results["postpeak_deriv"][:]
+                self.p_peak_index[idx_slice] = results["peak_index"][:]
+                self.p_peak_value[idx_slice] = results["peak_value"][:]
+                self.p_min_value[idx_slice] = results["min_value"][:]
+                self.p_rise_time[idx_slice] = results["rise_times"][:]
+                self.p_shift1[idx_slice] = results["shift1"][:]
 
                 yield (segnum + 1.0) / self.pulse_records.n_segments
         else:
             for segnum in range(self.pulse_records.n_segments):
-                idx_range = np.array([segnum, segnum + 1]) * self.pulse_records.pulses_per_seg
-                MicrocalDataSet._summarize_data_segment(self, idx_range, doPretrigFit=doPretrigFit)
+                first = segnum * self.pulse_records.pulses_per_seg
+                end = first + self.pulse_records.pulses_per_seg
+                end = min(end, self.nPulses)
+                idx_slice = slice(first, end)
+                MicrocalDataSet._summarize_data_segment(self, idx_slice, doPretrigFit=doPretrigFit)
                 yield (segnum + 1.0) / self.pulse_records.n_segments
 
         self.hdf5_group.file.flush()
         self.__parse_expt_states()
 
-    def _summarize_data_segment(self, idx_range, doPretrigFit=False):
+    def _summarize_data_segment(self, idx_slice, doPretrigFit=False):
         """Summarize one segment of the data file, loading it into cache."""
-        first, end = idx_range
-        if first >= self.nPulses:
-            return
-        end = min(end, self.nPulses)
-
         if len(self.p_timestamp) <= 0:
             self.__setup_vectors(npulses=self.nPulses)
 
@@ -1007,61 +1003,55 @@ class MicrocalDataSet:  # noqa: PLR0904
         if self.peak_samplenumber is None:
             self._compute_peak_samplenumber()
 
-        self.p_timestamp[first:end] = self.times[first:end]
-        self.p_subframecount[first:end] = self.subframecount[first:end]
+        self.p_timestamp[idx_slice] = self.times[idx_slice]
+        self.p_subframecount[idx_slice] = self.subframecount[idx_slice]
 
         # Fit line to pretrigger and save the derivative and offset
+        pretrig_data = self.data[idx_slice, self.cut_pre:self.nPresamples - self.pretrigger_ignore_samples]
+        posttrig_data = self.data[idx_slice, self.nPresamples:self.nSamples - self.cut_post]
+        all_data = self.data[idx_slice, self.cut_pre:self.nSamples - self.cut_post]
         if doPretrigFit:
             presampleNumbers = np.arange(self.cut_pre, self.nPresamples
                                          - self.pretrigger_ignore_samples)
-            ydata = self.data[first:end, self.cut_pre:self.nPresamples
-                              - self.pretrigger_ignore_samples].T
-            self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
+            ydata = pretrig_data.T
+            self.p_pretrig_deriv[idx_slice], self.p_pretrig_offset[idx_slice] = \
                 np.polyfit(presampleNumbers, ydata, deg=1)
+        else:
+            self.p_pretrig_deriv[idx_slice] = 0.0
+            self.p_pretrig_offset[idx_slice] = 0.0
 
-        self.p_pretrig_mean[first:end] = \
-            self.data[first:end, self.cut_pre:self.nPresamples
-                      - self.pretrigger_ignore_samples].mean(axis=1)
-        self.p_pretrig_rms[first:end] = \
-            self.data[first:end, self.cut_pre:self.nPresamples
-                      - self.pretrigger_ignore_samples].std(axis=1)
-        self.p_peak_index[first:end] = self.data[first:end,
-                                                 self.cut_pre:self.nSamples - self.cut_post].argmax(axis=1) + self.cut_pre
-        self.p_peak_value[first:end] = self.data[first:end,
-                                                 self.cut_pre:self.nSamples - self.cut_post].max(axis=1)
-        self.p_min_value[first:end] = self.data[first:end,
-                                                self.cut_pre:self.nSamples - self.cut_post].min(axis=1)
-        self.p_pulse_average[first:end] = self.data[first:end,
-                                                    self.nPresamples:self.nSamples - self.cut_post].mean(axis=1)
+        self.p_pretrig_mean[idx_slice] = pretrig_data.mean(axis=1)
+        self.p_pretrig_rms[idx_slice] = pretrig_data.std(axis=1)
+        self.p_peak_index[idx_slice] = posttrig_data.argmax(axis=1) + self.nPresamples
+        self.p_peak_value[idx_slice] = posttrig_data.max(axis=1)
+        self.p_min_value[idx_slice] = all_data.min(axis=1)
+        self.p_pulse_average[idx_slice] = posttrig_data.mean(axis=1)
 
         # Remove the pretrigger mean from the peak value and the pulse average figures.
-        ptm = self.p_pretrig_mean[first:end]
-        self.p_pulse_average[first:end] -= ptm
-        self.p_peak_value[first:end] -= np.asarray(ptm, dtype=self.p_peak_value.dtype)
-        self.p_pulse_rms[first:end] = np.sqrt(
-            (self.data[first:end, self.nPresamples:self.nSamples - self.cut_post]**2.0).mean(axis=1)
-            - ptm * (ptm + 2 * self.p_pulse_average[first:end]))
+        ptm = self.p_pretrig_mean[idx_slice]
+        self.p_pulse_average[idx_slice] -= ptm
+        self.p_peak_value[idx_slice] -= np.asarray(ptm, dtype=self.p_peak_value.dtype)
+        self.p_pulse_rms[idx_slice] = np.sqrt(
+            (posttrig_data**2.0).mean(axis=1)
+            - ptm * (ptm + 2 * self.p_pulse_average[idx_slice]))
 
-        shift1 = (self.data[first:end, self.nPresamples - 1] - ptm
-                  > 4.3 * self.p_pretrig_rms[first:end])
-        self.p_shift1[first:end] = shift1
+        shift1 = (self.data[idx_slice, self.nPresamples - 1] - ptm
+                  > 4.3 * self.p_pretrig_rms[idx_slice])
+        self.p_shift1[idx_slice] = shift1
 
         halfidx = (self.nPresamples + 2 + self.peak_samplenumber) // 2
-        pkval = self.p_peak_value[first:end]
-        prompt = (self.data[first:end, self.nPresamples + 2:halfidx].mean(axis=1)
+        pkval = self.p_peak_value[idx_slice]
+        prompt = (self.data[idx_slice, self.nPresamples + 2:halfidx].mean(axis=1)
                   - ptm) / pkval
-        prompt[shift1] = (self.data[first:end, self.nPresamples + 1:halfidx - 1][shift1, :].mean(axis=1)
+        prompt[shift1] = (self.data[idx_slice, self.nPresamples + 1:halfidx - 1][shift1, :].mean(axis=1)
                           - ptm[shift1]) / pkval[shift1]
-        self.p_promptness[first:end] = prompt
+        self.p_promptness[idx_slice] = prompt
 
-        self.p_rise_time[first:end] = \
-            mass.core.analysis_algorithms.estimateRiseTime(self.data[first:end, self.cut_pre:self.nSamples - self.cut_post],
-                                                           timebase=self.timebase,
-                                                           nPretrig=self.nPresamples - self.cut_pre)
+        self.p_rise_time[idx_slice] = mass.core.analysis_algorithms.estimateRiseTime(
+                all_data, timebase=self.timebase, nPretrig=self.nPresamples - self.cut_pre)
 
-        self.p_postpeak_deriv[first:end] = \
-            mass.core.analysis_algorithms.compute_max_deriv(self.data[first:end, self.cut_pre:self.nSamples - self.cut_post],
-                                                            ignore_leading=self.peak_samplenumber - self.cut_pre)
+        self.p_postpeak_deriv[idx_slice] = mass.core.analysis_algorithms.compute_max_deriv(
+                all_data, ignore_leading=self.peak_samplenumber - self.cut_pre)
 
     def __parse_expt_states(self):
         """
