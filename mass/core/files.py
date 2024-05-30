@@ -24,8 +24,8 @@ import os
 import logging
 import collections
 from deprecation import deprecated
-
 import numpy as np
+
 from packaging.version import Version
 from mass import __version__
 LOG = logging.getLogger("mass")
@@ -48,6 +48,15 @@ class MicrocalFile:
         self.timebase = 0.0
         self.n_segments = 0
         self.data = None
+        self._invert_data = False
+
+    @property
+    def invert_data(self):
+        return self._invert_data
+
+    @invert_data.setter
+    def invert_data(self, is_inverted):
+        self._invert_data = is_inverted
 
     def __str__(self):
         """Summary for the print function"""
@@ -203,6 +212,7 @@ class LJHFile(MicrocalFile):
         self.subframe_divisions = 1
         self.version_str = None
         self._mm = None
+        self._invert_data = False
         self._parse_header()
         self.set_segment_size()
 
@@ -297,26 +307,32 @@ class LJHFile(MicrocalFile):
                              dtype=self.dtype, mode="r")
 
     @property
-    def alldata(self):
-        return self._mm["data"]
-
-    @property
     def source(self):
         "Report the 'Data source' as found in the LJH header."
         if b"Data source" in self.header_dict:
             return self.header_dict[b"Data source"].decode()
         return "Lancero (assumed)"
 
+    @property
+    def alldata(self):
+        if self.invert_data:
+            return ~self._mm["data"]
+        else:
+            return self._mm["data"]
+
     def __getitem__(self, item):
-        return self.alldata[item]
+        d = self.alldata[item]
+        if self.invert_data:
+            d = ~d
+        return d
 
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>)."""
-        return self.alldata[trace_num]
+        return self[trace_num]
 
     def read_trace_with_timing(self, trace_num):
         """Return a single data trace as (subframecount, posix_usec, pulse_record)."""
-        pulse_record = self.alldata[trace_num]
+        pulse_record = self[trace_num]
         return (self.subframecount[trace_num], self.datatimes_raw[trace_num], pulse_record)
 
 

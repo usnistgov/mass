@@ -567,7 +567,19 @@ class MicrocalDataSet:  # noqa: PLR0904
                            "timestamp_offset")
     HDF5_CHUNK_SIZE = 256
 
-    def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None):
+    @property
+    def invert_data(self):
+        return self._invert_data
+
+    @invert_data.setter
+    def invert_data(self, is_inverted):
+        try:
+            self.pulserecords.datafile.invert_data = True
+        except Exception:
+            pass
+        self._invert_data = is_inverted
+
+    def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None, invert_data=False):
         """
         Args:
             pulserec_dict: a dictionary (presumably that of a PulseRecords object)
@@ -579,6 +591,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                 cached. You really want this to exist, for reasons of both performance
                 and data backup. (default None)
         """
+        self._invert_data = invert_data
         self.nSamples = 0
         self.nPresamples = 0
         self.nPulses = 0
