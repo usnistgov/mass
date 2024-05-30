@@ -90,8 +90,8 @@ class NoiseRecords:
 
         # Copy up some of the most important attributes
         for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum", "n_segments"):
-            self.__dict__[attr] = self.datafile.__dict__[attr]
-            self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
+            setattr(self, attr, getattr(self.datafile, attr))
+            self.hdf5_group.attrs[attr] = getattr(self.datafile, attr)
 
         self.autocorrelation = self.hdf5_group.require_dataset(
             "autocorrelation", shape=(self.nSamples,), dtype=np.float64)
@@ -470,7 +470,7 @@ class PulseRecords:
         # Copy up some of the most important attributes
         for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum",
                      "n_segments", "pulses_per_seg", "segmentsize", "timestamp_offset"):
-            self.__dict__[attr] = self.datafile.__dict__[attr]
+            setattr(self, attr, getattr(self.datafile, attr))
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
@@ -596,7 +596,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.calibration = {}
 
         for a in self.expected_attributes:
-            self.__dict__[a] = pulserec_dict[a]
+            setattr(self, a, pulserec_dict[a])
         self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.pretrigger_ignore_samples = 0  # Cut this long before trigger in computing pretrig values
         self.cut_pre = 0  # Number of presamples to ignore at start of pulse
