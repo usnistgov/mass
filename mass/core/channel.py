@@ -574,10 +574,8 @@ class MicrocalDataSet:  # noqa: PLR0904
 
     @invert_data.setter
     def invert_data(self, is_inverted):
-        try:
+        if self.pulse_records is not None:
             self.pulse_records.datafile.invert_data = True
-        except Exception:
-            pass
         self._invert_data = is_inverted
 
     @indexedproperty
