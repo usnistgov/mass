@@ -212,7 +212,6 @@ class LJHFile(MicrocalFile):
         self.subframe_divisions = 1
         self.version_str = None
         self._mm = None
-        self._invert_data = False
         self._parse_header()
         self.set_segment_size()
 
@@ -323,7 +322,8 @@ class LJHFile(MicrocalFile):
 
     def __getitem__(self, item):
         "Return a slice or other indexed subset of raw data from this file"
-        d = self.alldata[item]
+        # If you want only a small slice, this has the advantage of inverting only that slice.
+        d = self._mm["data"][item]
         if self.invert_data:
             return ~d
         return d

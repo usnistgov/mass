@@ -369,16 +369,16 @@ class TestTESGroup:
         data.phase_correct()
         data.time_drift_correct()
 
-    @pytest.mark.xfail
     def test_invert_data(self, tmp_path):
         data = self.load_data(hdf5dir=tmp_path)
         ds = data.channel[1]
-        raw = ds.data
-        rawinv = 0xffff - raw
+        rawinv = ~ds.alldata
 
         ds.invert_data = True
-        raw2 = ds.data
+        raw2 = ds.alldata
+        raw3 = ds.data[:]
         assert np.all(rawinv == raw2)
+        assert np.all(rawinv == raw3)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):

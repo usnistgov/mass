@@ -1,36 +1,47 @@
 import numpy as np
 import tempfile
+import os
+import mass
 
-from mass.core import InvertedData
+_PATH = os.path.dirname(os.path.realpath(__file__))
+ljh_root = os.path.normpath(os.path.join(_PATH, "..", "ljh_files"))
+
+
+def compare_inverted_ljh(hf1, hf2):
+    """Read the same file normally and inverted. Be sure that all means of
+    accssing the raw data give bitwise inverses of each other."""
+    pulse_str = os.path.join(ljh_root, "20230626", "0001", "20230626_run0001_chan*.ljh")
+    # noise_str = os.path.join(ljh_root, "20230626", "0000", "20230626_run0000_chan*.ljh")
+    data1 = mass.TESGroup(pulse_str, hdf5_filename=hf1, invert_data=False)
+    data2 = mass.TESGroup(pulse_str, hdf5_filename=hf2, invert_data=True)
+    ds1 = data1.channel[4102]
+    ds2 = data2.channel[4102]
+
+    # These 3 tests might seem redundant, but they might not be, depending on implementation:
+    assert np.all(~ds1.alldata == ds2.alldata)
+    assert np.all(ds1.alldata == ~ds2.alldata)
+    assert np.all(ds2.alldata == ~ds1.alldata)
+
+    # Compare alldata to data[:]
+    assert np.all(ds1.alldata == ds1.data[:])
+    assert np.all(ds2.alldata == ds2.data[:])
+
+    # Try indexing all
+    assert np.all(~ds1.data[:] == ds2.data[:])
+    assert np.all(ds1.data[:] == ~ds2.data[:])
+
+    # Try slicing in each dimension and both dimensions
+    assert ds1.nPulses >= 60
+    assert ds1.nSamples >= 300
+    assert np.all(~ds1.data[6:60] == ds2.data[6:60])
+    assert np.all(ds1.data[6:60] == ~ds2.data[6:60])
+    assert np.all(~ds1.data[:, 200:300] == ds2.data[:, 200:300])
+    assert np.all(ds1.data[:, 200:300] == ~ds2.data[:, 200:300])
+    assert np.all(~ds1.data[6:60, 200:300] == ds2.data[6:60, 200:300])
+    assert np.all(ds1.data[6:60, 200:300] == ~ds2.data[6:60, 200:300])
 
 
 def test_inverted_data():
-    desired_data = np.arange(16, dtype=np.uint16)
-    inverted_data = ~desired_data
-    assert np.all(~desired_data == inverted_data)
-
-    with tempfile.NamedTemporaryFile() as dfile:
-        inverted_data.astype(np.uint16).tofile(dfile.name)
-        inverted_memmap = np.memmap(dfile.name, dtype=np.uint16, mode="readonly")
-        corrected = InvertedData(inverted_memmap)
-
-        assert np.all(desired_data == ~inverted_memmap)
-        assert np.all(inverted_data == inverted_memmap)
-
-        assert np.all(inverted_data == ~corrected)
-        assert np.all(~desired_data == ~corrected)
-        assert np.all(corrected == ~inverted_data)
-        assert np.all(corrected == desired_data)
-        # The universal index of [:] in what follows is not ideal, but it's
-        # a known, current limitation of the `InvertedData` object.
-        assert np.all(~inverted_data == corrected[:])
-        assert np.all(desired_data == corrected[:])
-        assert np.all(desired_data + ~corrected == 0xffff)
-        assert np.all(~desired_data + corrected[:] == 0xffff)
-        assert np.all(corrected + ~desired_data == 0xffff)
-        assert desired_data[2] == corrected[2]
-        assert inverted_data[2] == ~corrected[2]
-        assert np.all(inverted_data[2:10] == ~corrected[2:10])
-        assert np.all(desired_data[2:10] == corrected[2:10])
-        assert np.all(desired_data[2:10] + ~corrected[2:10] == 0xffff)
-        assert np.all(~desired_data[2:10] + corrected[2:10] == 0xffff)
+    with tempfile.NamedTemporaryFile(suffix="hdf5") as hfile1:
+        with tempfile.NamedTemporaryFile(suffix="hdf5") as hfile2:
+            compare_inverted_ljh(hfile1.name, hfile2.name)

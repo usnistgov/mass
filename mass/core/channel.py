@@ -575,7 +575,7 @@ class MicrocalDataSet:  # noqa: PLR0904
     @invert_data.setter
     def invert_data(self, is_inverted):
         if self.pulse_records is not None:
-            self.pulse_records.datafile.invert_data = True
+            self.pulse_records.datafile.invert_data = is_inverted
         self._invert_data = is_inverted
 
     @indexedproperty
@@ -1408,7 +1408,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         pulse_model = self.get_pulse_model(
             self.filter, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag,
             maximum_n_pulses=maximum_n_pulses, noise_weight_basis=noise_weight_basis, category=category)
-        save_inverted = self.__dict__.get("invert_data", False)
+        save_inverted = self.invert_data
         hdf5_group = hdf5_file.create_group(f"{self.channum}")
         pulse_model.toHDF5(hdf5_group, save_inverted)
 
