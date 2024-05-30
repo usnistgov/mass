@@ -316,7 +316,6 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
 
         for index, (pr, ds) in enumerate(zip(self.channels, self.datasets)):
             ds.pulse_records = pr
-            ds.data = pr.datafile.alldata
             ds.times = pr.datafile.datatimes_float
             ds.subframecount = pr.datafile.subframecount
             ds.index = index

@@ -16,6 +16,7 @@ import traceback
 import sklearn
 from packaging import version
 from deprecation import deprecated
+from indexedproperty import indexedproperty
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -574,10 +575,18 @@ class MicrocalDataSet:  # noqa: PLR0904
     @invert_data.setter
     def invert_data(self, is_inverted):
         try:
-            self.pulserecords.datafile.invert_data = True
+            self.pulse_records.datafile.invert_data = True
         except Exception:
             pass
         self._invert_data = is_inverted
+
+    @indexedproperty
+    def data(self, key):
+        return self.pulse_records.datafile[key]
+
+    @property
+    def alldata(self):
+        return self.pulse_records.datafile.alldata
 
     def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None, invert_data=False):
         """
@@ -618,7 +627,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.index = None   # Index in the larger TESGroup object
         self.last_used_calibration = None
 
-        self.data = None
+        self.pulse_records = None
         self.times = None
         self.subframecount = None
 
@@ -1329,7 +1338,7 @@ class MicrocalDataSet:  # noqa: PLR0904
             if self._filter_type == "ats":
                 raise ValueError("Cannot perform Arrival-Time-Safe filtering in Cython yet")
             fdata = mass.core.analysis_algorithms.filter_data_5lag_cython
-            fv, fp = fdata(self.data, filter_values)
+            fv, fp = fdata(self.alldata, filter_values)
             self.p_filt_value[:] = fv[:]
             self.p_filt_phase[:] = fp[:]
             self.hdf5_group.file.flush()
