@@ -2,20 +2,20 @@ import mass
 import os
 import numpy as np
 import h5py
-import tempfile
 import pytest
 
 
-def test_off_5lag_with_saving_and_loading_recipes():
+@pytest.mark.filterwarnings("ignore:Mean of empty slice")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+def test_off_5lag_with_saving_and_loading_recipes(tmp_path):
     d = os.path.dirname(os.path.realpath(__file__))
 
     pulse_files = [os.path.join(d, "data_for_test", "20181018_144520", "20181018_144520_chan3.ljh")]
     noise_files = [os.path.join(d, "data_for_test", "20181018_144325", "20181018_144325_chan3.noi")]
 
-    temp_d = tempfile.mkdtemp()
-    model_hdf5_path = os.path.join(temp_d, "model.hdf5")
-    model_mass_hdf5_path = os.path.join(temp_d, "model_mass.hdf5")
-    model_mass_noise_hdf5_path = os.path.join(temp_d, "model_mass_noise.hdf5")
+    model_hdf5_path = os.path.join(tmp_path, "model.hdf5")
+    model_mass_hdf5_path = os.path.join(tmp_path, "model_mass.hdf5")
+    model_mass_noise_hdf5_path = os.path.join(tmp_path, "model_mass_noise.hdf5")
 
     # The projector creation process uses a random algorithm for svds, this ensures we get the same answer each time
     mass.mathstat.utilities.rng = np.random.default_rng(200)
@@ -36,7 +36,7 @@ def test_off_5lag_with_saving_and_loading_recipes():
                                    # for gamma rays, but doesn't seem neccesary
             noise_weight_basis=True)  # only for testing, may not even work right to set to False
 
-    output_dir = os.path.join(temp_d, "20181018_144520_off")
+    output_dir = os.path.join(tmp_path, "20181018_144520_off")
     os.mkdir(output_dir)
     r = mass.ljh2off.ljh2off_loop(
         ljhpath=pulse_files[0],
@@ -77,7 +77,7 @@ def test_off_5lag_with_saving_and_loading_recipes():
                                   dlo=400, dhi=400, overwriteRecipe=True)
 
     # here we save the recipes, then load them and see that they give the same answer
-    recipe_book_path = os.path.join(temp_d, "recipe_books.pkl")
+    recipe_book_path = os.path.join(tmp_path, "recipe_books.pkl")
     data.saveRecipeBooks(recipe_book_path)
     data2: mass.off.ChannelGroup = mass.off.ChannelGroup(off_filenames)
     with pytest.raises(Exception):
@@ -98,3 +98,7 @@ def test_off_5lag_with_saving_and_loading_recipes():
         line_names=['ErKAlpha1', 'Ho166m_80', 'Co57_122', 'Ho166m_184'],
         maxacc=0.1)
     assert data3[3].calibrationPlan.uncalibratedVals[0] == pytest.approx(4333.8, rel=1e-3)
+
+
+if __name__ == "__main__":
+    test_off_5lag_with_saving_and_loading_recipes()
