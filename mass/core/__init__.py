@@ -10,7 +10,6 @@ import mass.core.fake_data
 import mass.core.files
 import mass.core.optimal_filtering
 import mass.core.pulse_model
-import mass.core.inverted_data
 
 
 from .analysis_algorithms import *
@@ -21,7 +20,6 @@ from .cython_channel import *
 from .controller import *
 from .fake_data import *
 from .files import *
-from .inverted_data import *
 from .optimal_filtering import *
 from .pulse_model import *
 from .projectors_script import make_projectors
