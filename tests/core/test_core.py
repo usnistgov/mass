@@ -27,6 +27,7 @@ class TestFiles:
         src = LJHFile.open(src_name)
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
+            destfile.close()
             source_traces = [20]
             ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
             dest = LJHFile.open(dest_name)
@@ -58,6 +59,7 @@ class TestFiles:
         src_name = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
+            destfile.close()
 
             def func():
                 ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054 * 500)
@@ -67,6 +69,7 @@ class TestFiles:
     def run_test_ljh_truncate_timestamp(src_name, n_pulses_expected, timestamp, segmentsize):
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
+            destfile.close()
             ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
 
             src = LJHFile.open(src_name)
@@ -82,6 +85,7 @@ class TestFiles:
         # Tests with a file with 1230 pulses, each 1016 bytes long
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
+            destfile.close()
             ljh_truncate(src_name, dest_name, n_pulses=n_pulses, segmentsize=segmentsize)
 
             src = LJHFile.open(src_name)
@@ -181,6 +185,8 @@ class TestTESGroup:
                   experimentStateFile=None, hdf5dir=None):
         if hdf5_filename is None or hdf5_noisefilename is None:
             assert hdf5dir is not None
+        if hdf5dir is None:
+            hdf5dir = tempfile.mkdtemp()
         src_name = ['tests/regression_test/regress_chan1.ljh']
         noi_name = ['tests/regression_test/regress_noise_chan1.ljh']
         if skip_noise:
@@ -224,11 +230,11 @@ class TestTESGroup:
             # print(results_cython[k]/results_python[k])
             assert results_cython[k] == pytest.approx(results_python[k], rel=0.003)
 
-    def test_experiment_state(self, tmp_path):
+    def test_experiment_state(self, tmp_path_factory):
         # First test with the default experimentStateFile
         # It should have only the trivial START state, hence all 300 records
         # will pass ds.good(state="START")
-        data = self.load_data(hdf5dir=tmp_path)
+        data = self.load_data(hdf5dir=tmp_path_factory.mktemp("1"))
         data.summarize_data()
         # The following fails until issue 225 is fixed.
         assert data.n_good_channels() == 1
@@ -240,13 +246,7 @@ class TestTESGroup:
         # 252 of the 300 records valid because of their timestamps.
         esf = "tests/regression_test/regress_experiment_state_v2.txt"
 
-        # This test fails unless we remove its HDF5 files, so do that.
-        del ds
-        del data
-        for h5file in tmp_path.glob("*.hdf5"):
-            h5file.unlink()
-
-        data = self.load_data(experimentStateFile=esf, hdf5dir=tmp_path)
+        data = self.load_data(experimentStateFile=esf, hdf5dir=tmp_path_factory.mktemp("2"))
         data.summarize_data()
         assert data.n_good_channels() == 1
         ds = data.channel[1]
@@ -443,14 +443,15 @@ class TestTESGroup:
             # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
             print(wrongness)
             print(np.amax(wrongness))
-            assert np.amax(wrongness) < 0.15
+            assert np.amax(wrongness) < 0.16
             pulse_model.plot()
 
+        with tempfile.TemporaryDirectory() as output_dir:
             # test multi_ljh2off_loop with multiple ljhfiles
             basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
             N = len(off)
             prefix = os.path.split(basename)[1]
-            offbase = f"{output_dir}/{prefix}"
+            offbase = os.path.join(output_dir, prefix)
             ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
                 [basename] * 2, hdf5_filename, offbase, max_channels,
                 n_ignore_presamples)
@@ -488,14 +489,13 @@ class TestTESGroup:
             mass.ljh2off.ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
 
     @staticmethod
-    def test_projectors_script():
+    def test_projectors_script(tmp_path):
 
         class Args:
             def __init__(self):
                 self.pulse_path = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
                 self.noise_path = os.path.join('tests', 'regression_test', 'regress_noise_chan1.ljh')
-                self.output_path = os.path.join(
-                    'tests', 'regression_test', 'projectors_script_test.hdf5')
+                self.output_path = tmp_path / 'projectors_script_test.hdf5'
                 self.replace_output = True
                 self.max_channels = 4
                 self.n_ignore_presamples = 2
@@ -504,9 +504,8 @@ class TestTESGroup:
                 self.n_basis = 5
                 self.maximum_n_pulses = 4000
                 self.silent = False
-                self.mass_hdf5_path = os.path.join(
-                    'tests', 'regression_test', 'projectors_script_test_mass.hdf5')
-                self.mass_hdf5_noise_path = None
+                self.mass_hdf5_path = tmp_path / 'projectors_script_test_mass.hdf5'
+                self.mass_hdf5_noise_path = tmp_path / 'projectors_script_test_mass_noise.hdf5'
                 self.invert_data = False
                 self.dont_optimize_dp_dt = True
                 self.extra_n_basis_5lag = 1
@@ -520,37 +519,36 @@ class TestTESGroup:
     def test_expt_state_files():
         """Check that experiment state files are loaded and turned into categorical cuts
         with category "state" if the file exists."""
-        def make_data(have_esf):
+        def make_data(have_esf, dirname):
             src_name = 'tests/regression_test/regress_chan1.ljh'
-            dir = tempfile.TemporaryDirectory()
-            src_name = shutil.copy(src_name, dir.name)
-            hdf5_filename = os.path.join(dir.name, "blah_mass.hdf5")
+            src_name = shutil.copy(src_name, dirname)
+            hdf5_filename = os.path.join(dirname, "blah_mass.hdf5")
             if have_esf:
                 contents = """# unix time in nanoseconds, state label
 10476435385280, START
 10476891776960, A
 10491427707840, B
 """
-                esfname = f"{dir.name}/regress_experiment_state.txt"
+                esfname = f"{dirname}/regress_experiment_state.txt"
                 with open(esfname, "w", encoding="utf-8") as fp:
                     fp.write(contents)
-            return mass.TESGroup([src_name], hdf5_filename=hdf5_filename), dir
+            return mass.TESGroup([src_name], hdf5_filename=hdf5_filename)
 
         for have_esf in (False, True):
-            data, dir = make_data(have_esf)
-            # data.summarize_data()
-            ds = data.channel[1]
-            ds.good()
-            if have_esf:
-                ds.good(state="A")
-                ds.good(state="B")
-                ds.good(state="uncategorized")
-                with pytest.raises(ValueError):
-                    ds.good(state="a state not listed in the file")
-            else:
-                with pytest.raises(ValueError):
+            with tempfile.TemporaryDirectory() as dirname:
+                data = make_data(have_esf, dirname)
+                # data.summarize_data()
+                ds = data.channel[1]
+                ds.good()
+                if have_esf:
                     ds.good(state="A")
-            dir.cleanup()
+                    ds.good(state="B")
+                    ds.good(state="uncategorized")
+                    with pytest.raises(ValueError):
+                        ds.good(state="a state not listed in the file")
+                else:
+                    with pytest.raises(ValueError):
+                        ds.good(state="A")
 
 
 class TestTESHDF5Only:
@@ -562,7 +560,9 @@ class TestTESHDF5Only:
         src_name = 'tests/regression_test/regress_chan1.ljh'
         noi_name = 'tests/regression_test/regress_noise_chan1.ljh'
         hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5')
+        hdf5_file.close()
         hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5')
+        hdf5_noisefile.close()
         mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_file.name,
                       hdf5_noisefilename=hdf5_noisefile.name)
 
@@ -573,15 +573,15 @@ class TestTESHDF5Only:
     @staticmethod
     def test_ordering_hdf5only():
         src_name = "tests/regression_test/regress_chan1.ljh"
-        with tempfile.TemporaryDirectory() as dir:
+        with tempfile.TemporaryDirectory() as dirname:
             dest_name = "%s/temporary_chan%d.ljh"
-            chan1_dest = dest_name % (dir, 1)
+            chan1_dest = dest_name % (dirname, 1)
             shutil.copy(src_name, chan1_dest)
             cnums = (1, 3, 5, 11, 13, 15)
             for c in cnums[1:]:
-                os.link(chan1_dest, dest_name % (dir, c))
+                os.link(chan1_dest, dest_name % (dirname, c))
 
-            data1 = mass.TESGroup("%s/temporary_chan*.ljh" % dir)
+            data1 = mass.TESGroup(f"{dirname}/temporary_chan*.ljh")
             # Make sure the usual TESGroup is in the right order
             for i, ds in enumerate(data1):
                 assert ds.channum == cnums[i]

@@ -21,10 +21,6 @@ testfile
 TAGS
 
 *.log
-*.hdf5
-*.h5
-*.rbpkl
-!regress_mass_v0_7_0.hdf5
 .DS_Store
 
 # Cython produces C source files and can produce HTML
@@ -36,3 +32,5 @@ TAGS
 __pycache__
 .*_cache
 *.code-workspace
+
+mass/_version.py

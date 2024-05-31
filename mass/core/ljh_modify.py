@@ -182,7 +182,7 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
     if (n_pulses is None and timestamp is None) or \
             (n_pulses is not None and timestamp is not None):
         msg = "Must specify exactly one of n_pulses, timestamp."
-        msg = msg + f" Values were {str(n_pulses)}, {str(timestamp)}"
+        msg += f" Values were {str(n_pulses)}, {str(timestamp)}"
         raise Exception(msg)
 
     # Check for file problems, then open the input and output LJH files.

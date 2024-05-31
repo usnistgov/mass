@@ -13,6 +13,7 @@ from mass.common import tostr
 import dill
 import gc
 from deprecation import deprecated
+import h5py
 
 # local imports
 import mass
@@ -22,6 +23,7 @@ from .util import annotate_lines, SilenceBar, NoCutInds, InvalidStatesException
 from . import util
 from . import fivelag
 from .experiment_state import ExperimentStateFile
+from . import recipe_classes
 
 
 LOG = logging.getLogger("mass")
@@ -197,18 +199,18 @@ class Channel(CorG):  # noqa: PLR0904
         self._statesDict = None
         self.verbose = verbose
         self.learnChannumAndShortname()
-        self.recipes = RecipeBook(self._offAttrs, Channel,
-                                  wrapper=lambda x: util.IngredientsWrapper(x, self.offFile._dtype_non_descriptive))
+        self.recipes = RecipeBook(self._offAttrs, propertyClass=Channel,
+                                  coefs_dtype=self.offFile._dtype_non_descriptive)
         # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
     def _defineDefaultRecipesAndProperties(self):
         assert (len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
-        self.recipes.add("relTimeSec", lambda unixnano: (unixnano - t0) * 1e-9, ["unixnano"])
-        self.recipes.add("filtPhase", lambda x, y: x / y, ["derivativeLike", "filtValue"])
-        self.cutAdd("cutNone", lambda filtValue: np.ones(
-            len(filtValue), dtype="bool"), setDefault=True)
+        self.recipes.add("relTimeSec",
+                         recipe_classes.SubtractThenScale(sub=t0, scale=1e-9), ["unixnano"])
+        self.recipes.add("filtPhase", recipe_classes.DivideTwo(), ["derivativeLike", "filtValue"])
+        self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(), ["unixnano"], setDefault=True)
 
     @add_group_loop
     def cutAdd(self, cutRecipeName, f, ingredients=None, overwrite=False, setDefault=False):
@@ -244,7 +246,7 @@ class Channel(CorG):  # noqa: PLR0904
 
     def learnChannumAndShortname(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
-        self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
+        self.shortName = os.path.split(basename)[-1] + f" chan{self.channum:g}"
 
     @add_group_loop
     def learnResidualStdDevCut(self, n_sigma_equiv=15,   # noqa: PLR0914, PLR0917
@@ -323,7 +325,7 @@ class Channel(CorG):  # noqa: PLR0904
         return inds
 
     def __repr__(self):
-        return "Channel based on %s" % self.offFile
+        return f"Channel based on {self.offFile}"
 
     @property
     def statesDict(self):
@@ -383,11 +385,7 @@ class Channel(CorG):  # noqa: PLR0904
         # offAttr can be a list of offAttr names
         if isinstance(inds, slice):
             r = self.offFile[inds]
-            # I'd like to be able to do either r["coefs"] to get all projection coefficients
-            # or r["filtValue"] to get only the filtValue
-            # IngredientsWrapper lets that work within recipes.craft
-            g = self.recipes.craft(cutRecipeName, util.IngredientsWrapper(
-                r, self.offFile._dtype_non_descriptive))
+            g = self.recipes.craft(cutRecipeName, r)
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
             # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this
@@ -452,8 +450,8 @@ class Channel(CorG):  # noqa: PLR0904
         elif self.isOffAttr(attr):
             return offAttrValues[attr]
         else:
-            raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(
-                attr, list(self._offAttrs), list(self._recipeAttrs)))
+            raise Exception(f"attr {attr} must be an OffAttr or a RecipeAttr or a list. OffAttrs: " +
+                            f"{list(self._offAttrs)}\nRecipeAttrs: {list(self._recipeAttrs)}")
 
     def plotAvsB2d(self, nameA, nameB, binEdgesAB, axis=None, states=None, cutRecipeName=None, norm=None):
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
@@ -672,6 +670,15 @@ class Channel(CorG):  # noqa: PLR0904
                          [calibration.uncalibratedName], overwrite=overwriteRecipe)
         return results
 
+    @add_group_loop
+    def learnCalibrationPlanFromEnergiesAndPeaks(self, attr, states, ph_fwhm, line_names, maxacc):
+        peak_ph_vals, _peak_heights = mass.algorithms.find_local_maxima(self.getAttr(attr, indsOrStates=states), ph_fwhm)
+        _name_e, _energies_out, opt_assignments = mass.algorithms.find_opt_assignment(peak_ph_vals, line_names, maxacc=maxacc)
+
+        self.calibrationPlanInit(attr)
+        for ph, name in zip(opt_assignments, _name_e):
+            self.calibrationPlanAddPoint(ph, name, states=states)
+
     def markBad(self, reason, extraInfo=None):
         self.markedBadReason = reason
         self.markedBadExtraInfo = extraInfo
@@ -715,7 +722,7 @@ class Channel(CorG):  # noqa: PLR0904
         self.recipes.add("energyRough", calibrationRough,
                          [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
-            self.calibrationArbsInRefChannelUnits.uncalibratedName])
+            self.calibrationArbsInRefChannelUnits.uncalibratedName], overwrite=True)
         return self.aligner
 
     @add_group_loop
@@ -803,8 +810,9 @@ class Channel(CorG):  # noqa: PLR0904
                     "thresholdSigmaFromMedianAbsoluteValue"))
         if thresholdAbsolute is not None:
             if maxAbsError > thresholdAbsolute:
-                self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
-                    maxAbsError, thresholdAbsolute))
+                msg = f"qualityCheckDropOneErrors: maximum absolute drop one error {maxAbsError} >" + \
+                    f" theshold {thresholdAbsolute} (thresholdAbsolute)"
+                self.markBad(msg)
 
     def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges=np.arange(0, 16000, 4)):
         calibration = self.recipes[calibratedName].f
@@ -834,10 +842,9 @@ class Channel(CorG):  # noqa: PLR0904
     def add5LagRecipes(self, f):
         _filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
             f[:], self.offFile.basis)
-        self.recipes.add("cba5Lag", lambda coefs: np.matmul(coefs, filter_5lag_fit_in_basis))
-        # self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
+        self.recipes.add("cba5Lag", recipe_classes.MatMulAB_FixedB(B=filter_5lag_fit_in_basis),
+                         ingredients=["coefs"])
         self.recipes.add("filtValue5Lag", fivelag.filtValue5Lag, ingredients=["cba5Lag"])
-        # self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
         self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
 
     @property
@@ -857,7 +864,7 @@ class Channel(CorG):  # noqa: PLR0904
 
     @property
     def subframePeriodSeconds(self):
-        nDivs = self.offFile.subframeDivisions
+        nDivs = self.subframeDivisions
         return self.offFile.framePeriodSeconds / float(nDivs)
 
     @property
@@ -1150,6 +1157,17 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):  # noqa: PLR0904
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFileNames[0])
         return os.path.split(basename)[-1] + f" {len(self)} chans"
 
+    def add5LagRecipes(self, model_hdf5_path):
+        with h5py.File(model_hdf5_path, "r") as h5:
+            models = {int(ch): mass.pulse_model.PulseModel.fromHDF5(h5[ch]) for ch in h5.keys()}
+        for channum, ds in self.items():
+            # define recipes for "filtValue5Lag", "peakX5Lag" and "cba5Lag"
+            # where cba refers to the coefficiencts of a polynomial fit to the 5 lags of the filter
+            ds.model = models[ds.channum]
+            filter_5lag = ds.model.f_5lag
+            ds.add5LagRecipes(filter_5lag)
+        return models
+
     def loadChannels(self):
         bar = SilenceBar('Parse OFF File Headers', max=len(
             self.offFileNames), silence=not self.verbose)
@@ -1431,29 +1449,29 @@ class ChannelFromNpArray(Channel):
         self.experimentStateFile = experimentStateFile
         self.shortName = shortname
         self.channum = channum
-        self.experimentStateFile = experimentStateFile
         self.markedBadBool = False
         self._statesDict = None
         self.verbose = verbose
         self.recipes = RecipeBook(list(self.a.dtype.fields.keys()),
-                                  ChannelFromNpArray)
-        # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
+                                  propertyClass=ChannelFromNpArray,
+                                  coefs_dtype=None)
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
     def _defineDefaultRecipesAndProperties(self):
         assert (len(self.recipes) == 0)
         if "p_timestamp" in self.a.dtype.names:
             t0 = self.a[0]["p_timestamp"]
-            self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp - t0))
-            self.cutAdd("cutNone", lambda p_timestamp: np.ones(
-                len(p_timestamp), dtype="bool"), setDefault=True)
+            self.recipes.add("relTimeSec", recipe_classes.Subtract(t0), ingredients=["p_timestamp"])
+            self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(),
+                        ingredients=["p_timestamp"], setDefault=True)
             if "unixnano" not in self.a.dtype.names:
                 # unixnano is needed for states to work
-                self.recipes.add("unixnano", lambda p_timestamp: np.array(p_timestamp, dtype=np.int64) * 10**9)
+                self.recipes.add("unixnano", recipe_classes.ScalarMultAndTurnToInt64(1e9),
+                                 ingredients=["p_timestamp"])
         else:
             first_field = self.a.dtype.names[0]
-            self.cutAdd("cutNone", lambda x: np.ones(
-                len(x), dtype="bool"), [first_field], setDefault=True)
+            self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(),
+                        [first_field], setDefault=True)
 
     def __len__(self):
         return len(self.a)

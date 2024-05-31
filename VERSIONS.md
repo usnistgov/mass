@@ -1,11 +1,21 @@
 ## Note on version numbers of Mass
 
-**0.8.3** February 2024-
+* Experimental `bin/ljh2clickhouse` conversion tool.
+
+**0.8.4** May, 2024-
+
+* Fix test failures on Py 3.12: store HDF5 cache files in temp directories, so tests don't share them. (issue 272). Correctly use the modern `tempfile` library's API.
+* Use dynamic version numbering through setuptools-scm (issue 287).
+
+**0.8.3** May 14, 2024
 
 * Read LJH file row number correctly (issue 268).
 * Improve behavior of powerspectrum and `ExperimentalFilter` objects.
 * Make tests pass under version 8 of pytest (issue 269).
-* Experimental `bin/ljh2clickhouse` conversion tool.
+* Move primary repository to GitHub. Update README.
+* Set up GitHub Actions for our new hosting service (issues 273, 274)
+* Make ruff warnings go away (issue 277).
+* Update/fix how we save (pickle) OFF recipes.
 
 
 **0.8.2** February 23, 2024

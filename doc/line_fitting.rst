@@ -347,7 +347,7 @@ One detail that's changed: the new models parameterize the tau values (scale len
 To do
 ^^^^^
 
-* [x] We probably should restructure the ``SpectralLine``, ``GenericLineModel``, and perhaps also the older ``LineFitter`` objects such that the specific versions for (say) Mn Kα become not subclasses but instances of them. See `issue 182 <https://bitbucket.org/joe_fowler/mass/issues/182/does-creation-of-3-classes-per-spectral>`_ on the question of whether this change might speed up loading of MASS. Done by PR#120.
+* [x] We probably should restructure the ``SpectralLine``, ``GenericLineModel``, and perhaps also the older ``LineFitter`` objects such that the specific versions for (say) Mn Kα become not subclasses but instances of them. See `issue 182 <https://github.com/usnistgov/mass/issues/182>`_ on the question of whether this change might speed up loading of MASS. Done by PR#120.
 * [x] Add to ``GenericLineModel`` one or more methods to make plots comparing data and fit with parameter values printed on the plot.
 * [x] The LMFIT view of models is such that we would probably find it easy to fit one histogram for the sum of (say) a Mn Kα and a Cr Kβ line simultaneously. Add features to our object, as needed, and document the procedure here.
 * [ ] We could implement convolution between two models (see just below `CompositeModel <https://lmfit.github.io/lmfit-py/model.html#lmfit.model.CompositeModel>`_ in the docs for how to do this).

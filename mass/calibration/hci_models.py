@@ -9,12 +9,7 @@ Paul Szypryt
 
 import numpy as np
 import mass.calibration.hci_lines
-try:
-    from xraylib import SymbolToAtomicNumber
-except ImportError:
-    raise ImportError(
-        'This module requires the xraylib python package. '
-        'Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
+import xraydb
 
 
 def initialize_hci_line_model(line_name, has_linear_background=False, has_tails=False):
@@ -71,8 +66,8 @@ def initialize_hci_composite_model(composite_name, individual_models, has_linear
                                            expr=f'{composite_model.peak_prefix}dph_de')
             # Fixed energy separation based on database values
             separation = line_component_energies[i] - composite_model.peak_energy
-            composite_model.set_param_hint(f'{line_component_prefixes[i]}peak_ph',
-                                           expr='({0} * {1}dph_de) + {1}peak_ph'.format(separation, composite_model.peak_prefix))
+            hint = f'({separation} * {composite_model.peak_prefix}dph_de) + {composite_model.peak_prefix}peak_ph'
+            composite_model.set_param_hint(f'{line_component_prefixes[i]}peak_ph', expr=hint)
     composite_model.shortname = composite_name
     return composite_model
 
@@ -89,7 +84,7 @@ def initialize_HLike_2P_model(element, conf, has_linear_background=False, has_ta
     '''
 
     # Set up line names and lmfit prefixes
-    charge = int(SymbolToAtomicNumber(element))
+    charge = int(xraydb.atomic_number(element))
     line_name_1_2 = f'{element}{charge} {conf} 2P* J=1/2'
     line_name_3_2 = f'{element}{charge} {conf} 2P* J=3/2'
     prefix_1_2 = f'{line_name_1_2}_'.replace(' ', '_').replace(
@@ -107,7 +102,7 @@ def initialize_HLike_2P_model(element, conf, has_linear_background=False, has_ta
                                                      has_linear_background=has_linear_background, peak_component_name=line_name_3_2)
     amp_ratio_param_name = f'{element}{charge}_{conf}_amp_ratio'
     composite_model.set_param_hint(name=amp_ratio_param_name, value=0.5, min=0.0, vary=vary_amp_ratio)
-    composite_model.set_param_hint(f'{prefix_1_2}amplitude', expr=f'{prefix_3_2}amplitude * {amp_ratio_param_name}')
+    composite_model.set_param_hint(f'{prefix_1_2}integral', expr=f'{prefix_3_2}integral * {amp_ratio_param_name}')
     return composite_model
 
 
@@ -123,7 +118,7 @@ def initialize_HeLike_complex_model(element, has_linear_background=False, has_ta
     '''
 
     # Set up line names
-    charge = int(SymbolToAtomicNumber(element) - 1)
+    charge = int(xraydb.atomic_number(element) - 1)
     line_name_1s2s_3S = f'{element}{charge} 1s.2s 3S J=1'
     line_name_1s2p_3P = f'{element}{charge} 1s.2p 3P* J=1'
     line_name_1s2p_1P = f'{element}{charge} 1s.2p 1P* J=1'
@@ -199,7 +194,7 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
     conf_Helike_1P_dict['Ne'] = ['1s.3p', '1s.4p', '1s.5p']
     conf_Helike_1P_dict['Ar'] = ['1s.3p', '1s.4p', '1s.5p']
     for i_element in list(conf_Helike_1P_dict.keys()):
-        i_charge = int(SymbolToAtomicNumber(i_element) - 1)
+        i_charge = int(xraydb.atomic_number(i_element) - 1)
         for i_conf in conf_Helike_1P_dict[i_element]:
             Helike_line_name = f'{i_element}{i_charge} {i_conf} 1P* J=1'
             Helike_model = initialize_hci_line_model(
