@@ -5,6 +5,7 @@
 * Fix test failures on Py 3.12: store HDF5 cache files in temp directories, so tests don't share them. (issue 272). Correctly use the modern `tempfile` library's API.
 * Use dynamic version numbering through setuptools-scm (issue 287).
 * Go back to working correctly with inverted data, even as a memmap (issue 286).
+* Remove all use of the legacy `tempfile` package in our tests (issue 291).
 
 **0.8.3** May 14, 2024
 
