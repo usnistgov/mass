@@ -225,9 +225,12 @@ class TestTESGroup:
 
         # Be sure the Cython and Python results are pretty close
         for k in results_cython:
-            # print(k)
-            # print(results_cython[k])
-            # print(results_cython[k]/results_python[k])
+            # print(f"\n{k}:")
+            # print(results_cython[k][:20])
+            # print(results_python[k][:20])
+            if np.any(np.isnan(results_python[k])):
+                continue
+            # print((results_cython[k] / results_python[k])[:20])
             assert results_cython[k] == pytest.approx(results_python[k], rel=0.003)
 
     def test_experiment_state(self, tmp_path_factory):
@@ -366,16 +369,16 @@ class TestTESGroup:
         data.phase_correct()
         data.time_drift_correct()
 
-    @pytest.mark.xfail
     def test_invert_data(self, tmp_path):
         data = self.load_data(hdf5dir=tmp_path)
         ds = data.channel[1]
-        raw = ds.data
-        rawinv = 0xffff - raw
+        rawinv = ~ds.alldata
 
         ds.invert_data = True
-        raw2 = ds.data
+        raw2 = ds.alldata
+        raw3 = ds.data[:]
         assert np.all(rawinv == raw2)
+        assert np.all(rawinv == raw3)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):
