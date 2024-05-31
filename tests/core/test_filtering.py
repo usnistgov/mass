@@ -2,7 +2,6 @@ import h5py
 import numpy as np
 import glob
 import os
-import tempfile
 import pytest
 
 import mass
@@ -234,9 +233,9 @@ def test_dc_insensitive():
         assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ fmax"
 
 
-def test_long_filter():
+def test_long_filter(tmp_path):
     """Be sure we can save and restore a long filter. See issue #208."""
-    outfile = tempfile.TemporaryFile(suffix=".hdf5")
+    outfile = tmp_path / "test.hdf5"
     with h5py.File(outfile, "w") as h:
         g = h.require_group("blah")
         pulserec = {

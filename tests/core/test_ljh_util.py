@@ -2,7 +2,6 @@ import os
 import os.path
 import shutil
 import subprocess
-import tempfile
 import numpy as np
 
 from mass.core.ljh_util import ljh_channum, filename_glob_expand, \
@@ -133,39 +132,38 @@ class TestFilenameHandling:
         for x, y in zip(rnames, snames):
             assert x == y
 
-    @staticmethod
-    def test_ljh_merge():
-        """Make sure the LJH merge script works."""
-        with tempfile.TemporaryDirectory() as destdir:
-            dest1_name = os.path.join(destdir, "test1_chan3.ljh")
-            dest2_name = os.path.join(destdir, "test2_chan3.ljh")
-            src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
-            src = LJHFile.open(src_name)
-            Npulses = min(20, src.nPulses)
-            wordsize = 2
-            timing_size = 16
-            truncated_length = src.header_size + Npulses * (src.nSamples * wordsize + timing_size)
 
-            shutil.copy(src_name, dest1_name)
-            os.truncate(dest1_name, truncated_length)
-            shutil.copy(dest1_name, dest2_name)
+def test_ljh_merge(tmp_path):
+    """Make sure the LJH merge script works."""
+    dest1_name = tmp_path / "test1_chan3.ljh"
+    dest2_name = tmp_path / "test2_chan3.ljh"
+    src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
+    src = LJHFile.open(src_name)
+    Npulses = min(20, src.nPulses)
+    wordsize = 2
+    timing_size = 16
+    truncated_length = src.header_size + Npulses * (src.nSamples * wordsize + timing_size)
 
-            cmd = ["bin/ljh_merge", f"{destdir}/test?_chan3.ljh"]
-            ps = subprocess.run(cmd, capture_output=True, check=True)
-            assert ps.returncode == 0
+    shutil.copy(src_name, dest1_name)
+    os.truncate(dest1_name, truncated_length)
+    shutil.copy(dest1_name, dest2_name)
 
-            result_name = os.path.join(destdir, "merged_chan3.ljh")
-            result = LJHFile.open(result_name)
-            assert 2 * Npulses == result.nPulses
-            assert src.nSamples == result.nSamples
-            assert np.all(result.datatimes_raw >= src.datatimes_raw[0])
-            assert np.all(result.subframecount >= src.subframecount[0])
+    cmd = ["bin/ljh_merge", tmp_path / "test?_chan3.ljh"]
+    ps = subprocess.run(cmd, capture_output=True, check=True)
+    assert ps.returncode == 0
 
-            # Make sure we can't run another merge w/o the --force flag
-            ps = subprocess.run(cmd, capture_output=True, check=False)
-            assert ps.returncode != 0
+    result_name = tmp_path / "merged_chan3.ljh"
+    result = LJHFile.open(result_name)
+    assert 2 * Npulses == result.nPulses
+    assert src.nSamples == result.nSamples
+    assert np.all(result.datatimes_raw >= src.datatimes_raw[0])
+    assert np.all(result.subframecount >= src.subframecount[0])
 
-            # Make sure we CAN run another merge with the --force flag
-            cmdF = ["bin/ljh_merge", "--force", f"{destdir}/test?_chan3.ljh"]
-            ps = subprocess.run(cmdF, capture_output=True, check=True)
-            assert ps.returncode == 0
+    # Make sure we can't run another merge w/o the --force flag
+    ps = subprocess.run(cmd, capture_output=True, check=False)
+    assert ps.returncode != 0
+
+    # Make sure we CAN run another merge with the --force flag
+    cmdF = ["bin/ljh_merge", "--force", tmp_path / "test?_chan3.ljh"]
+    ps = subprocess.run(cmdF, capture_output=True, check=True)
+    assert ps.returncode == 0
