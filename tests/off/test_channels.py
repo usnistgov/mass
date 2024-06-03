@@ -452,7 +452,7 @@ def test_duplicate_cuts():
     data.cutAdd("deliberateduplicate", lambda energy: energy < 750, overwrite=True)
 
 
-def test_recipes():
+def test_recipes(tmp_path):
     rb = util.RecipeBook(baseIngredients=["x", "y", "z"], propertyClass=None,
                          coefs_dtype=None)
 
@@ -478,13 +478,13 @@ def test_recipes():
     assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
     assert rb.craft(lambda a, b, c: a + b + c, args) == 18
 
-    with tempfile.NamedTemporaryFile(suffix=".rbpkl") as pklfile:
-        rb.to_file(pklfile.name, overwrite=True)
-        rb2 = util.RecipeBook.from_file(pklfile.name)
+    save_path = tmp_path / "recipe_book.pkl"
+    rb.to_file(save_path)
+    rb2 = util.RecipeBook.from_file(save_path)
 
-        assert rb2.craft("a", args) == 3
-        assert rb2.craft("b", args) == 6
-        assert rb2.craft("c", args) == 9
+    assert rb2.craft("a", args) == 3
+    assert rb2.craft("b", args) == 6
+    assert rb2.craft("c", args) == 9
 
 
 def test_linefit_has_tail_and_has_linear_background():
@@ -538,16 +538,15 @@ def test_iterstates():
         ds.plotHist(np.arange(100, 2500, 50), 'energy', states="BC", coAddStates=False)
 
 
-def test_save_load_recipe_book():
+def test_save_load_recipe_book(tmp_path):
     rb = ds.recipes
-    with tempfile.NamedTemporaryFile(suffix=".rbpkl") as rbfile:
-        save_path = rbfile.name
-        rb.to_file(save_path, overwrite=True)
-        rb2 = util.RecipeBook.from_file(save_path)
-        assert rb.craftedIngredients.keys() == rb2.craftedIngredients.keys()
-        args = {"pretriggerMean": 1, "filtValue": 2}
-        print(rb.craftedIngredients["energy"])
-        assert rb.craft("energy", args) == rb2.craft("energy", args)
+    save_path = tmp_path / "recipe_book.pkl"
+    rb.to_file(save_path)
+    rb2 = util.RecipeBook.from_file(save_path)
+    assert rb.craftedIngredients.keys() == rb2.craftedIngredients.keys()
+    args = {"pretriggerMean": 1, "filtValue": 2}
+    print(rb.craftedIngredients["energy"])
+    assert rb.craft("energy", args) == rb2.craft("energy", args)
 
 
 def test_open_many_OFF_files():

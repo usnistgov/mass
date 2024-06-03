@@ -1,8 +1,11 @@
 ## Note on version numbers of Mass
 
+* Experimental `bin/ljh2clickhouse` conversion tool.
+
 **0.8.4** May, 2024-
 
-* Experimental `bin/ljh2clickhouse` conversion tool.
+* Fix test failures on Py 3.12: store HDF5 cache files in temp directories, so tests don't share them. (issue 272). Correctly use the modern `tempfile` library's API.
+* Use dynamic version numbering through setuptools-scm (issue 287).
 
 **0.8.3** May 14, 2024
 
