@@ -25,6 +25,7 @@ dependencies = [
     "scipy>=0.19, !=1.11.2",
     # Bitbucket pipeline tests failed with scipy-1.11.2 but passed with .1 or .3. Weird, but remember it!
     "statsmodels>0.8",
+    "ulid-py",
     "uncertainties",
     "xraydb"
 ]
