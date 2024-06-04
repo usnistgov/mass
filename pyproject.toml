@@ -7,6 +7,7 @@ authors = [
     {name = "Galen O'Neil", email = "ggggggggg@github.com"},
 ]
 dependencies = [
+    "clickhouse-connect",
     "cycler",
     "deprecation",
     "dill",
@@ -48,7 +49,6 @@ requires = [
     "wheel",
     "Cython>=0.29",
     "numpy>=1.14",
-    "clickhouse-connect"
 ]
 build-backend = "setuptools.build_meta"
 
