@@ -22,3 +22,8 @@ from .core import *
 from .calibration import *
 from .mathstat import *
 from .common import *
+
+from . import core
+from . import calibration
+from . import clickhouse
+from . import mathstat

@@ -39,6 +39,7 @@ Issues = "https://github.com/usnistgov/mass/issues"
 
 [project.scripts]
 ljh_truncate = "mass.ljh_truncate:main"
+ljh2clickhouse = "mass.clickhouse.ljh2clickhouse:main"
 ljh2off = "mass.core.ljh2off:main"
 make_projectors = "mass.core.projectors_script:main"
 
