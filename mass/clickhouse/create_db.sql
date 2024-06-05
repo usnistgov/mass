@@ -5,44 +5,44 @@
 -- clickhouse client --queries-file create_tables.sql
 
 CREATE TABLE IF NOT EXISTS pulses (
-    `datarun_id`      UInt32  Comment 'Can be joined to dataruns.id',
-    `channel_number`  UInt32,
+    `channel_id`      FixedString(26) Comment 'A ULID. Can be joined to channels.id',
     -- `timestamp`       DateTime64(9) Comment 'PC clock time at the moment of the trigger. Might want to skip this?',
     `subframe_count`  Int64 Comment 'Subframe counts (since Dastard started) at the moment of the trigger',
     `pulse`           String Comment 'Pulse data record (decode as uint16)',
 )
     ENGINE = MergeTree()
-    PRIMARY KEY (datarun_id, channel_number)
-    ORDER BY (datarun_id, channel_number, subframe_count)
+    PRIMARY KEY (channel_id)
+    ORDER BY (channel_id, subframe_count)
     COMMENT 'Each row is a single pulse record from one channel';
 
 CREATE TABLE IF NOT EXISTS channels (
-    `datarun_id`         UInt32  Comment 'Can be joined to dataruns.id',
+    `id`                 FixedString(26) PRIMARY KEY Comment 'A ULID for this channel',
+    `datarun_id`         FixedString(26)  Comment 'A ULID. Can be joined to dataruns.id',
     `channel_number`     UInt32,
     `channel_group`      LowCardinality(String) Default '',
-    `row_number`         UInt32 NULL Comment 'TDM row number, or NULL for µMUX',
-    `column_number`      UInt32 NULL Comment 'TDM column number, or NULL for µMUX',
-    `tone_frequency`     Float64 NULL Comment 'µMUX tone frequency in GHz, or NULL for TDM systems',
+    `row_number`         UInt32 Default 0 Comment 'TDM row number, or 0 for µMUX',
+    `column_number`      UInt32 Default 0 Comment 'TDM column number, or 0 for µMUX',
+    `tone_frequency`     Float64 Default 0.0 Comment 'µMUX tone frequency in GHz, or 0 for TDM systems',
     `subframe_divisions` UInt32,
-    `subframe_offset`    UInt32 DEFAULT 0,
+    `subframe_offset`    UInt32 Default 0,
     `presamples`         UInt32,
     `total_samples`      UInt32,
     `first_record_time`  DateTime64(9),
 )
     ENGINE = MergeTree()
-    ORDER BY (datarun_id, channel_number)
+    ORDER BY (id)
     COMMENT 'Each row is a single microcalorimeter sensor in one data run';
 
 CREATE TABLE IF NOT EXISTS dataruns (
-    `id`              UInt32 PRIMARY KEY,
+    `id`              FixedString(26) PRIMARY KEY Comment 'A ULID for this run',
     `date_run_code`   String,
     `intention`       LowCardinality(String) DEFAULT 'unknown',
     `creator`         LowCardinality(String) DEFAULT 'unknown',
     `datasource`      LowCardinality(String) DEFAULT 'unknown',
     `daq_version`     LowCardinality(String) DEFAULT 'unknown',
     `daq_githash`     LowCardinality(String) DEFAULT 'unknown',
-    `number_rows`     UInt32 NULL Comment 'Number of TDM rows, or NULL for µMUX',
-    `number_columns`  UInt32 NULL Comment 'Number of TDM columns, or NULL for µMUX',
+    `number_rows`     Int32 Default -1 Comment 'Number of TDM rows, or -1 for µMUX',
+    `number_columns`  Int32 Default -1 Comment 'Number of TDM columns, or -1 for µMUX',
     `number_channels` UInt32,
     `timebase`        Float64,
     `server_start`    DateTime64(6),
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS dataruns (
     COMMENT 'Each row is a data run, with multiple microcalorimeter sensors running in parallel';
 
 CREATE TABLE IF NOT EXISTS external_triggers (
-    `datarun_id`      UInt32 Comment 'Can be joined to dataruns.id',
+    `datarun_id`      FixedString(26) Comment 'A ULID. Can be joined to dataruns.id',
     `subframe_count`  Int64 Comment 'Subframe counts (since Dastard started) at the moment of the external trigger',
 )
     ENGINE = MergeTree()
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS external_triggers (
     COMMENT 'Each row is an instance of the external trigger';
 
 CREATE TABLE IF NOT EXISTS experiment_state (
-    `datarun_id`      UInt32 Comment 'Can be joined to dataruns.id',
+    `datarun_id`      FixedString(26) Comment 'A ULID. Can be joined to dataruns.id',
     `state`           String,
     `subframe_count`  Int64 Comment 'Subframe counts (since Dastard started) at the moment the new state was registered',
 )

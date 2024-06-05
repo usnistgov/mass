@@ -17,7 +17,6 @@
 * Make ruff warnings go away (issue 277).
 * Update/fix how we save (pickle) OFF recipes.
 
-
 **0.8.2** February 23, 2024
 
 * Fix bug in reading certain external trigger files (issue 262).

@@ -18,6 +18,7 @@ import time
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
+import ulid
 import clickhouse_connect
 import mass
 
@@ -62,7 +63,7 @@ class clickDB:
         # The exact schema are found in mass/clickhouse/create_db.sql
         if not append:
             dir, _ = os.path.split(__file__)
-            sqlfile = os.path.normpath(os.path.join(dir, "..", "clickhouse/create_db.sql"))
+            sqlfile = os.path.normpath(os.path.join(dir, "..", "mass", "clickhouse", "create_db.sql"))
             create_queries = self.split_sql(sqlfile)
             for q in create_queries:
                 self.client.command(q)
@@ -70,7 +71,7 @@ class clickDB:
         print("Will start after datarun_id = ", self.runs)
 
     def query_runs(self):
-        q = "SELECT max(id) FROM dataruns"
+        q = "SELECT count(*) FROM dataruns"
         return int(self.client.command(q))
 
     def fill_one_run(self, dir, files, max_records=None, exclude=set(), include=set()):
@@ -94,6 +95,7 @@ class clickDB:
 
         # Insert into dataruns table, using base directory name
         self.runs += 1
+        self.datarun_id = ulid.from_timestamp(server_start)
         column_names = [
             'id',
             'date_run_code',
@@ -104,15 +106,12 @@ class clickDB:
             'number_channels',
             'daq_version',
             'daq_githash'
-            ]
-        data = [self.runs, date_run_code, creator, ljh.source, ljh.timebase, server_start_microsec, nchan, daqver, githash]
+        ]
+        data = [self.datarun_id, date_run_code, creator, ljh.source,
+                ljh.timebase, server_start_microsec, nchan, daqver, githash]
         if ljh.source != "Abaco":
             column_names.extend(["number_rows", "number_columns"])
             data.extend([ljh.number_of_rows, ljh.number_of_columns])
-        chgrp = ljh.header_dict.get(b"Channel Group", b"").decode()
-        if chgrp:
-            column_names.append("channel_group")
-            data.append(chgrp)
         self.client.insert("dataruns", [data], column_names=column_names)
 
         for ljh in ljhfiles:
@@ -140,7 +139,9 @@ class clickDB:
                 break
         first_record = time.mktime(time.strptime(firstrecstring, "%d %b %Y, %H:%M:%S %Z"))
         first_record_ns = int(1e9 * first_record + 0.5)
+        channel_id = ulid.from_timestamp()
         column_names = [
+            'id',
             'datarun_id',
             'channel_number',
             'subframe_divisions',
@@ -148,11 +149,15 @@ class clickDB:
             'presamples',
             'total_samples',
             'first_record_time'
-            ]
-        data = [self.runs, ljh.channum, sfd, sfo, ljh.nPresamples, ljh.nSamples, first_record_ns]
+        ]
+        data = [channel_id, self.datarun_id, ljh.channum, sfd, sfo, ljh.nPresamples, ljh.nSamples, first_record_ns]
         if ljh.source != "Abaco":
             column_names.extend(['row_number', 'column_number'])
             data.extend([ljh.row_number, ljh.column_number, ])
+        chgrp = ljh.header_dict.get(b"Channel Group", b"").decode()
+        if chgrp:
+            column_names.append("channel_group")
+            data.append(chgrp)
         self.client.insert("channels", [data], column_names=column_names)
 
         # Insert into pulses table
