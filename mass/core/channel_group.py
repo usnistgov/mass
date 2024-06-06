@@ -96,7 +96,8 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                  noise_is_continuous=True,
                  hdf5_filename=None, hdf5_noisefilename=None,
                  never_use=None, use_only=None, max_chans=None,
-                 experimentStateFile=None, excludeStates="auto", overwrite_hdf5_file=False):
+                 experimentStateFile=None, excludeStates="auto",
+                 overwrite_hdf5_file=False, invert_data=False):
         """Set up a group of related data sets by their filenames.
 
         Args:
@@ -120,6 +121,8 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             use_only:  if not None, a sequence of channel numbers to use, i.e.
                 ignore all channels not on this list (default None).
             max_chans: open at most this many ljh files
+            invert_data: whether to treat all raw data files as invert-on-read (use this
+                for down-going pulses; if only SOME channels are inverted, set later)
         """
 
         if noise_filenames is not None and len(noise_filenames) == 0:
@@ -233,6 +236,8 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             self._setup_per_channel_objects(noise_is_continuous)
 
         self.updater = InlineUpdater
+        for ds in self.datasets:
+            ds.invert_data = invert_data
 
     def toOffStyle(self):
         channels = [ds.toOffStyle() for ds in self]
@@ -316,7 +321,6 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
 
         for index, (pr, ds) in enumerate(zip(self.channels, self.datasets)):
             ds.pulse_records = pr
-            ds.data = pr.datafile.alldata
             ds.times = pr.datafile.datatimes_float
             ds.subframecount = pr.datafile.subframecount
             ds.index = index

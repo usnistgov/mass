@@ -1,34 +1,33 @@
 import mass
 import mass.off
-import tempfile
 import numpy as np
-import os
+from pathlib import Path
 
 try:
-    d = os.path.dirname(os.path.realpath(__file__))
+    d = Path(__file__).parent
 except NameError:
-    d = os.getcwd()
+    d = Path.cwd()
 
 
-def load_data(hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
+def load_data(path, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
               experimentStateFile=None):
-    src_name = os.path.normpath(os.path.join(d, os.pardir, "regression_test", "regress_chan1.ljh"))
-    noi_name = os.path.normpath(os.path.join(d, os.pardir, "regression_test", "regress_noise_chan1.ljh"))
+    src_name = str((d.parent / "regression_test" / "regress_chan1.ljh").resolve())
+    noi_name = str((d.parent / "regression_test" / "regress_noise_chan1.ljh").resolve())
     if skip_noise:
         noi_name = None
     if hdf5_filename is None:
-        hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5', delete=False)
-        hdf5_filename = hdf5_file.name
+        hdf5_file = path / "oldstyletooffstyle_mass.hdf5"
+        hdf5_filename = str(hdf5_file)
     if hdf5_noisefilename is None:
-        hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5', delete=False)
-        hdf5_noisefilename = hdf5_noisefile.name
+        hdf5_noisefile = path / "oldstyletooffstyle_mass_noise.hdf5"
+        hdf5_noisefilename = str(hdf5_noisefile)
     return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                          hdf5_noisefilename=hdf5_noisefilename,
                          experimentStateFile=experimentStateFile)
 
 
-def test_oldstyletooffstyle():
-    dataold = load_data()
+def test_oldstyletooffstyle(tmp_path):
+    dataold = load_data(tmp_path)
     dataold.summarize_data()
     dataold.auto_cuts()
     dataold.compute_noise()

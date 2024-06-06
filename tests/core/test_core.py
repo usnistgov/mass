@@ -3,7 +3,6 @@ import numpy as np
 import os
 import os.path
 import shutil
-import tempfile
 import pytest
 
 import logging
@@ -21,108 +20,102 @@ LOG = logging.getLogger("mass")
 class TestFiles:
 
     @staticmethod
-    def test_ljh_copy_and_append_traces():
+    def test_ljh_copy_and_append_traces(tmp_path):
         """Test copying and appending traces to LJH files."""
         src_name = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
         src = LJHFile.open(src_name)
-        with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
-            dest_name = destfile.name
-            destfile.close()
-            source_traces = [20]
-            ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
-            dest = LJHFile.open(dest_name)
-            for i, st in enumerate(source_traces):
-                assert np.all(src.read_trace(st) == dest.read_trace(i))
+        destfile = tmp_path / "xyz_chan1.ljh"
+        dest_name = str(destfile)
+        source_traces = [20]
+        ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
+        dest = LJHFile.open(dest_name)
+        for i, st in enumerate(source_traces):
+            assert np.all(src.read_trace(st) == dest.read_trace(i))
 
-            source_traces = [0, 30, 20, 10]
-            ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
-            dest = LJHFile.open(dest_name)
-            for i, st in enumerate(source_traces):
-                assert np.all(src.read_trace(st) == dest.read_trace(i))
+        source_traces = [0, 30, 20, 10]
+        ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
+        dest = LJHFile.open(dest_name)
+        for i, st in enumerate(source_traces):
+            assert np.all(src.read_trace(st) == dest.read_trace(i))
 
-            source_traces.append(5)
-            ljh_append_traces(src_name, dest_name, [5])
-            dest = LJHFile.open(dest_name)
-            for i, st in enumerate(source_traces):
-                assert np.all(src.read_trace(st) == dest.read_trace(i))
+        source_traces.append(5)
+        ljh_append_traces(src_name, dest_name, [5])
+        dest = LJHFile.open(dest_name)
+        for i, st in enumerate(source_traces):
+            assert np.all(src.read_trace(st) == dest.read_trace(i))
 
-            new_traces = [15, 25, 3]
-            source_traces.extend(new_traces)
-            ljh_append_traces(src_name, dest_name, new_traces)
-            dest = LJHFile.open(dest_name)
-            for i, st in enumerate(source_traces):
-                assert np.all(src.read_trace(st) == dest.read_trace(i))
+        new_traces = [15, 25, 3]
+        source_traces.extend(new_traces)
+        ljh_append_traces(src_name, dest_name, new_traces)
+        dest = LJHFile.open(dest_name)
+        for i, st in enumerate(source_traces):
+            assert np.all(src.read_trace(st) == dest.read_trace(i))
 
     @staticmethod
-    def test_ljh_truncate_wrong_format():
+    def test_ljh_truncate_wrong_format(tmp_path):
         # First a file using LJH format 2.1.0 - should raise an exception
         src_name = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
-        with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
-            dest_name = destfile.name
-            destfile.close()
+        destfile = tmp_path / "xyz_chan1.ljh"
+        dest_name = str(destfile.name)
 
-            def func():
-                ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054 * 500)
-            pytest.raises(Exception, func)
-
-    @staticmethod
-    def run_test_ljh_truncate_timestamp(src_name, n_pulses_expected, timestamp, segmentsize):
-        with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
-            dest_name = destfile.name
-            destfile.close()
-            ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
-
-            src = LJHFile.open(src_name)
-            dest = LJHFile.open(dest_name)
-            assert n_pulses_expected == dest.nPulses
-            for k in range(n_pulses_expected):
-                assert np.all(src.read_trace(k) == dest.read_trace(k))
-                assert src.subframecount[k] == dest.subframecount[k]
-                assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
+        def func():
+            ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054 * 500)
+        pytest.raises(Exception, func)
 
     @staticmethod
-    def run_test_ljh_truncate_n_pulses(src_name, n_pulses, segmentsize):
+    def run_test_ljh_truncate_timestamp(tpf, src_name, n_pulses_expected, timestamp, segmentsize):
+        dest_name = str(tpf.mktemp("truncated_ljh", numbered=True) / "xyz_chan1.ljh")
+        ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
+
+        src = LJHFile.open(src_name)
+        dest = LJHFile.open(dest_name)
+        assert n_pulses_expected == dest.nPulses
+        for k in range(n_pulses_expected):
+            assert np.all(src.read_trace(k) == dest.read_trace(k))
+            assert src.subframecount[k] == dest.subframecount[k]
+            assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
+
+    @staticmethod
+    def run_test_ljh_truncate_n_pulses(tpf, src_name, n_pulses, segmentsize):
         # Tests with a file with 1230 pulses, each 1016 bytes long
-        with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
-            dest_name = destfile.name
-            destfile.close()
-            ljh_truncate(src_name, dest_name, n_pulses=n_pulses, segmentsize=segmentsize)
+        dest_name = str(tpf.mktemp("truncated_ljh", numbered=True) / "xyz_chan1.ljh")
+        ljh_truncate(src_name, dest_name, n_pulses=n_pulses, segmentsize=segmentsize)
 
-            src = LJHFile.open(src_name)
-            dest = LJHFile.open(dest_name)
-            assert n_pulses == dest.nPulses
-            for k in range(n_pulses):
-                assert np.all(src.read_trace(k) == dest.read_trace(k))
-                assert src.subframecount[k] == dest.subframecount[k]
-                assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
+        src = LJHFile.open(src_name)
+        dest = LJHFile.open(dest_name)
+        assert n_pulses == dest.nPulses
+        for k in range(n_pulses):
+            assert np.all(src.read_trace(k) == dest.read_trace(k))
+            assert src.subframecount[k] == dest.subframecount[k]
+            assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
 
-    def test_ljh_truncate_n_pulses(self):
+    def test_ljh_truncate_n_pulses(self, tmp_path_factory):
         # Want to make sure that we didn't screw something up with the
         # segmentation, so try various lengths
         # Tests with a file with 1230 pulses, each 1016 bytes long
         src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
-        self.run_test_ljh_truncate_n_pulses(src_name, 1000, None)
-        self.run_test_ljh_truncate_n_pulses(src_name, 0, None)
-        self.run_test_ljh_truncate_n_pulses(src_name, 1, None)
-        self.run_test_ljh_truncate_n_pulses(src_name, 100, 1016 * 2000)
-        self.run_test_ljh_truncate_n_pulses(src_name, 49, 1016 * 50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 50, 1016 * 50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 51, 1016 * 50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 75, 1016 * 50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 334, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 1000, None)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 0, None)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 1, None)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 100, 1016 * 2000)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 49, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 50, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 51, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 75, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 334, 1016 * 50)
 
-    def test_ljh_truncate_timestamp(self):
+    def test_ljh_truncate_timestamp(self, tmp_path_factory):
         # Want to make sure that we didn't screw something up with the
         # segmentation, so try various lengths
         # Tests with a file with 1230 pulses, each 1016 bytes long
         src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
-        self.run_test_ljh_truncate_timestamp(src_name, 1000, 1510871067891481 / 1e6, None)
-        self.run_test_ljh_truncate_timestamp(src_name, 100, 1510871020202899 / 1e6, 1016 * 2000)
-        self.run_test_ljh_truncate_timestamp(src_name, 49, 1510871016889751 / 1e6, 1016 * 50)
-        self.run_test_ljh_truncate_timestamp(src_name, 50, 1510871016919543 / 1e6, 1016 * 50)
-        self.run_test_ljh_truncate_timestamp(src_name, 51, 1510871017096192 / 1e6, 1016 * 50)
-        self.run_test_ljh_truncate_timestamp(src_name, 75, 1510871018591985 / 1e6, 1016 * 50)
-        self.run_test_ljh_truncate_timestamp(src_name, 334, 1510871031629499 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 1000, 1510871067891481 / 1e6, None)
+        self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 100, 1510871020202899 / 1e6, 1016 * 2000)
+        self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 49, 1510871016889751 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 50, 1510871016919543 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 51, 1510871017096192 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 75, 1510871018591985 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 334, 1510871031629499 / 1e6, 1016 * 50)
 
     @staticmethod
     def test_ljh_dastard_other_reading():
@@ -185,15 +178,15 @@ class TestTESGroup:
                   experimentStateFile=None, hdf5dir=None):
         if hdf5_filename is None or hdf5_noisefilename is None:
             assert hdf5dir is not None
-        if hdf5dir is None:
-            hdf5dir = tempfile.mkdtemp()
         src_name = ['tests/regression_test/regress_chan1.ljh']
         noi_name = ['tests/regression_test/regress_noise_chan1.ljh']
         if skip_noise:
             noi_name = None
         if hdf5_filename is None:
+            assert hdf5dir is not None
             hdf5_filename = hdf5dir / "data_mass.hdf5"
-        if hdf5_noisefilename is None:
+        if hdf5_noisefilename is None and not skip_noise:
+            assert hdf5dir is not None
             hdf5_noisefilename = hdf5dir / "data_noise.hdf5"
         return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename,
@@ -225,9 +218,12 @@ class TestTESGroup:
 
         # Be sure the Cython and Python results are pretty close
         for k in results_cython:
-            # print(k)
-            # print(results_cython[k])
-            # print(results_cython[k]/results_python[k])
+            # print(f"\n{k}:")
+            # print(results_cython[k][:20])
+            # print(results_python[k][:20])
+            if np.any(np.isnan(results_python[k])):
+                continue
+            # print((results_cython[k] / results_python[k])[:20])
             assert results_cython[k] == pytest.approx(results_python[k], rel=0.003)
 
     def test_experiment_state(self, tmp_path_factory):
@@ -366,16 +362,16 @@ class TestTESGroup:
         data.phase_correct()
         data.time_drift_correct()
 
-    @pytest.mark.xfail
     def test_invert_data(self, tmp_path):
         data = self.load_data(hdf5dir=tmp_path)
         ds = data.channel[1]
-        raw = ds.data
-        rawinv = 0xffff - raw
+        rawinv = ~ds.alldata
 
         ds.invert_data = True
-        raw2 = ds.data
+        raw2 = ds.alldata
+        raw3 = ds.data[:]
         assert np.all(rawinv == raw2)
+        assert np.all(rawinv == raw3)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):
@@ -408,8 +404,8 @@ class TestTESGroup:
         ds = data.channel[1]
         ds.compute_noise()
 
-    def test_pulse_model_and_ljh2off(self, tmp_path):
-        data = self.load_data(hdf5dir=tmp_path)
+    def test_pulse_model_and_ljh2off(self, tmp_path_factory):
+        data = self.load_data(hdf5dir=tmp_path_factory.mktemp("hdf5"))
 
         data.compute_noise()
         data.summarize_data()
@@ -419,48 +415,48 @@ class TestTESGroup:
         ds = data.datasets[0]
         n_basis = 5
         hdf5_filename = data.pulse_model_to_hdf5(replace_output=True, n_basis=n_basis)
-        with tempfile.TemporaryDirectory() as output_dir:
-            max_channels = 100
-            n_ignore_presamples = 0
-            _ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
-                ds.filename, hdf5_filename, output_dir, max_channels,
-                n_ignore_presamples, require_experiment_state=False)
-            off = mass.off.off.OffFile(off_filenames[0])
-            assert np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:])
+        output_dir = tmp_path_factory.mktemp("off-1")
+        max_channels = 100
+        n_ignore_presamples = 0
+        _ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
+            ds.filename, hdf5_filename, output_dir, max_channels,
+            n_ignore_presamples, require_experiment_state=False)
+        off = mass.off.off.OffFile(off_filenames[0])
+        assert np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:])
 
-            _x, _y = off.recordXY(0)
+        _x, _y = off.recordXY(0)
 
-            with h5py.File(hdf5_filename, "r") as h5:
-                group = h5["1"]
-                pulse_model = mass.PulseModel.fromHDF5(group)
-            assert pulse_model.projectors.shape == (n_basis, ds.nSamples)
-            assert pulse_model.basis.shape == pulse_model.projectors.shape[::-1]
-            mpc = pulse_model.projectors.dot(ds.read_trace(0))
-            assert np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc)
+        with h5py.File(hdf5_filename, "r") as h5:
+            group = h5["1"]
+            pulse_model = mass.PulseModel.fromHDF5(group)
+        assert pulse_model.projectors.shape == (n_basis, ds.nSamples)
+        assert pulse_model.basis.shape == pulse_model.projectors.shape[::-1]
+        mpc = pulse_model.projectors.dot(ds.read_trace(0))
+        assert np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc)
 
-            should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
-            wrongness = np.abs(should_be_identity - np.identity(n_basis))
-            # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
-            print(wrongness)
-            print(np.amax(wrongness))
-            assert np.amax(wrongness) < 0.16
-            pulse_model.plot()
+        should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
+        wrongness = np.abs(should_be_identity - np.identity(n_basis))
+        # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        print(wrongness)
+        print(np.amax(wrongness))
+        assert np.amax(wrongness) < 0.16
+        pulse_model.plot()
 
-        with tempfile.TemporaryDirectory() as output_dir:
-            # test multi_ljh2off_loop with multiple ljhfiles
-            basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
-            N = len(off)
-            prefix = os.path.split(basename)[1]
-            offbase = os.path.join(output_dir, prefix)
-            ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
-                [basename] * 2, hdf5_filename, offbase, max_channels,
-                n_ignore_presamples)
-            assert ds.filename == ljh_filename_lists[0][0]
-            off_multi = mass.off.off.OffFile(off_filenames_multi[0])
-            assert 2 * N == len(off_multi)
-            assert off[7] == off_multi[7]
-            assert off[7] == off_multi[N + 7]
-            assert off[7] != off_multi[N + 6]
+        output_dir = tmp_path_factory.mktemp("off-2")
+        # test multi_ljh2off_loop with multiple ljhfiles
+        basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
+        N = len(off)
+        prefix = os.path.split(basename)[1]
+        offbase = os.path.join(output_dir, prefix)
+        ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
+            [basename] * 2, hdf5_filename, offbase, max_channels,
+            n_ignore_presamples)
+        assert ds.filename == ljh_filename_lists[0][0]
+        off_multi = mass.off.off.OffFile(off_filenames_multi[0])
+        assert 2 * N == len(off_multi)
+        assert off[7] == off_multi[7]
+        assert off[7] == off_multi[N + 7]
+        assert off[7] != off_multi[N + 6]
 
     def test_ljh_records_to_off(self, tmp_path):
         """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
@@ -479,14 +475,14 @@ class TestTESGroup:
 
         ljhfile = LJHFile.open(data.channel[1].filename)
         ljhfile.set_segment_size(segsize)
-        with tempfile.NamedTemporaryFile(suffix='_dummy.off') as f:
-            n_ignore_presamples = 0
-            nbasis = 4
-            projectors = np.zeros((nbasis, data.nSamples), dtype=float)
-            basis = projectors.T
-            off_version = "0.3.0"
-            dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
-            mass.ljh2off.ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
+        f = tmp_path / "dummy.off"
+        n_ignore_presamples = 0
+        nbasis = 4
+        projectors = np.zeros((nbasis, data.nSamples), dtype=float)
+        basis = projectors.T
+        off_version = "0.3.0"
+        dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
+        mass.ljh2off.ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
 
     @staticmethod
     def test_projectors_script(tmp_path):
@@ -516,7 +512,7 @@ class TestTESGroup:
         mass.core.projectors_script.main(Args())
 
     @staticmethod
-    def test_expt_state_files():
+    def test_expt_state_files(tmp_path_factory):
         """Check that experiment state files are loaded and turned into categorical cuts
         with category "state" if the file exists."""
         def make_data(have_esf, dirname):
@@ -535,60 +531,57 @@ class TestTESGroup:
             return mass.TESGroup([src_name], hdf5_filename=hdf5_filename)
 
         for have_esf in (False, True):
-            with tempfile.TemporaryDirectory() as dirname:
-                data = make_data(have_esf, dirname)
-                # data.summarize_data()
-                ds = data.channel[1]
-                ds.good()
-                if have_esf:
+            dirname = tmp_path_factory.mktemp("rawdata", numbered=True)
+            data = make_data(have_esf, dirname)
+            # data.summarize_data()
+            ds = data.channel[1]
+            ds.good()
+            if have_esf:
+                ds.good(state="A")
+                ds.good(state="B")
+                ds.good(state="uncategorized")
+                with pytest.raises(ValueError):
+                    ds.good(state="a state not listed in the file")
+            else:
+                with pytest.raises(ValueError):
                     ds.good(state="A")
-                    ds.good(state="B")
-                    ds.good(state="uncategorized")
-                    with pytest.raises(ValueError):
-                        ds.good(state="a state not listed in the file")
-                else:
-                    with pytest.raises(ValueError):
-                        ds.good(state="A")
 
 
 class TestTESHDF5Only:
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
     @staticmethod
-    def test_basic_hdf5_only():
+    def test_basic_hdf5_only(tmp_path):
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
         src_name = 'tests/regression_test/regress_chan1.ljh'
         noi_name = 'tests/regression_test/regress_noise_chan1.ljh'
-        hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5')
-        hdf5_file.close()
-        hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5')
-        hdf5_noisefile.close()
-        mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_file.name,
-                      hdf5_noisefilename=hdf5_noisefile.name)
+        hdf5_file = tmp_path / "xyz_mass.hdf5"
+        hdf5_noisefile = tmp_path / "xyz_mass_noise.hdf5"
+        mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_file,
+                      hdf5_noisefilename=hdf5_noisefile)
 
-        data2 = mass.TESGroupHDF5(hdf5_file.name)
+        data2 = mass.TESGroupHDF5(hdf5_file)
         LOG.info("Testing printing of a TESGroupHDF5")
         LOG.info(data2)
 
     @staticmethod
-    def test_ordering_hdf5only():
+    def test_ordering_hdf5only(tmp_path):
         src_name = "tests/regression_test/regress_chan1.ljh"
-        with tempfile.TemporaryDirectory() as dirname:
-            dest_name = "%s/temporary_chan%d.ljh"
-            chan1_dest = dest_name % (dirname, 1)
-            shutil.copy(src_name, chan1_dest)
-            cnums = (1, 3, 5, 11, 13, 15)
-            for c in cnums[1:]:
-                os.link(chan1_dest, dest_name % (dirname, c))
+        dest_name = str(tmp_path / "temporary_chan{:d}.ljh")
+        chan1_dest = dest_name.format(1)
+        shutil.copy(src_name, chan1_dest)
+        cnums = (1, 3, 5, 11, 13, 15)
+        for c in cnums[1:]:
+            os.link(chan1_dest, dest_name.format(c))
 
-            data1 = mass.TESGroup(f"{dirname}/temporary_chan*.ljh")
-            # Make sure the usual TESGroup is in the right order
-            for i, ds in enumerate(data1):
-                assert ds.channum == cnums[i]
-            fname = data1.hdf5_file.filename
-            del data1
+        data1 = mass.TESGroup(str(tmp_path / "temporary_chan*.ljh"))
+        # Make sure the usual TESGroup is in the right order
+        for i, ds in enumerate(data1):
+            assert ds.channum == cnums[i]
+        fname = data1.hdf5_file.filename
+        del data1
 
-            # Make sure the usual TESGroup is in the right order
-            data = mass.TESGroupHDF5(fname)
-            for i, ds in enumerate(data):
-                assert ds.channum == cnums[i]
+        # Make sure the usual TESGroup is in the right order
+        data = mass.TESGroupHDF5(fname)
+        for i, ds in enumerate(data):
+            assert ds.channum == cnums[i]

@@ -13,6 +13,7 @@ dependencies = [
     "dill",
     "fastdtw",
     "h5py>=2.7",
+    "indexedproperty",
     "lmfit>=0.9.11",
     "matplotlib>1.5",
     "numpy>=1.14",
