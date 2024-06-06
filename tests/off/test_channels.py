@@ -285,20 +285,19 @@ def test_bad_channels_skipped():
     assert n_exclude_bad == 0
 
 
-def test_save_load_recipes():
+def test_save_load_recipes(tmp_path):
     data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
     ds_local = data_local.firstGoodChannel()
     assert "energy" not in ds_local.__dict__, \
         "ds_local should not have energy yet, we haven't defined that recipe"
-    with tempfile.TemporaryDirectory() as tdir:
-        pklfilename = os.path.join(tdir, "recipe_book_save_test2.rbpkl")
-        data.saveRecipeBooks(pklfilename)
-        ds = data.firstGoodChannel()
-        ds.add5LagRecipes(np.zeros(996))
-        data_local.loadRecipeBooks(pklfilename)
-        for ds in data.values():
-            ds_local = data_local[ds.channum]
-            assert all(ds.energy == ds_local.energy)
+    pklfilename = str(tmp_path / "recipe_book_save_test2.rbpkl")
+    data.saveRecipeBooks(pklfilename)
+    ds = data.firstGoodChannel()
+    ds.add5LagRecipes(np.zeros(996))
+    data_local.loadRecipeBooks(pklfilename)
+    for ds in data.values():
+        ds_local = data_local[ds.channum]
+        assert all(ds.energy == ds_local.energy)
 
 
 def test_experiment_state_file_repeated_states():
@@ -343,11 +342,12 @@ def test_experiment_state_file_add_to_same_state_fake_esf():
     assert slice_after_update.stop == slice_before_update.stop + len(new_unixnanos)
 
 
-def test_experiment_state_file_add_to_same_state():
+def test_experiment_state_file_add_to_same_state(tmp_path):
     # First, we create an experiment state file, esf, with state labels A and B. Then, more records
     # are added to state B. This test verifies that the slice defining state B gets properly updated.
     # This uses a temporary file f just like a regular experiment state file.
-    f = tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8')
+    expstatefile = tmp_path / "esf_test.txt"
+    f = expstatefile.open(mode='w', encoding='utf-8')
     f.write('#\n')  # header
     f.write('0, A\n')    # state A starts at 0 unixnanos
     f.write('100, B\n')  # state B starts at 100 unixnanos
@@ -579,19 +579,17 @@ def test_open_many_OFF_files():
         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 
-def test_listmode_to_hdf5():
-    with tempfile.TemporaryDirectory() as tdir:
-        filename = data.outputHDF5Filename(outputDir=tdir, addToName="listmode")
-        with h5py.File(filename, "w") as h5:
-            data.energyTimestampLabelToHDF5(h5)
-        with h5py.File(filename, "r") as h5:
-            h5["3"]["Ar"]["unixnano"]
+def test_listmode_to_hdf5(tmp_path):
+    filename = data.outputHDF5Filename(outputDir=str(tmp_path), addToName="listmode")
+    with h5py.File(filename, "w") as h5:
+        data.energyTimestampLabelToHDF5(h5)
+    with h5py.File(filename, "r") as h5:
+        h5["3"]["Ar"]["unixnano"]
 
 
-def test_hists_to_hdf5():
-    with tempfile.TemporaryDirectory() as tdir:
-        filename = data.outputHDF5Filename(outputDir=tdir, addToName="hists")
-        with h5py.File(filename, "w") as h5:
-            data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")
-        with h5py.File(filename, "r") as h5:
-            h5["3"]["Ar"]["counts"]
+def test_hists_to_hdf5(tmp_path):
+    filename = data.outputHDF5Filename(outputDir=str(tmp_path), addToName="hists")
+    with h5py.File(filename, "w") as h5:
+        data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")
+    with h5py.File(filename, "r") as h5:
+        h5["3"]["Ar"]["counts"]

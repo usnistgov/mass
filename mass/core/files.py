@@ -187,6 +187,7 @@ class LJHFile(MicrocalFile):
 
         This is the appropriate way to create an `LJHFile` in normal usage.
         """
+        filename = str(filename)  # in case you pass in a pathlib.Path object
         header_dict, header_size = read_ljh_header(filename)
         version_str = header_dict[b'Save File Format Version']
 
