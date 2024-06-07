@@ -380,10 +380,10 @@ class TestTESGroup:
         data.summarize_data()
         data_inv.summarize_data()
         # pulse average should be negated
-        assert np.allclose(data[1].p_pulse_average, -data_inv[1].p_pulse_average)
+        assert np.allclose(data.channel[1].p_pulse_average, -data_inv.channel[1].p_pulse_average)
         # other summary quantities have more complex non-linear behavior with inversion
         # but at least should not be equal
-        assert not np.allclose(data[1].p_min_value, -data_inv[1].p_min_value)
+        assert not np.allclose(data.channel[1].p_min_value, -data_inv.channel[1].p_min_value)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):
