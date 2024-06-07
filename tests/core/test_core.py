@@ -391,9 +391,9 @@ class TestTESGroup:
         assert np.all(rawinv == raw2)
         assert np.all(rawinv == raw3)
 
-    def test_invert_data2(self, tmp_path):
-        data = self.load_data(hdf5dir=tmp_path, invert_data=False)
-        data_inv = self.load_data(hdf5dir=tmp_path, invert_data=True)
+    def test_invert_data2(self, tmp_path_factory):
+        data = self.load_data(hdf5dir=tmp_path_factory.mktemp("straight"), invert_data=False)
+        data_inv = self.load_data(hdf5dir=tmp_path_factory.mktemp("invert"), invert_data=True)
         data.summarize_data()
         data_inv.summarize_data()
         # pulse average should be negated
@@ -403,6 +403,8 @@ class TestTESGroup:
         # but at least should not be equal
         assert not np.allclose(data.channel[1].p_min_value[:], 
                                -data_inv.channel[1].p_min_value[:])
+        assert np.allclose(data.channel[1].p_pretrig_mean[:], 
+                           0xFFFF-data_inv.channel[1].p_pretrig_mean[:])
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):
