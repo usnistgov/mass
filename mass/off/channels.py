@@ -1159,7 +1159,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):  # noqa: PLR0904
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFileNames[0])
         return os.path.split(basename)[-1] + f" {len(self)} chans"
 
-    def add5LagRecipes(self, model_hdf5_path):
+    def add5LagRecipes(self, model_hdf5_path, invert_filter_5lag=False):
         with h5py.File(model_hdf5_path, "r") as h5:
             models = {int(ch): mass.pulse_model.PulseModel.fromHDF5(h5[ch]) for ch in h5.keys()}
         for channum, ds in self.items():
@@ -1167,6 +1167,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):  # noqa: PLR0904
             # where cba refers to the coefficiencts of a polynomial fit to the 5 lags of the filter
             ds.model = models[ds.channum]
             filter_5lag = ds.model.f_5lag
+            if invert_filter_5lag:
+                filter_5lag *= -1
             ds.add5LagRecipes(filter_5lag)
         return models
 

@@ -11,12 +11,12 @@ class PulseModel:
     Also has the capacity to store to and restore from HDF5, and the ability to compute additional
     basis elements and corresponding projectors with method _additional_projectors_tsvd"""
 
-    version = 2
+    version = 3
 
     def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd,  # noqa: PLR0917
                  v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name,
                  extra_n_basis_5lag, f_5lag, average_pulse_for_5lag, noise_psd, noise_psd_delta_f,
-                 noise_autocorr, _from_hdf5=False):
+                 noise_autocorr, invert, _from_hdf5=False):
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
         dn = n_basis - extra_n_basis_5lag
@@ -38,32 +38,34 @@ class PulseModel:
                     filters_5lag[i:, i] = projectors_so_far[2, 2:-2]
             self.projectors, self.basis = self._additional_projectors_tsvd(
                 self.projectors, self.basis, n_basis, filters_5lag)
+        self.f_5lag = f_5lag    
+        if invert and not _from_hdf5:
+            # flip every component except the mean component if data is being inverted
+            self.basis[:, 1:] *= -1
+            self.projectors[1:, :] *= -1   
+            self.f_5lag *= -1  
+       
 
         self.v_dv = v_dv
         self.pretrig_rms_median = pretrig_rms_median
         self.pretrig_rms_sigma = pretrig_rms_sigma
         self.file_name = str(file_name)
         self.extra_n_basis_5lag = extra_n_basis_5lag
-        self.f_5lag = f_5lag
+
         self.average_pulse_for_5lag = average_pulse_for_5lag
         self.noise_psd = noise_psd
         self.noise_psd_delta_f = noise_psd_delta_f
         self.noise_autocorr = noise_autocorr
+        self.invert = invert
 
-    def toHDF5(self, hdf5_group, save_inverted):
-        projectors, basis = self.projectors[()], self.basis[()]
-        if save_inverted:
-            # flip every component except the mean component if data is being inverted
-            basis[:, 1:] *= -1
-            projectors[1:, :] *= -1
-
+    def toHDF5(self, hdf5_group):
         # projectors is MxN, where N is samples/record and M the number of basis elements
         # basis is NxM
-        hdf5_group["svdbasis/projectors"] = projectors
-        hdf5_group["svdbasis/basis"] = basis
+        hdf5_group["svdbasis/projectors"] = self.projectors
+        hdf5_group["svdbasis/basis"] = self.basis
         hdf5_group["svdbasis/v_dv"] = self.v_dv
         hdf5_group["svdbasis/training_pulses_for_plots"] = self.pulses_for_svd
-        hdf5_group["svdbasis/was_saved_inverted"] = save_inverted
+        hdf5_group["svdbasis/invert"] = self.invert
         hdf5_group["svdbasis/pretrig_rms_median"] = self.pretrig_rms_median
         hdf5_group["svdbasis/pretrig_rms_sigma"] = self.pretrig_rms_sigma
         hdf5_group["svdbasis/version"] = self.version
@@ -92,12 +94,17 @@ class PulseModel:
         noise_psd = hdf5_group["svdbasis/noise_psd"][()]
         noise_psd_delta_f = hdf5_group["svdbasis/noise_psd_delta_f"][()]
         noise_autocorr = hdf5_group["svdbasis/noise_autocorr"][()]
+        if "invert" in hdf5_group["svdbasis"].keys():
+            # invert key wasn't in version 2 PulseModel
+            invert = hdf5_group["svdbasis/invert"][()]
+        else:
+            invert = False
 
         if version != cls.version:
             raise Exception(f"loading not implemented for other versions, version={version}")
         return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median,
                    pretrig_rms_sigma, file_name, extra_n_basis_5lag, f_5lag, average_pulse_for_5lag,
-                   noise_psd, noise_psd_delta_f, noise_autocorr, _from_hdf5=True)
+                   noise_psd, noise_psd_delta_f, noise_autocorr, invert, _from_hdf5=True)
 
     @staticmethod
     def _additional_projectors_tsvd(projectors, basis, n_basis, pulses_for_svd):

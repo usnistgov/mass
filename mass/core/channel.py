@@ -1396,7 +1396,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                                       v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename,
                                       extra_n_basis_5lag, f_5lag.filt_noconst,
                                       self.average_pulse[:], self.noise_psd[:], self.noise_psd.attrs['delta_f'],
-                                      self.noise_autocorr[:])
+                                      self.noise_autocorr[:], invert=self.invert_data)
         return self.pulse_model
 
     @_add_group_loop()
@@ -1408,9 +1408,8 @@ class MicrocalDataSet:  # noqa: PLR0904
         pulse_model = self.get_pulse_model(
             self.filter, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag,
             maximum_n_pulses=maximum_n_pulses, noise_weight_basis=noise_weight_basis, category=category)
-        save_inverted = self.invert_data
         hdf5_group = hdf5_file.create_group(f"{self.channum}")
-        pulse_model.toHDF5(hdf5_group, save_inverted)
+        pulse_model.toHDF5(hdf5_group)
 
     def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
         """Traditional 5-lag filter used by default until 2015."""
@@ -2195,10 +2194,11 @@ class MicrocalDataSet:  # noqa: PLR0904
 
         # Step 2: analyze *noise* so we know how to cut on pretrig rms postpeak_deriv
         pretrigger_rms = np.zeros(self.noise_records.nPulses)
+        max_deriv = np.zeros(self.noise_records.nPulses)
         for i in range(self.noise_records.nPulses):
             data = self.noise_records.datafile.alldata[i]
             pretrigger_rms[i] = data[:self.nPresamples].std()
-        max_deriv = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
+            max_deriv[i] = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
 
         # Multiply MAD by 1.4826 to get into terms of sigma, if distribution were Gaussian.
         md_med = np.median(max_deriv)

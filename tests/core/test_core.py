@@ -175,7 +175,7 @@ class TestTESGroup:
 
     @staticmethod
     def load_data(hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
-                  experimentStateFile=None, hdf5dir=None):
+                  experimentStateFile=None, hdf5dir=None, invert_data=False):
         if hdf5_filename is None or hdf5_noisefilename is None:
             assert hdf5dir is not None
         src_name = ['tests/regression_test/regress_chan1.ljh']
@@ -190,7 +190,8 @@ class TestTESGroup:
             hdf5_noisefilename = hdf5dir / "data_noise.hdf5"
         return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename,
-                             experimentStateFile=experimentStateFile)
+                             experimentStateFile=experimentStateFile,
+                             invert_data=invert_data)
 
     def test_readonly_view(self, tmp_path):
         """Make sure summarize_data() runs with a readonly memory view and small 'segments'.
@@ -363,7 +364,7 @@ class TestTESGroup:
         data.time_drift_correct()
 
     def test_invert_data(self, tmp_path):
-        data = self.load_data(hdf5dir=tmp_path)
+        data = self.load_data(hdf5dir=tmp_path, invert_data=False)
         ds = data.channel[1]
         rawinv = ~ds.alldata
 
@@ -372,6 +373,17 @@ class TestTESGroup:
         raw3 = ds.data[:]
         assert np.all(rawinv == raw2)
         assert np.all(rawinv == raw3)
+
+    def test_invert_data2(self, tmp_path):
+        data = self.load_data(hdf5dir=tmp_path, invert_data=False)
+        data_inv = self.load_data(hdf5dir=tmp_path, invert_data=True)
+        data.summarize_data()
+        data_inv.summarize_data()
+        # pulse average should be negated
+        assert np.allclose(data[1].p_pulse_average, -data_inv[1].p_pulse_average)
+        # other summary quantities have more complex non-linear behavior with inversion
+        # but at least should not be equal
+        assert not np.allclose(data[1].p_min_value, -data_inv[1].p_min_value)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):
@@ -585,3 +597,19 @@ class TestTESHDF5Only:
         data = mass.TESGroupHDF5(fname)
         for i, ds in enumerate(data):
             assert ds.channum == cnums[i]
+
+    def test_auto_cuts_nsigma_works(self, tmp_path):
+        """Make sure the threshold for autocuts scales with nsigma for both values"""
+        data = self.load_data(hdf5dir=tmp_path)
+        ds = data.first_good_dataset
+        ds.auto_cuts(nsigma_pt_rms=0, nsigma_max_deriv=0, forceNew=True, clearCuts=True)
+        a_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]
+        a_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]
+        ds.auto_cuts(nsigma_pt_rms=1, nsigma_max_deriv=1, forceNew=True, clearCuts=True)
+        b_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]-a_pd
+        b_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]-a_ptrms
+        ds.auto_cuts(nsigma_pt_rms=10, nsigma_max_deriv=10, forceNew=True, clearCuts=True)
+        c_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]-a_pd
+        c_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]-a_ptrms
+        assert 10*b_pd == pytest.approx(c_pd)
+        assert 10*b_ptrms == pytest.approx(c_ptrms)
