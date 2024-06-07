@@ -337,6 +337,23 @@ class TestTESGroup:
         assert ngood < ds.nPulses - arbcut.sum()
         assert ngood > 0
 
+    def test_auto_cuts_nsigma_works(self, tmp_path):
+        """Make sure the threshold for autocuts scales with nsigma for both values"""
+        data = self.load_data(hdf5dir=tmp_path)
+        ds = data.first_good_dataset
+        ds.auto_cuts(nsigma_pt_rms=0, nsigma_max_deriv=0, forceNew=True, clearCuts=True)
+        a_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]
+        a_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]
+        ds.auto_cuts(nsigma_pt_rms=1, nsigma_max_deriv=1, forceNew=True, clearCuts=True)
+        b_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]-a_pd
+        b_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]-a_ptrms
+        ds.auto_cuts(nsigma_pt_rms=10, nsigma_max_deriv=10, forceNew=True, clearCuts=True)
+        c_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]-a_pd
+        c_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]-a_ptrms
+        assert 10*b_pd == pytest.approx(c_pd)
+        assert 10*b_ptrms == pytest.approx(c_ptrms)
+
+
     def test_plot_filters(self, tmp_path):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
         data = self.load_data(hdf5dir=tmp_path)
@@ -380,10 +397,12 @@ class TestTESGroup:
         data.summarize_data()
         data_inv.summarize_data()
         # pulse average should be negated
-        assert np.allclose(data.channel[1].p_pulse_average, -data_inv.channel[1].p_pulse_average)
+        assert np.allclose(data.channel[1].p_pulse_average[:], 
+                           -data_inv.channel[1].p_pulse_average[:])
         # other summary quantities have more complex non-linear behavior with inversion
         # but at least should not be equal
-        assert not np.allclose(data.channel[1].p_min_value, -data_inv.channel[1].p_min_value)
+        assert not np.allclose(data.channel[1].p_min_value[:], 
+                               -data_inv.channel[1].p_min_value[:])
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):
@@ -598,18 +617,3 @@ class TestTESHDF5Only:
         for i, ds in enumerate(data):
             assert ds.channum == cnums[i]
 
-    def test_auto_cuts_nsigma_works(self, tmp_path):
-        """Make sure the threshold for autocuts scales with nsigma for both values"""
-        data = self.load_data(hdf5dir=tmp_path)
-        ds = data.first_good_dataset
-        ds.auto_cuts(nsigma_pt_rms=0, nsigma_max_deriv=0, forceNew=True, clearCuts=True)
-        a_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]
-        a_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]
-        ds.auto_cuts(nsigma_pt_rms=1, nsigma_max_deriv=1, forceNew=True, clearCuts=True)
-        b_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]-a_pd
-        b_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]-a_ptrms
-        ds.auto_cuts(nsigma_pt_rms=10, nsigma_max_deriv=10, forceNew=True, clearCuts=True)
-        c_pd = ds.saved_auto_cuts.__dict__["cuts_prm"]["postpeak_deriv"][1]-a_pd
-        c_ptrms = ds.saved_auto_cuts.__dict__["cuts_prm"]["pretrigger_rms"][1]-a_ptrms
-        assert 10*b_pd == pytest.approx(c_pd)
-        assert 10*b_ptrms == pytest.approx(c_ptrms)
