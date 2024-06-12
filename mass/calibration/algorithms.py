@@ -63,6 +63,36 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
 
     return np.array(x[lm]), np.array(y[lm])
 
+def find_opt_assignment_polynomial(peak_positions, line_names, nextra=2, nincrement=3, 
+                                   nextramax=8, maxacc=0.015, polydeg = 2):
+    name_e, e_e = line_names_and_energies(line_names)
+
+    nstart = len(line_names) + nextra  # number of peak_positions to use to line up to line_names
+    nmax = len(line_names) + nextramax
+    assert len(line_names) > polydeg, "no info gaind if polydeg is the same as or longer then the number of lines"
+
+    for n_sel_pp in range(nstart, nmax+nincrement, nincrement):
+        sel_positions = np.asarray(peak_positions[:n_sel_pp], dtype="float")
+        energies = np.asarray(e_e, dtype="float")
+        assignments = np.array(list(itertools.combinations(sel_positions, len(line_names))))
+        assignments.sort(axis=1)
+        residuals = np.zeros(assignments.shape[0])
+        for i_assign in range(assignments.shape[0]):
+            assignment = assignments[i_assign,:] # assignment is the list of pulse heights to be
+            # assigned to the list of energies
+            pfit, (residuals_sum_sq, rank, sv, rcond) = np.polynomial.Polynomial.fit(energies, assignment, 
+                                                                                deg=polydeg, full=True)
+            residuals[i_assign] = residuals_sum_sq
+        opt_i_assign = np.argmin(residuals)
+        best_residuals_sum_sq = residuals[opt_i_assign]
+        best_reduced_xi_sq = best_residuals_sum_sq/(len(line_names)-polydeg)
+        if best_reduced_xi_sq < maxacc:
+            return name_e, energies, list(assignments[opt_i_assign,:])
+
+    # if we get here we have no succesful assignments
+    msg = f"no peak assignment (polynomial) succeeded: {best_reduced_xi_sq=:g},  "\
+    f"{maxacc=:g}"
+    raise ValueError(msg)
 
 def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
     """Tries to find an assignment of peaks to line names that is reasonably self consistent and smooth
