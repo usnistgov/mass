@@ -100,6 +100,7 @@ def test_nsls2_2024():
         states=["CAL0"],
         ph_fwhm=50,
         line_names=["CKAlpha","NKAlpha","OKAlpha", "FeLAlpha", "NiLAlpha", "CuLAlpha"],
+            polynomial=True,
         maxacc=1e4
         )
     data.learnPhaseCorrection(uncorrectedName="filtValueDC",
@@ -112,6 +113,7 @@ def test_nsls2_2024():
         states=["CAL0"],
         ph_fwhm=50,
         line_names=["CKAlpha","NKAlpha","OKAlpha", "FeLAlpha", "NiLAlpha", "CuLAlpha"],
+        polynomial=True,
         maxacc=1e4
         )
     data.calibrateFollowingPlan("filtValue5LagDCPC", overwriteRecipe=True,

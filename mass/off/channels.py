@@ -673,7 +673,7 @@ class Channel(CorG):  # noqa: PLR0904
         return results
 
     @add_group_loop
-    def learnCalibrationPlanFromEnergiesAndPeaks(self, attr, states, ph_fwhm, line_names, maxacc, polynomial=True):
+    def learnCalibrationPlanFromEnergiesAndPeaks(self, attr, states, ph_fwhm, line_names, maxacc, polynomial=False):
         peak_ph_vals, _peak_heights = mass.algorithms.find_local_maxima(self.getAttr(attr, indsOrStates=states), ph_fwhm)
         if polynomial:
             _name_e, _energies_out, opt_assignments = mass.algorithms.find_opt_assignment_polynomial(peak_ph_vals, line_names, maxacc=maxacc)
