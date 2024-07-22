@@ -217,14 +217,14 @@ class TestTESGroup:
         results_python = {k: ds.__dict__[k][:] for k in ds.__dict__ if k.startswith("p_")}
 
         # Be sure the Cython and Python results are pretty close
-        for k in results_cython:
+        for k, cyresult in results_cython.items():
             # print(f"\n{k}:")
             # print(results_cython[k][:20])
             # print(results_python[k][:20])
             if np.any(np.isnan(results_python[k])):
                 continue
             # print((results_cython[k] / results_python[k])[:20])
-            assert results_cython[k] == pytest.approx(results_python[k], rel=0.003)
+            assert cyresult == pytest.approx(results_python[k], rel=0.003)
 
     def test_experiment_state(self, tmp_path_factory):
         # First test with the default experimentStateFile
