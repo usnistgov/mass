@@ -79,10 +79,10 @@ What is in a record?
 
 .. testoutput::
 
-  (1000, 496, 556055239, 1544035816785813000, 10914.036, 22.124851, 10929.741, -10357.827, 10609.358, [-47.434967,  -8.839941])
+  (1000, 496, 556055239, 1544035816785813000, 10914.036, 22.124851, 10929.741, -10357.827, 10609.358, [-47.434967, -8.839941])
   [('recordSamples', '<i4'), ('recordPreSamples', '<i4'), ('framecount', '<i8'), ('unixnano', '<i8'), ('pretriggerMean', '<f4'), ('residualStdDev', '<f4'), ('pulseMean', '<f4'), ('derivativeLike', '<f4'), ('filtValue', '<f4'), ('extraCoefs', '<f4', (2,))]
 
-recrods of off files numpy arrays with dtypes, which contain may filed. The exact set of fields depends on the off file version as they are still under heavy development. The projector coefficients are stored in "pulseMean", "derivativeLike", "filtValue" and "extraCoefs". You can access 
+records of off files numpy arrays with dtypes, which contain may filed. The exact set of fields depends on the off file version as they are still under heavy development. The projector coefficients are stored in "pulseMean", "derivativeLike", "filtValue" and "extraCoefs". You can access 
 
 Fields in OFF v3:
  - ``recordSamples`` - forward looking for when we implement varible length records, the actual number of samples used to calculate the coefficients

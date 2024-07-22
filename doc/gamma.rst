@@ -380,9 +380,9 @@ me know what you think about it.
   :options: +NORMALIZE_WHITESPACE
 
     	chan   3 fwhm=60.0 ± 1.8 (off)
-    	chan   3 fwhm=60.1 ± 1.8 (ljh)
-    	chan  13 fwhm=60.8 ± 2.0 (off)
-    	chan  13 fwhm=61.6 ± 1.9 (ljh)
+    	chan   3 fwhm=59.9 ± 1.8 (ljh)
+    	chan  13 fwhm=60.7 ± 1.9 (off)
+    	chan  13 fwhm=61.7 ± 1.9 (ljh)
 
 We also plot one fit from one channel for plain and off style.
 

@@ -55,7 +55,7 @@ a commonly injected gas at the NIST EBIT.
 
 .. testoutput::
 
-  ['Sn', 'Cu', 'Na', 'As', 'Zn', 'Ne', 'Ge', 'Ga', 'Rb', 'Se']
+  [np.str_('Sn'), np.str_('Cu'), np.str_('Na'), np.str_('As'), np.str_('Zn'), np.str_('Ne'), np.str_('Ge'), np.str_('Ga'), np.str_('Rb'), np.str_('Se')]
   [9, 1, 2, 3, 4, 5, 6, 7, 8, 10]
   {'1s 2S J=1/2': 0.0, '2p 2P* J=1/2': 1021.5, '2s 2S J=1/2': 1021.5, '2p 2P* J=3/2': 1022.0, '3p 2P* J=1/2': 1210.8, '3s 2S J=1/2': 1210.8}
   1021.5
@@ -131,7 +131,7 @@ and then add some of the lower order H- and He-like Ga lines.
 
 .. testoutput::
 
-  [SpectralLine: Ne10 2p 2P* J=3/2, 1022.0]
-  [SpectralLine: O7 1s.2p 1P* J=1, 574.0]
-  [[SpectralLine: Ga31 2p 2P* J=1/2, 9917.0], [SpectralLine: Ga31 2s 2S J=1/2, 9918.0], [SpectralLine: Ga31 2p 2P* J=3/2, 9960.3], [SpectralLine: Ga31 3p 2P* J=1/2, 11767.7], [SpectralLine: Ga31 3s 2S J=1/2, 11768.0], [SpectralLine: Ga31 3d 2D J=3/2, 11780.5]]
-  [[SpectralLine: Ga30 1s.2s 3S J=1, 9535.6], [SpectralLine: Ga30 1s.2p 3P* J=0, 9571.8], [SpectralLine: Ga30 1s.2p 3P* J=1, 9574.4], [SpectralLine: Ga30 1s.2s 1S J=0, 9574.6], [SpectralLine: Ga30 1s.2p 3P* J=2, 9607.4], [SpectralLine: Ga30 1s.2p 1P* J=1, 9628.2], [SpectralLine: Ga30 1s.3s 3S J=1, 11304.6]]
+  [SpectralLine: Ne10 2p 2P* J=3/2, np.float64(1022.0)]
+  [SpectralLine: O7 1s.2p 1P* J=1, np.float64(574.0)]
+  [[SpectralLine: Ga31 2p 2P* J=1/2, np.float64(9917.0)], [SpectralLine: Ga31 2s 2S J=1/2, np.float64(9918.0)], [SpectralLine: Ga31 2p 2P* J=3/2, np.float64(9960.3)], [SpectralLine: Ga31 3p 2P* J=1/2, np.float64(11767.7)], [SpectralLine: Ga31 3s 2S J=1/2, np.float64(11768.0)], [SpectralLine: Ga31 3d 2D J=3/2, np.float64(11780.5)]]
+  [[SpectralLine: Ga30 1s.2s 3S J=1, np.float64(9535.6)], [SpectralLine: Ga30 1s.2p 3P* J=0, np.float64(9571.8)], [SpectralLine: Ga30 1s.2p 3P* J=1, np.float64(9574.4)], [SpectralLine: Ga30 1s.2s 1S J=0, np.float64(9574.6)], [SpectralLine: Ga30 1s.2p 3P* J=2, np.float64(9607.4)], [SpectralLine: Ga30 1s.2p 1P* J=1, np.float64(9628.2)], [SpectralLine: Ga30 1s.3s 3S J=1, np.float64(11304.6)]]
