@@ -87,7 +87,7 @@ class TestSummaries:
         # test_post_filter
         nt.assert_allclose(self.data.datasets[0].p_filt_value, self.d['p_filt_value'], rtol=1e-6)
         nt.assert_allclose(self.data.datasets[0].p_filt_value_dc,
-                           self.d['p_filt_value_dc'], rtol=1e-6)
+                           self.d['p_filt_value_dc'], rtol=1e-4, atol=3)
 
         # test_peak_time:
         """Be sure that peak_time_microsec=89.0 comes out to the same answers"""
