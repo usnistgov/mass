@@ -56,4 +56,3 @@ mass = [
 
 [tool.setuptools_scm]
 version_file = "mass/_version.py"
-# just want to run tests
