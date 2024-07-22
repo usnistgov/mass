@@ -15,7 +15,7 @@ dependencies = [
     "indexedproperty",
     "lmfit>=0.9.11",
     "matplotlib>1.5",
-    "numpy>=1.14,<2.0",
+    "numpy>=1.14",
     "packaging",
     "palettable",
     "pandas",
