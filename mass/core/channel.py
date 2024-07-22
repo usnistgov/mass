@@ -1738,7 +1738,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
         self.p_filt_value_dc.attrs.update(self.drift_correct_info)  # Store in hdf5 file
-        LOG.info('chan %d best drift correction parameter: %.6f', self.channum, drift_corr_param)
+        LOG.info('chan %d best drift correction parameter: %.6fe6', self.channum, 1e6*drift_corr_param)
         self._apply_drift_correction(attr=attr)
 
     def _apply_drift_correction(self, attr):
