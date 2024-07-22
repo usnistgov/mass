@@ -1,5 +1,9 @@
 ## Note on version numbers of Mass
 
+**0.8.5** July 2024-
+
+* Fix problem where numpy 2.0 was failing a regression test. Not a true regression, so we broaden the acceptance criteria (issue 295).
+
 **0.8.4** June 5, 2024
 
 * Fix test failures on Py 3.12: store HDF5 cache files in temp directories, so tests don't share them. (issue 272). Correctly use the modern `tempfile` library's API.
