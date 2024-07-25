@@ -38,7 +38,7 @@ Virtual environments are easy to set up. They let you keep up with separate depe
 python3 -m venv ~/analysis
 source ~/analysis/bin/activate
 pip install --upgrade pip
-pip install -e git+ssh://git@github.com/usnistgov/mass.git#egg=mass
+pip install -e git+https://github.com/usnistgov/mass.git#egg=mass
 ```
 
 Comments on these commands:
