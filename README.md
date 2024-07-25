@@ -34,11 +34,17 @@ Mass requires Python version 3.8 or higher. (We test it automatically with versi
 ### 1. Virtual environment (recommended approach)
 
 Virtual environments are easy to set up. They let you keep up with separate dependencies for separate projects. However, you might want a more inclusive name, particularly on a data acquisition server. The venv you make should probably include MASS and other DAQ software. We used to use `qsp` (="quantum sensors project", though it's now a NIST division, not a project). The following assumes that you want your virtual environment to be named `analysis`
-```
+```bash
 python3 -m venv ~/analysis
 source ~/analysis/bin/activate
 pip install --upgrade pip
 pip install -e git+https://github.com/usnistgov/mass.git#egg=mass
+```
+
+
+The above (HTTPS) cloning method is probably simpler initially (no ssh setup), but users who contribute to MASS might prefer to set up password-free connections with an ssh key. For them, instead of using the last line above, contributors might want to use ssh-based cloning:
+```bash
+pip install -e git+ssh://git@github.com/usnistgov/mass.git#egg=mass
 ```
 
 Comments on these commands:
