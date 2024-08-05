@@ -208,7 +208,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,  #
         H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
         H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
         H2 = mass.mathstat.entropy.laplace_entropy(y + correction(x), kernel_width)
-        LOG.info("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)",
+        LOG.debug("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)",
                  H0, H1, H2, iter1, iter2, NBINS)
 
         curve = CubicSpline(knots - median_phase, peak - (yknot + yknot2))
