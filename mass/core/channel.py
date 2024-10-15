@@ -629,12 +629,12 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.times = None
         self.subframecount = None
 
-        self.number_of_rows = None
-        self.row_number = None
-        self.number_of_columns = None
-        self.column_number = None
-        self.subframe_divisions = None
-        self.subframe_offset = None
+        self.number_of_rows = 1
+        self.row_number = 0
+        self.number_of_columns = 1
+        self.column_number = 0
+        self.subframe_divisions = 1
+        self.subframe_offset = 0
         self.subframe_timebase = None
 
         self._filter_type = "ats"

@@ -4,6 +4,8 @@
 
 * Fix problem where numpy 2.0 was failing a regression test. Not a true regression, so we broaden the acceptance criteria (issue 295).
 * Add installation instructions to README for https-based installation, in addition to ssh-based.
+* Fix Ruff errors.
+* Fix bug when no number of rows is stored (for µMUX data) (issue 298).
 
 **0.8.4** June 5, 2024
 

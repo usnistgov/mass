@@ -585,3 +585,11 @@ class TestTESHDF5Only:
         data = mass.TESGroupHDF5(fname)
         for i, ds in enumerate(data):
             assert ds.channum == cnums[i]
+
+
+def test_ljh_norows():
+    """Make sure the LJH merge script works."""
+    src_name = os.path.join('tests', 'regression_test', 'partial_header_chan3.ljh')
+    data = mass.TESGroup(src_name)
+    ds = data.channel[3]
+    assert ds.subframe_divisions > 0
