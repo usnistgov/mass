@@ -974,12 +974,12 @@ class AlignBToA:
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         plt.figure()
-        plt.plot(self.bin_centers, counts_a, label="a: channel %i" % self.ds_a.channum)
+        plt.plot(self.bin_centers, counts_a, label=f"a: channel {self.ds_a.channum}")
         for i, pi in enumerate(self.peak_inds_a):
             plt.plot(self.bin_centers[pi], counts_a[pi], "o",
                      color=self.cm(float(i) / len(self.peak_inds_a)))
 
-        plt.plot(self.bin_centers, counts_b, label="b: channel %i" % self.ds_b.channum)
+        plt.plot(self.bin_centers, counts_b, label=f"b: channel {self.ds_b.channum}")
         for i, pi in enumerate(self.peak_inds_b):
             plt.plot(self.bin_centers[pi], counts_b[pi], "o",
                      color=self.cm(float(i) / len(self.peak_inds_b)))
@@ -1001,11 +1001,11 @@ class AlignBToA:
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         # breakpoint()
         plt.figure()
-        plt.plot(self.bin_centers, counts_a, label="a: channel %i" % self.ds_a.channum)
+        plt.plot(self.bin_centers, counts_a, label=f"a: channel {self.ds_a.channum}")
         for i, pi in enumerate(self.peak_inds_a):
             plt.plot(self.bin_centers[pi], counts_a[pi], "o",
                      color=self.cm(float(i) / len(self.peak_inds_a)))
-        plt.plot(self.bin_centers, counts_b, label="b: channel %i" % self.ds_b.channum)
+        plt.plot(self.bin_centers, counts_b, label=f"b: channel {self.ds_b.channum}")
         for i, pi in enumerate(self.peak_inds_a):
             plt.plot(self.bin_centers[pi], counts_b[pi], "o",
                      color=self.cm(float(i) / len(self.peak_inds_a)))

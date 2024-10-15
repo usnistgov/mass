@@ -410,7 +410,7 @@ class NaturalBsplineBasis:
 
     def __call__(self, x, id, der=0):
         if id < 0 or id >= self.Nk:
-            raise ValueError("Require 0 <= id < Nk=%d" % self.Nk)
+            raise ValueError(f"Require 0 <= id < Nk={self.Nk}")
         coef = np.zeros(self.Nk + 2, dtype=float)
         coef[id + 1] = 1.0
         if id < 2:
