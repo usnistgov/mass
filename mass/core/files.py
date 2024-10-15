@@ -296,8 +296,8 @@ class LJHFile(MicrocalFile):
             segmentsize = 2**24
         maxitems = segmentsize // self.pulse_size_bytes
         if maxitems < 1:
-            raise ValueError("segmentsize=%d is not permitted to be smaller than pulse record (%d bytes)" %
-                             (segmentsize, self.pulse_size_bytes))
+            raise ValueError(
+                f"segmentsize={segmentsize} is not permitted to be smaller than pulse record ({self.pulse_size_bytes} bytes)")
         self.segmentsize = maxitems * self.pulse_size_bytes
         self.pulses_per_seg = self.segmentsize // self.pulse_size_bytes
         self.n_segments = 1 + (self.binary_size - 1) // self.segmentsize

@@ -12,9 +12,6 @@ ljhdir = os.path.dirname(os.path.realpath(__file__))
 
 
 def process_file(prefix, cuts, do_filter=True):
-    channels = (1,)
-    pulse_files = [path.join(ljhdir, "%s_chan%d.ljh" % (prefix, c)) for c in channels]
-    noise_files = [path.join(ljhdir, "%s_noise_chan%d.ljh" % (prefix, c)) for c in channels]
     pulse_files = path.join(ljhdir, f"{prefix}_chan*.ljh")
     noise_files = path.join(ljhdir, f"{prefix}_noise_chan*.ljh")
 

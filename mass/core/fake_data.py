@@ -83,7 +83,7 @@ class FakeDataGenerator:
             data[i, :] = self.model * scale[i] + self.pretrig_level + \
                 0.5 + self.rng.standard_normal(self.n_samples) * self.white_noise
         vfile = VirtualFile(data, times=pulse_times)
-        vfile.filename = "virtual_file_chan%d.vtf" % channum
+        vfile.filename = f"virtual_file_chan{channum}.vtf"
         vfile.timebase = self.sample_time_us / 1e6
         vfile.nPresamples = self.n_presamples
         return vfile

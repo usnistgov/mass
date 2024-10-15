@@ -1270,7 +1270,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 plt.xlabel(x_attr, fontsize=8)
             plt.ylabel(y_attr, fontsize=8)
             ax.tick_params(axis='both', labelsize=8)
-            plt.title('MATTER Ch%d' % ch, fontsize=10)
+            plt.title(f'MATTER Chan {ch}', fontsize=10)
 
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)

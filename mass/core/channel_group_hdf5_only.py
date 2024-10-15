@@ -43,9 +43,9 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
                             single_channel_file.attrs["npulses"] = len(
                                 single_channel_file["filt_value"])
                         single_channel_file.attrs["filename"] = h5fname
-                master_hdf5_file["chan%i" % channum] = h5py.ExternalLink(h5fname, "/")
+                master_hdf5_file[f"chan{channum}"] = h5py.ExternalLink(h5fname, "/")
             except KeyError:
-                print("failed to load chan %d hdf5 only" % channum)
+                print(f"failed to load chan {channum} hdf5 only")
 
     return h5master_fname
 
