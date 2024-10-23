@@ -547,6 +547,14 @@ class TestTESGroup:
                     ds.good(state="A")
 
 
+def test_noiseonly():
+    """Check that you can set a channel bad in a noise-only TESGroup.
+    This tests for issue #301."""
+    noi_name = 'tests/regression_test/regress_noise_chan1.ljh'
+    data = mass.TESGroup(noi_name, noise_only=True)
+    data.set_chan_bad(1, "Just testing stuff")
+
+
 class TestTESHDF5Only:
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
