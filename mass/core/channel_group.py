@@ -1090,7 +1090,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             assert ds.pulse_records.pulses_per_seg == self.pulses_per_seg
 
     def plot_noise(self, axis=None, channels=None, cmap=None, scale_factor=1.0,
-                   sqrt_psd=False, legend=True, include_badchan=False):
+                   sqrt_psd=False, legend=True, include_badchan=False, include_dc=False):
         """Plot the noise power spectra.
 
         Args:
@@ -1099,6 +1099,8 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             sqrt_psd:     Whether to show the sqrt(PSD) or (by default) the PSD itself.
             cmap:         A matplotlib color map.  Defaults to something.
             legend (bool): Whether to plot the legend (default True)
+            include_badchan (bool): Whether to plot the bad channels (default False)
+            include_dc (bool): Whether to plot the DC bin (default False)
         """
 
         if axis is None:
@@ -1123,18 +1125,30 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         for i, ds in enumerate(dsets):
             channum = ds.channum
             yvalue = ds.noise_psd[:] * scale_factor**2
+            fmax = 0.0
+            fmin = 1e20
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
                 axis.set_ylabel(f"PSD$^{1 / 2}$ ({units}/Hz$^{1 / 2}$)")
             try:
                 df = ds.noise_psd.attrs['delta_f']
-                freq = np.arange(1, 1 + len(yvalue)) * df
-                axis.plot(freq, yvalue, label=f'Chan {channum}',
-                          color=cmap(float(i) / nplot))
+                freq = np.arange(len(yvalue)) * df
+                if include_dc:
+                    freq[0] = freq[1]*0.1
+                    axis.plot(freq, yvalue, label=f'Chan {channum}',
+                            color=cmap(float(i) / nplot))
+                    fmin = min(fmin, freq[0]*0.8)
+                else:
+                    axis.plot(freq[1:], yvalue[1:], label=f'Chan {channum}',
+                            color=cmap(float(i) / nplot))
+                    fmin = min(fmin, freq[1]*0.8)
+                fmax = max(fmax, freq[-1]*1.2)
             except Exception:
                 LOG.warning("WARNING: Could not plot channel %4d.", channum)
                 continue
-        axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
+        if fmax == 0:
+            raise ValueError("No datasets plotted successfully")
+        axis.set_xlim((fmin, fmax))
         axis.set_ylabel(f"Power Spectral Density ({units}^2/Hz)")
         axis.set_xlabel("Frequency (Hz)")
         axis.loglog()

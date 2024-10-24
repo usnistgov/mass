@@ -6,6 +6,7 @@
 * Add installation instructions to README for https-based installation, in addition to ssh-based.
 * Fix Ruff errors.
 * Allow setting channels bad when in noise-only mode (issue 301).
+* Make `plot_noise()` have the right x-axis (frequency) values (issue 303).
 
 **0.8.4** June 5, 2024
 
