@@ -199,7 +199,6 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'w')
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
-                self.hdf5_file = self.hdf5_noisefile
 
         # Load up experiment state file
         self.experimentStateFile = None
