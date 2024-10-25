@@ -7,6 +7,7 @@
 * Fix Ruff errors.
 * Allow setting channels bad when in noise-only mode (issue 301).
 * Make `plot_noise()` have the right x-axis (frequency) values (issue 303).
+* Add `EnergyCalibration.ismonotonic()` and test it (issue 305).
 
 **0.8.4** June 5, 2024
 

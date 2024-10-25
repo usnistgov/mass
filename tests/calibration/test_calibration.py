@@ -286,3 +286,21 @@ class TestJoeStyleEnergyCalibration:
             g4k = 40000 / cal(40000)
             assert g1k > 3.2
             assert g4k < 2.9
+
+    @staticmethod
+    def test_monotonic():
+        "Generate a cal curves that are and are not monotonic. Verify this."
+        names = ["CKAlpha", "NKAlpha", "OKAlpha", "FeLAlpha1", "NiLAlpha1", "CuLAlpha1"]
+        e = np.array([mass.STANDARD_FEATURES[n] for n in names])
+        ph1 = e * 10 / (1 + e / 2500)
+        ph2 = ph1.copy()
+        ph2[5] *= (ph2[5] / ph2[4])**(-0.85)
+        cal1 = mass.EnergyCalibration(curvetype="gain")
+        cal2 = mass.EnergyCalibration(curvetype="gain")
+        for p1, p2, n in zip(ph1, ph2, names):
+            cal1.add_cal_point(p1, n, pht_error=p1 * 1e-4)
+            cal2.add_cal_point(p2, n, pht_error=p2 * 1e-4)
+        print(cal1)
+        print(cal2)
+        assert cal1.ismonotonic()
+        assert not cal2.ismonotonic()
