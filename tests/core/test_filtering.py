@@ -245,6 +245,8 @@ def test_long_filter(tmp_path):
             "timebase": 10e-6,
             "channum": 1,
             "timestamp_offset": 0,
+            "subframe_divisions": 1,
+            "subframe_offset": 0,
         }
         ds = mass.MicrocalDataSet(pulserec, hdf5_group=g)
         nc = np.zeros(20000, dtype=float)

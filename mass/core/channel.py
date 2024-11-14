@@ -74,6 +74,8 @@ class NoiseRecords:
         self.n_segments = 0
         self.timebase = 0.0
         self.timestamp_offset = 0
+        self.subframe_divisions = 1
+        self.subframe_offset = 0
 
         self.datafile = None
         self.data = None
@@ -470,7 +472,8 @@ class PulseRecords:
 
         # Copy up some of the most important attributes
         for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum",
-                     "n_segments", "pulses_per_seg", "segmentsize", "timestamp_offset"):
+                     "n_segments", "pulses_per_seg", "segmentsize", "timestamp_offset",
+                     "subframe_offset", "subframe_divisions"):
             setattr(self, attr, getattr(self.datafile, attr))
 
     def __str__(self):
@@ -565,7 +568,7 @@ class MicrocalDataSet:  # noqa: PLR0904
 
     # Attributes that all such objects must have.
     expected_attributes = ("nSamples", "nPresamples", "nPulses", "timebase", "channum",
-                           "timestamp_offset")
+                           "timestamp_offset", "subframe_divisions", "subframe_offset")
     HDF5_CHUNK_SIZE = 256
 
     @property
@@ -605,6 +608,9 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.timebase = 0.0
         self.channum = None
         self.timestamp_offset = 0
+        self.subframe_divisions = None
+        self.subframe_offset = None
+        self.subframe_timebase = None
 
         self.filter = None
         self.lastUsedFilterHash = -1
@@ -629,13 +635,10 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.times = None
         self.subframecount = None
 
-        self.number_of_rows = 1
-        self.row_number = 0
-        self.number_of_columns = 1
-        self.column_number = 0
-        self.subframe_divisions = 1
-        self.subframe_offset = 0
-        self.subframe_timebase = None
+        self.number_of_rows = None
+        self.row_number = None
+        self.number_of_columns = None
+        self.column_number = None
 
         self._filter_type = "ats"
 
@@ -1046,10 +1049,10 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.p_promptness[idx_slice] = prompt
 
         self.p_rise_time[idx_slice] = mass.core.analysis_algorithms.estimateRiseTime(
-                all_data, timebase=self.timebase, nPretrig=self.nPresamples - self.cut_pre)
+            all_data, timebase=self.timebase, nPretrig=self.nPresamples - self.cut_pre)
 
         self.p_postpeak_deriv[idx_slice] = mass.core.analysis_algorithms.compute_max_deriv(
-                all_data, ignore_leading=self.peak_samplenumber - self.cut_pre)
+            all_data, ignore_leading=self.peak_samplenumber - self.cut_pre)
 
     def __parse_expt_states(self):
         """

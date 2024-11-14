@@ -253,7 +253,7 @@ class LJHFile(MicrocalFile):
         # in which case use 64 subframe divisions and offset of 0.
         default_offset = self.row_number
         default_divisions = self.number_of_rows
-        if default_divisions <= 0:
+        if default_divisions is None or default_divisions <= 0:
             default_divisions = 1
         if "Abaco" in self.source:
             # The external trigger file can override this, but assume 64 divisions at first.
@@ -261,8 +261,6 @@ class LJHFile(MicrocalFile):
             default_offset = 0
         self.subframe_divisions = int(header_dict.get(b"Subframe divisions", default_divisions))
         self.subframe_offset = int(header_dict.get(b"Subframe offset", default_offset))
-        if self.subframe_divisions <= 0:
-            self.subframe_divisions = 1
 
         self.version_str = header_dict[b'Save File Format Version']
         self.binary_size = os.stat(filename).st_size - self.header_size
