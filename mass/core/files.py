@@ -251,8 +251,10 @@ class LJHFile(MicrocalFile):
         # Read the new (Feb 2024) subframe information. If missing, assume the old TDM values pertain
         # (so # of rows -> subframe divisions, and row # -> subframe offset), unless source is Abaco,
         # in which case use 64 subframe divisions and offset of 0.
-        default_divisions = self.number_of_rows
         default_offset = self.row_number
+        default_divisions = self.number_of_rows
+        if default_divisions is None or default_divisions <= 0:
+            default_divisions = 1
         if "Abaco" in self.source:
             # The external trigger file can override this, but assume 64 divisions at first.
             default_divisions = 64
