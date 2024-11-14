@@ -1066,8 +1066,16 @@ class MicrocalDataSet:  # noqa: PLR0904
 
         state_codes = np.zeros(self.nPulses, dtype=np.uint32)
         for id, state in enumerate(slicedict.keys()):
-            slice = slicedict[state]
-            state_codes[slice.start:slice.stop] = id + 1
+            slices = slicedict[state]
+
+            # Ensure `slices` is a list of slices, even if it's a single slice
+            if not isinstance(slices, list):
+                slices = [slices]
+
+            # Assign codes for each slice in the list
+            for slice in slices:
+                state_codes[slice.start:slice.stop] = id + 1
+
         self.cuts.cut("state", state_codes)
 
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):

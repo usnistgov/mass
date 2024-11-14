@@ -251,6 +251,14 @@ class TestTESGroup:
         nfun = np.sum(ds.good(state="funstate"))
         assert nfun == 252
 
+        # Now test with an experimentStateFile that has a repeated state "PAUSE".
+        # This is a regression test on issue #309 (https://github.com/usnistgov/mass/issues/309)
+        # Until PR 308 (https://github.com/usnistgov/mass/pull/308), this was causing errors.
+        esf_rpt = "tests/regression_test/regress_experiment_state_repeats.txt"
+        data = self.load_data(experimentStateFile=esf_rpt, hdf5dir=tmp_path_factory.mktemp("3"))
+        ds = data.channel[1]
+        ds.summarize_data()
+
     def test_nonoise_data(self, tmp_path):
         """Test behavior of a TESGroup without noise data."""
         data = self.load_data(skip_noise=True, hdf5dir=tmp_path)
