@@ -75,11 +75,9 @@ class Filter:
         self.ns = len(avg_signal)
 
         if self.cut_pre < 0 or self.cut_post < 0:
-            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative" %
-                             (self.cut_pre, self.cut_post))
+            raise ValueError(f"(cut_pre,cut_post)=({self.cut_pre},{self.cut_post}), but neither can be negative")
         if self.cut_pre + self.cut_post >= self.ns - 2 * self.shorten:
-            raise ValueError("cut_pre+cut_post = %d but should be < %d" % (
-                             self.cut_pre + self.cut_post, self.ns - 2 * self.shorten))
+            raise ValueError(f"cut_pre+cut_post = {self.cut_pre + self.cut_post} but should be < {self.ns - 2 * self.shorten}")
 
         pre_avg = avg_signal[self.cut_pre:n_pretrigger - 1].mean()
 
@@ -153,8 +151,7 @@ class Filter:
             sig_ft = np.fft.rfft(self.avg_signal * window)
 
         if len(sig_ft) != n - self.shorten:
-            raise ValueError("signal real DFT and noise PSD are not the same length (%d and %d)" %
-                             (len(sig_ft), n))
+            raise ValueError(f"signal real DFT and noise PSD are not the same length ({len(sig_ft)} and {n})")
 
         # Careful with PSD: "shorten" it by converting into a real space autocorrelation,
         # truncating the middle, and going back to Fourier space
@@ -278,8 +275,7 @@ class Filter:
         """
 
         if len(noise) < len(q):
-            raise ValueError("Vector q (length %d) cannot be longer than the noise (length %d)" %
-                             (len(q), len(noise)))
+            raise ValueError(f"Vector q (length {len(q)}) cannot be longer than the noise (length {len(noise)})")
         n = len(q)
         r = np.zeros(2 * n - 1, dtype=float)
         r[n - 1:] = noise[:n]
@@ -335,7 +331,7 @@ class Filter:
                 fwhm_eV = std_energy / v_dv
                 print(f"{f} {v_dv=:.2f} {var=:.2f} {fwhm_eV=:.2f} at {std_energy=:.2f} eV")
             except KeyError:
-                print("%-20s not known" % f)
+                print(f"{f:20s} not known")
 
 
 class ArrivalTimeSafeFilter(Filter):
@@ -371,12 +367,10 @@ class ArrivalTimeSafeFilter(Filter):
             raise ValueError(
                 "Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
         if cut_pre < 0 or cut_post < 0:
-            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative" %
-                             (cut_pre, cut_post))
+            raise ValueError(f"(cut_pre,cut_post)=({self.cut_pre},{self.cut_post}), but neither can be negative")
         ns = self.pulsemodel.shape[0]
         if cut_pre + cut_post >= ns:
-            raise ValueError("cut_pre+cut_post = %d but should be < %d" % (
-                             cut_pre + cut_post, ns))
+            raise ValueError(f"cut_pre+cut_post = {cut_pre + cut_post} but should be < {ns}")
 
         self.fmax = fmax
         self.f_3db = f_3db

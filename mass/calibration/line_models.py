@@ -50,7 +50,7 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     nhi = min(10 * len(x), nhi)
     x_wide = np.arange(-nlow, nhi + len(x)) * energy_step + x[0]
     if len(x_wide) > 100000:
-        msg = "you're trying to FFT data of length %i (bad fit param?)" % len(x_wide)
+        msg = f"you're trying to FFT data of length {len(x_wide)} (bad fit param?)"
         raise ValueError(msg)
 
     freq = np.fft.rfftfreq(len(x_wide), d=energy_step)  # Units of 1/energy

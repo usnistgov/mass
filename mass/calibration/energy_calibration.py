@@ -411,6 +411,14 @@ class EnergyCalibration:  # noqa: PLR0904
     def cal_point_names(self):
         return self._names
 
+    @property
+    def ismonotonic(self):
+        "Is the curve monotonic from 0 to 1.05 times the max anchor point's pulse height?"
+        npoints = 1001
+        ph = np.linspace(0, 1.05 * self._ph.max(), npoints)
+        e = self(ph)
+        return np.all(np.diff(e) > 0)
+
     def _update_converters(self):
         """There is now one (or more) new data points. All the math goes on in this method."""
         # Sort in ascending energy order

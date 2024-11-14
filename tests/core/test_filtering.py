@@ -12,9 +12,6 @@ ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "regres
 
 def process_file(prefix, cuts, do_filter=True):
     """Returns a TESGroup given the file prefix; preloads a set of cuts."""
-    channels = (1,)
-    pulse_files = [os.path.join(ljhdir, "%s_chan%d.ljh" % (prefix, c)) for c in channels]
-    noise_files = [os.path.join(ljhdir, "%s_noise_chan%d.ljh" % (prefix, c)) for c in channels]
     pulse_files = os.path.join(ljhdir, f"{prefix}_chan*.ljh")
     noise_files = os.path.join(ljhdir, f"{prefix}_noise_chan*.ljh")
 

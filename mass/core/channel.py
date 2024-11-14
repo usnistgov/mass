@@ -360,7 +360,7 @@ class NoiseRecords:
                                                  max_excursion=max_excursion)
 
         if self.hdf5_group is not None:
-            grp = self.hdf5_group.require_group("reclen%d" % n_lags)
+            grp = self.hdf5_group.require_group(f"reclen{n_lags}")
             ds = grp.require_dataset("autocorrelation", shape=(n_lags,), dtype=np.float64)
             ds[:] = self.autocorrelation[:]
 
@@ -477,9 +477,9 @@ class PulseRecords:
             setattr(self, attr, getattr(self.datafile, attr))
 
     def __str__(self):
-        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
-            self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
-            1e6 * self.timebase)
+        line1 = f"{self.__class__.__name__} path '{self.filename}'\n"
+        line2 = f"{self.nSamples} samples ({self.nPresamples} pretriggger) at {1e6 * self.timebase:.2f} µs sample time"
+        return "\n".join((line1, line2))
 
     def __repr__(self):
         return f"{self.__class__.__name__}('{self.filename}')"
@@ -860,9 +860,9 @@ class MicrocalDataSet:  # noqa: PLR0904
                 "run tes_group.calc_external_trigger_timing before accessing this")
 
     def __str__(self):
-        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
-            self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
-            1e6 * self.timebase)
+        line1 = f"{self.__class__.__name__} path '{self.filename}'\n"
+        line2 = f"{self.nSamples} samples ({self.nPresamples} pretriggger) at {1e6 * self.timebase:.2f} µs sample time"
+        return "\n".join((line1, line2))
 
     def __repr__(self):
         return f"{self.__class__.__name__}('{self.filename}')"
@@ -880,8 +880,7 @@ class MicrocalDataSet:  # noqa: PLR0904
 
     def resize(self, nPulses):
         if self.nPulses < nPulses:
-            raise ValueError("Can only shrink using resize(), but the requested size %d is larger than current %d" %
-                             (nPulses, self.nPulses))
+            raise ValueError(f"Can only shrink using resize(), but the requested size {nPulses} > than current {self.nPulses}")
         self.nPulses = nPulses
         self.__setup_vectors()
 
@@ -1912,7 +1911,7 @@ class MicrocalDataSet:  # noqa: PLR0904
 
     @property
     def pkl_fname(self):
-        return ljh_util.mass_folder_from_ljh_fname(self.filename, filename="ch%d_calibration.pkl" % self.channum)
+        return ljh_util.mass_folder_from_ljh_fname(self.filename, filename=f"ch{self.channum}_calibration.pkl")
 
     @_add_group_loop()
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,  # noqa: PLR0917
@@ -1959,7 +1958,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         if calname is None:
             calname = attr
         if calname not in self.calibration:
-            raise ValueError("For chan %d calibration %s does not exist" % (self.channum, calname))
+            raise ValueError(f"For chan {self.channum} calibration {calname} does not exist")
         cal = self.calibration[calname]
         self.p_energy[:] = cal.ph2energy(getattr(self, attr))
         self.last_used_calibration = cal
@@ -2054,10 +2053,9 @@ class MicrocalDataSet:  # noqa: PLR0904
                       linestyle=linestyle, alpha=alpha, linewidth=linewidth)
             if pulse_summary and pulses_plotted < MAX_TO_SUMMARIZE and len(self.p_pretrig_mean) >= pn:
                 try:
-                    summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f" % (
-                        cutchar, pn, self.p_pretrig_mean[pn], self.p_pretrig_rms[pn],
-                        self.p_postpeak_deriv[pn], self.p_rise_time[pn] * 1e6,
-                        self.p_peak_value[pn], self.p_pulse_average[pn])
+                    summary = f"{cutchar}{pn:6d}: {self.p_pretrig_mean[pn]:5.0f} {self.p_pretrig_rms[pn]:7.2f} "
+                    summary += f"{self.p_postpeak_deriv[pn]:6.1f} {self.p_rise_time[pn] * 1e6:5.0f} "
+                    summary += f"{self.p_peak_value[pn]:5.0f} {self.p_pulse_average[pn]:7.1f}"
                 except IndexError:
                     pulse_summary = False
                     continue
@@ -2115,7 +2113,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         plt.xlabel("energy (eV)")
         plt.ylabel("energy resolution fwhm (eV)")
         plt.grid("on")
-        plt.title("chan %d cal comparison" % self.channum)
+        plt.title(f"chan {self.channum} cal comparison")
 
     def count_rate(self, goodonly=False, bin_s=60):
         g = self.cuts.good()
@@ -2142,12 +2140,11 @@ class MicrocalDataSet:  # noqa: PLR0904
                 bad2 = self.cuts.bad(c2)
                 n_and = np.logical_and(bad1, bad2).sum()
                 n_or = np.logical_or(bad1, bad2).sum()
-                print("%6d (and) %6d (or) pulses cut by [%s and/or %s]" %
-                      (n_and, n_or, c1.upper(), c2.upper()))
+                print(f"{n_and:6d} (and) %{n_or:6d} (or) pulses cut by [{c1.upper()} and/or {c2.upper()}]")
         print()
         for cut_name in boolean_fields:
-            print("%6d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
-        print("%6d pulses total" % self.nPulses)
+            print("{self.cuts.bad(cut_name).sum():6d} pulses cut by {cut_name.upper()}")
+        print(f"{self.nPulses:6d} pulses total")
 
     @_add_group_loop()
     def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False, clearCuts=True):
@@ -2367,7 +2364,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                     if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
                         h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
                     else:
-                        msg = "Channel %d skipping crosstalk cuts: no nearest neighbors matching criteria" % self.channum
+                        msg = f"Channel {self.channum} skipping crosstalk cuts: no nearest neighbors matching criteria"
                         LOG.info(msg)
 
                 else:
@@ -2378,14 +2375,12 @@ class MicrocalDataSet:  # noqa: PLR0904
                         selectNeighbors = subgroupNeighbors[:, 0][np.isin(
                             subgroupNeighbors[:, 2], nearestNeighborsDistances)]
                         if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
-                            LOG.info('Checking crosstalk between channel %d and %s neighbors...' % (
-                                self.channum, neighborCategory))
+                            LOG.info(f'Checking crosstalk between channel {self.channum} and {neighborCategory} neighbors...')
                             h5grp[categoryField][:] = crosstalk_flagging_loop(selectNeighbors)
                             h5grp[crosstalk_key][:] = np.logical_or(
                                 h5grp[crosstalk_key], h5grp[categoryField])
                         else:
-                            msg = "channel %d skipping %s crosstalk cuts because" % (
-                                self.channum, neighborCategory)
+                            msg = f"channel {self.channum} skipping {neighborCategory} crosstalk cuts because"
                             msg += " no nearest neighbors matching criteria in category"
                             LOG.info(msg)
 

@@ -402,7 +402,7 @@ class Cuts:
         for (category, catbool) in booldict.items():
             labels[catbool] = category_names[category]
         for (category, catbool) in booldict.items():
-            if not all(labels[booldict[category]] == category_names[category]):
+            if not all(labels[catbool] == category_names[category]):
                 raise ValueError(f"bools passed for {category} conflict with some other")
         self.cut(field, labels)
 
@@ -633,7 +633,7 @@ class Cuts:
         return g
 
     def __repr__(self):
-        return "Cuts(%d)" % len(self._mask)
+        return f"Cuts({len(self._mask)})"
 
     def __str__(self):
-        return "Cuts(%d) with %d cut and %d uncut" % (len(self._mask), self.bad().sum(), self.good().sum())
+        return f"Cuts({len(self._mask)}) with {self.bad().sum()} cut and {self.good().sum()} uncut"

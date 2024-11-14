@@ -392,8 +392,8 @@ class TestTESGroup:
             ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
             data.phase_correct(method2017=True, forceNew=True, save_to_hdf5=False)
             if ds.channum not in data.good_channels:
-                raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)" %
-                                 (NBINS - lowestbin, lowestbin))
+                raise ValueError(
+                    f"Failed issue156 test with {NBINS - lowestbin} valid bins (lowestbin={lowestbin})")
 
     @staticmethod
     def test_noncontinuous_noise():
@@ -545,6 +545,14 @@ class TestTESGroup:
             else:
                 with pytest.raises(ValueError):
                     ds.good(state="A")
+
+
+def test_noiseonly():
+    """Check that you can set a channel bad in a noise-only TESGroup.
+    This tests for issue #301."""
+    noi_name = 'tests/regression_test/regress_noise_chan1.ljh'
+    data = mass.TESGroup(noi_name, noise_only=True)
+    data.set_chan_bad(1, "Just testing stuff")
 
 
 class TestTESHDF5Only:
