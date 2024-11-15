@@ -6,8 +6,7 @@ import numpy as np
 import scipy as sp
 import matplotlib.pylab as plt
 
-import mass
-import mass.mathstat.toeplitz
+from mass.mathstat.toeplitz import ToeplitzSolver
 
 
 def band_limit(modelmatrix, sample_time, fmax, f_3db):
@@ -81,14 +80,15 @@ class Filter:
 
         pre_avg = avg_signal[self.cut_pre:n_pretrigger - 1].mean()
 
-        # If signal is negative-going,
+        # Find signal's peak value. This is normally peak=(max-pretrigger).
+        # If signal is negative-going, however, then peak=(pretrigger-min).
         a = avg_signal[self.cut_pre:self.ns - self.cut_post].min()
         b = avg_signal[self.cut_pre:self.ns - self.cut_post].max()
-        is_negative = (a - pre_avg) / (b - pre_avg) < -1
+        is_negative = pre_avg - a > b - pre_avg
         if is_negative:
-            self.peak_signal = avg_signal[self.cut_pre:self.ns - self.cut_post].min() - pre_avg
+            self.peak_signal = a - pre_avg
         else:
-            self.peak_signal = avg_signal[self.cut_pre:self.ns - self.cut_post].max() - pre_avg
+            self.peak_signal = b - pre_avg
 
         # self.avg_signal is normalized to have unit peak
         self.avg_signal = (avg_signal - pre_avg) / self.peak_signal
@@ -199,8 +199,6 @@ class Filter:
 
         <fmax>  The strict maximum frequency to be passed in all filters.
         <f_3db> The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-        <cut_pre> Cut this many samples from the start of the filter, giving them 0 weight.
-        <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
 
         Either or both of <fmax> and <f_3db> are allowed.
         """
@@ -227,7 +225,7 @@ class Filter:
             avg_signal = self.avg_signal
 
         noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
-        TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
+        TS = ToeplitzSolver(noise_corr, symmetric=True)
         Rinv_sig = TS(avg_signal)
         Rinv_1 = TS(np.ones(n))
         self.filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
@@ -237,11 +235,11 @@ class Filter:
             band_limit(self.filt_noconst, self.sample_time, self.fmax, self.f_3db)
 
         self.normalize_filter(self.filt_noconst)
-        self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
+        self.variances['noconst'] = self.bracketR(self.filt_noconst, self.noise_autocorr)
 
         self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_1 - Rinv_sig.sum() * Rinv_sig
         self.filt_baseline /= self.filt_baseline.sum()
-        self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
+        self.variances['baseline'] = self.bracketR(self.filt_baseline, self.noise_autocorr)
 
         try:
             Rpretrig = sp.linalg.toeplitz(
@@ -264,7 +262,7 @@ class Filter:
                 [np.zeros(self.cut_pre), self.filt_baseline_pretrig])
 
         for key in self.variances.keys():
-            self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
+            self.predicted_v_over_dv[key] = self.peak_signal / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
     @staticmethod
     def bracketR(q, noise):
@@ -346,12 +344,12 @@ class ArrivalTimeSafeFilter(Filter):
             raise ValueError(f"{self.__class__.__name__} requires either noise_autocorr or whitener to be set")
         noise_psd = None
 
-        avg_signal = pulsemodel[:, 0]
+        avg_signal = pulsemodel[:, 0] * peak
         self.pulsemodel = pulsemodel
-        self.peak = peak
         super(self.__class__, self).__init__(
             avg_signal, n_pretrigger, noise_psd, noise_autocorr=noise_autocorr,
             whitener=whitener, sample_time=sample_time, shorten=0)
+        self.peak = peak
 
     def compute(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         """Compute a single filter.
@@ -393,7 +391,7 @@ class ArrivalTimeSafeFilter(Filter):
             assert self.noise_autocorr is not None
             assert len(self.noise_autocorr) >= n
             noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
-            TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
+            TS = ToeplitzSolver(noise_corr, symmetric=True)
 
             RinvM = np.vstack([TS(r) for r in MT]).T
             A = np.dot(MT, RinvM)
@@ -418,11 +416,12 @@ class ArrivalTimeSafeFilter(Filter):
         self.filt_aterms *= scale
         Ainv *= self.peak**-2
 
-        self.variances['noconst'] = Ainv[0, 0]
-        self.variances['baseline'] = Ainv[-1, -1]
+        R = self.noise_autocorr
+        self.variances['noconst'] = self.bracketR(self.filt_noconst, R)
+        self.variances['baseline'] = self.bracketR(self.filt_baseline, R)
 
         for key in self.variances.keys():
-            self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
+            self.predicted_v_over_dv[key] = self.peak_signal / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
 
 class ExperimentalFilter(Filter):
@@ -506,7 +505,7 @@ class ExperimentalFilter(Filter):
             chebyx = np.linspace(-1, 1, n)
 
             R = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
-            ts = mass.mathstat.toeplitz.ToeplitzSolver(R, symmetric=True)
+            ts = ToeplitzSolver(R, symmetric=True)
 
             unit = np.ones(n)
             exps = np.exp(-expx / self.tau)
