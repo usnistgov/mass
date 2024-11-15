@@ -235,11 +235,11 @@ class Filter:
             band_limit(self.filt_noconst, self.sample_time, self.fmax, self.f_3db)
 
         self.normalize_filter(self.filt_noconst)
-        self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
+        self.variances['noconst'] = self.bracketR(self.filt_noconst, self.noise_autocorr)
 
         self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_1 - Rinv_sig.sum() * Rinv_sig
         self.filt_baseline /= self.filt_baseline.sum()
-        self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
+        self.variances['baseline'] = self.bracketR(self.filt_baseline, self.noise_autocorr)
 
         try:
             Rpretrig = sp.linalg.toeplitz(
@@ -262,7 +262,7 @@ class Filter:
                 [np.zeros(self.cut_pre), self.filt_baseline_pretrig])
 
         for key in self.variances.keys():
-            self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
+            self.predicted_v_over_dv[key] = self.peak_signal / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
     @staticmethod
     def bracketR(q, noise):
@@ -344,12 +344,12 @@ class ArrivalTimeSafeFilter(Filter):
             raise ValueError(f"{self.__class__.__name__} requires either noise_autocorr or whitener to be set")
         noise_psd = None
 
-        avg_signal = pulsemodel[:, 0]
+        avg_signal = pulsemodel[:, 0] * peak
         self.pulsemodel = pulsemodel
-        self.peak = peak
         super(self.__class__, self).__init__(
             avg_signal, n_pretrigger, noise_psd, noise_autocorr=noise_autocorr,
             whitener=whitener, sample_time=sample_time, shorten=0)
+        self.peak = peak
 
     def compute(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         """Compute a single filter.
@@ -416,11 +416,12 @@ class ArrivalTimeSafeFilter(Filter):
         self.filt_aterms *= scale
         Ainv *= self.peak**-2
 
-        self.variances['noconst'] = Ainv[0, 0]
-        self.variances['baseline'] = Ainv[-1, -1]
+        R = self.noise_autocorr
+        self.variances['noconst'] = self.bracketR(self.filt_noconst, R)
+        self.variances['baseline'] = self.bracketR(self.filt_baseline, R)
 
         for key in self.variances.keys():
-            self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
+            self.predicted_v_over_dv[key] = self.peak_signal / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
 
 class ExperimentalFilter(Filter):

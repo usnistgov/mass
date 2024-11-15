@@ -11,6 +11,7 @@
 * Add `EnergyCalibration.ismonotonic()` and test it (issue 305).
 * Fix errors when an experiment state appears 2+ times, as "PAUSE" often does (issue 309).
 * Start testing on Python 3.13 (was 3.12) and oldest valid version: 3.9.
+* Fix errors in the computation of V/dV and estimated variance for optimal filters (issue 307).
 
 **0.8.4** June 5, 2024
 
