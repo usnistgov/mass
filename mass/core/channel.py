@@ -1185,7 +1185,7 @@ class MicrocalDataSet:  # noqa: PLR0904
             spectrum = self.noise_spectrum.spectrum()
         except Exception:
             spectrum = self.noise_psd[:]
-        avg_signal = np.array(self.average_pulse)
+        avg_signal = self.average_pulse[:]
         if np.sum(np.abs(self.average_pulse)) == 0:
             raise Exception("average pulse is all zeros, try avg_pulses_auto_masks first")
         f = mass.core.Filter(avg_signal, self.nPresamples - self.pretrigger_ignore_samples,
