@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.8.5** July 2024-
+**0.8.5** November 15, 2024
 
 * Fix problem where numpy 2.0 was failing a regression test. Not a true regression, so we broaden the acceptance criteria (issue 295).
 * Add installation instructions to README for https-based installation, in addition to ssh-based.
