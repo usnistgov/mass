@@ -1,5 +1,9 @@
 ## Note on version numbers of Mass
 
+**0.8.6** November, 2024-
+
+* Refactor filter code to use modern Python and MASS practices, and less spaghetti (issue 312).
+
 **0.8.5** November 15, 2024
 
 * Fix problem where numpy 2.0 was failing a regression test. Not a true regression, so we broaden the acceptance criteria (issue 295).

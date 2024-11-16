@@ -3,6 +3,7 @@ Contains classes to do time-domain optimal filtering.
 """
 
 import numpy as np
+import numpy.typing as npt
 import scipy as sp
 import matplotlib.pylab as plt
 
@@ -430,49 +431,57 @@ class ToeplitzWhitener:
     For an ARMA(p,q) noise model, mutliply by (or solve) the matrix W (or its
     transpose), where W is the Toeplitz approximation to the whitening matrix V.
     A whitening matrix V means that if R is the ARMA noise covariance matrix,
-    then VRV' = I. While W is only approximately equal to V, it has some handy
+    then VRV' = I. While W only approximately satisfies this, it has some handy
     properties that make it a useful replacement. (In particular, it has the
     time-transpose property that if you zero-pad the beginning of vector v and
-    shift the remaining elements, then the same is doen to Wv.)
+    shift the remaining elements, then the same is done to Wv.)
 
     The callable function object returns Wv or WM if called with
     vector v or matrix M. Other methods:
 
-    * `tw.whiten(v)` returns Wv, equivalent to `tw(v)`
+    * `tw.whiten(v)` returns Wv; it is equivalent to `tw(v)`
     * `tw.solveWT(v)` returns inv(W')*v
     * `tw.applyWT(v)` returns W'v
     * `tw.solveW(v)` returns inv(W)*v
     """
 
-    def __init__(self, thetacoef, phicoef):
+    def __init__(self, thetacoef: npt.ArrayLike, phicoef: npt.ArrayLike):
         """Initialize using the coefficients `thetacoef` of the MA process
         and `phicoef` of the AR process.
+
+        Parameters
+        ----------
+        thetacoef : npt.ArrayLike
+            The moving-average (MA) process coefficients
+        phicoef : npt.ArrayLike
+            The autoregressive (AR) process coefficients
         """
         self.theta = np.array(thetacoef)
         self.phi = np.array(phicoef)
         self.p = len(phicoef) - 1
         self.q = len(thetacoef) - 1
 
-    def whiten(self, v):
+    def whiten(self, v: npt.ArrayLike) -> np.ndarray:
         "Return whitened vector (or matrix of column vectors) Wv"
         return self(v)
 
-    def __call__(self, v):
+    def __call__(self, v: npt.ArrayLike) -> np.ndarray:
         "Return whitened vector (or matrix of column vectors) Wv"
         if v.ndim > 3:
-            raise ValueError("v must be dimension 1 or 2")
+            raise ValueError("v must be an array of dimension 1 or 2")
         elif v.ndim == 2:
             w = np.zeros_like(v)
             for i in range(v.shape[1]):
                 w[:, i] = self(v[:, i])
             return w
 
-        N = len(v)
         # Multiply by the Toeplitz AR matrix to make the MA*w vector.
+        N = len(v)
         y = self.phi[0] * v
         for i in range(1, 1 + self.p):
             y[i:] += self.phi[i] * v[:-i]
-        # Second, solve the MA matrix (also a banded Toeplitz matrix with
+
+        # Second, solve the MA matrix (a banded, lower-triangular Toeplitz matrix with
         # q non-zero subdiagonals.)
         y[0] /= self.theta[0]
         if N == 1:
@@ -487,7 +496,7 @@ class ToeplitzWhitener:
             y[i] /= self.theta[0]
         return y
 
-    def solveW(self, v):
+    def solveW(self, v: npt.ArrayLike) -> np.ndarray:
         "Return unwhitened vector (or matrix of column vectors) inv(W)*v"
         if v.ndim > 3:
             raise ValueError("v must be dimension 1 or 2")
@@ -497,13 +506,14 @@ class ToeplitzWhitener:
                 r[:, i] = self.solveW(v[:, i])
             return r
 
-        N = len(v)
         # Multiply by the Toeplitz MA matrix to make the AR*w vector.
+        N = len(v)
         y = self.theta[0] * v
         for i in range(1, 1 + self.q):
             y[i:] += self.theta[i] * v[:-i]
-        # Second, solve the AR matrix (also a banded Toeplitz matrix with
-        # q non-zero subdiagonals.)
+
+        # Second, solve the AR matrix (a banded, lower-triangular Toeplitz matrix with
+        # p non-zero subdiagonals.)
         y[0] /= self.phi[0]
         if N == 1:
             return y
@@ -517,7 +527,7 @@ class ToeplitzWhitener:
             y[i] /= self.phi[0]
         return y
 
-    def solveWT(self, v):
+    def solveWT(self, v: npt.ArrayLike) -> np.ndarray:
         "Return vector (or matrix of column vectors) inv(W')*v"
         if v.ndim > 3:
             raise ValueError("v must be dimension 1 or 2")
@@ -536,7 +546,7 @@ class ToeplitzWhitener:
             y[i] /= self.phi[0]
         return np.correlate(y, self.theta, "full")[self.q:]
 
-    def applyWT(self, v):
+    def applyWT(self, v: npt.ArrayLike) -> np.ndarray:
         """Return vector (or matrix of column vectors) W'v"""
         if v.ndim > 3:
             raise ValueError("v must be dimension 1 or 2")
@@ -555,8 +565,8 @@ class ToeplitzWhitener:
             y[i] /= self.theta[0]
         return np.correlate(y, self.phi, "full")[self.p:]
 
-    def W(self, N):
-        """Return the full whitening matrix.
+    def W(self, N: int) -> np.ndarray:
+        """Return the full, approximate whitening matrix.
 
         Normally the full W is large and slow to use. But it's here so you can
         easily test that W(len(v))*v == whiten(v), and similar.
