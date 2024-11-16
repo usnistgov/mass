@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
 import mass
-import pylab as plt
 
 from mass.mathstat.power_spectrum import computeSpectrum
 

@@ -3,34 +3,52 @@ Contains classes to do time-domain optimal filtering.
 """
 
 import numpy as np
-import numpy.typing as npt
 import scipy as sp
 import matplotlib.pylab as plt
+import numpy.typing as npt
+from typing import Optional
 
 from mass.mathstat.toeplitz import ToeplitzSolver
 
 
-def band_limit(modelmatrix, sample_time, fmax, f_3db):
+def band_limit(modelmatrix: npt.ArrayLike, sample_time: float, fmax: Optional[float], f_3db: Optional[float]):
     """Band-limit the column-vectors in a model matrix with a hard and/or
-    1-pole low-pass filter.
+    1-pole low-pass filter. Change the input `modelmatrix` in-place.
+
+    No effect if both `fmax` and `f_3db` are `None`.
+
+    Parameters
+    ----------
+    modelmatrix : npt.ArrayLike
+        The 1D or 2D array to band-limit. (If a 2D array, columns are independently band-limited)
+    sample_time : float
+        The sampling period
+    fmax : Optional[float]
+        The hard maximum frequency (units are inverse of `sample_time` units)
+    f_3db : Optional[float]
+        The 1-pole low-pass filter's 3 dB point (same units as `fmax`)
     """
+    if fmax is None and f_3db is None:
+        return
 
     assert len(modelmatrix.shape) <= 2
     if len(modelmatrix.shape) == 2:
         for i in range(modelmatrix.shape[1]):
             band_limit(modelmatrix[:, i], sample_time, fmax, f_3db)
-    else:
-        vector = modelmatrix
-        filt_length = len(vector)
-        sig_ft = np.fft.rfft(vector)
-        freq = np.fft.fftfreq(filt_length, d=sample_time)
-        freq = np.abs(freq[:len(sig_ft)])
-        if fmax is not None:
-            sig_ft[freq > fmax] = 0.0
-        if f_3db is not None:
-            sig_ft /= (1. + (1.0 * freq / f_3db)**2)
-        vector[:] = np.fft.irfft(sig_ft, n=filt_length)
-        # n=filt_length is needed when filt_length is ODD
+        return
+
+    vector = modelmatrix
+    filt_length = len(vector)
+    sig_ft = np.fft.rfft(vector)
+    freq = np.fft.fftfreq(filt_length, d=sample_time)
+    freq = np.abs(freq[:len(sig_ft)])
+    if fmax is not None:
+        sig_ft[freq > fmax] = 0.0
+    if f_3db is not None:
+        sig_ft /= (1. + (1.0 * freq / f_3db)**2)
+
+    # n=filt_length is needed when filt_length is ODD
+    vector[:] = np.fft.irfft(sig_ft, n=filt_length)
 
 
 class Filter:
