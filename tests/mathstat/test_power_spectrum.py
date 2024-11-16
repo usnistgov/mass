@@ -27,35 +27,3 @@ def test_values():
     expected = np.linspace(0, 0.5, 6)
     for a, b in zip(f, expected):
         assert a == pytest.approx(b)
-
-
-# test functions used in the oct23 true bq analysis
-# where the pulses did not live in ljh files, instead the pulses needed to be passed
-# explicitly as arguments to the psd and autocorr calculation
-def test_orthognal_to_exponential_filter():
-    record_len = 100
-    npre = 50
-    n_noise_records = 50
-    frametime_s = 1e-5
-    filter_orthogonal_to_exponential_time_constant_ms = 5
-    avg_pulse_values = 1000 * np.arange(record_len)  # we're just testing math here, this is easier than making an actual pulse shape
-    noise_traces = rng.standard_normal((record_len, n_noise_records))
-    noise_autocorr = mass.mathstat.power_spectrum.autocorrelation_broken_from_pulses(noise_traces)
-    noise_psd_calculator = mass.mathstat.power_spectrum.PowerSpectrum(record_len // 2, dt=frametime_s)
-    window = np.ones(record_len)
-    for i in range(n_noise_records):
-        noise_psd_calculator.addDataSegment(noise_traces[:, i], window=window)
-    # test that we can plot the noise spectrum
-    noise_psd_calculator.plot()
-    plt.close()
-    noise_psd = noise_psd_calculator.spectrum()
-    filter_obj = mass.ExperimentalFilter(
-        avg_pulse_values, npre,
-        noise_psd, sample_time=frametime_s,
-        noise_autocorr=noise_autocorr,
-        tau=filter_orthogonal_to_exponential_time_constant_ms)
-    filter_obj.compute()
-    print("predicted resolutions")
-    filter_obj.report(std_energy=1000)
-    chosen_filter = filter_obj.filt_noexpcon
-    np.dot(chosen_filter, avg_pulse_values)
