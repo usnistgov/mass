@@ -1136,11 +1136,11 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 if include_dc:
                     freq[0] = freq[1] * 0.1
                     axis.plot(freq, yvalue, label=f'Chan {channum}',
-                            color=cmap(float(i) / nplot))
+                              color=cmap(float(i) / nplot))
                     fmin = min(fmin, freq[0] * 0.8)
                 else:
                     axis.plot(freq[1:], yvalue[1:], label=f'Chan {channum}',
-                            color=cmap(float(i) / nplot))
+                              color=cmap(float(i) / nplot))
                     fmin = min(fmin, freq[1] * 0.8)
                 fmax = max(fmax, freq[-1] * 1.2)
             except Exception:

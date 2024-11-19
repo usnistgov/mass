@@ -210,7 +210,7 @@ def test_dc_insensitive():
     dt = 6.72e-6
 
     fnew = mass.ArrivalTimeSafeFilter(
-        model, nPresamples, fake_noise, whitener, dt, np.max(pulse_like))
+        model, nPresamples, fake_noise, whitener=whitener, sample_time=dt, peak=np.max(pulse_like))
     fold = mass.Filter(pulse_like, nPresamples, noise_autocorr=fake_noise, sample_time=dt)
     fnew.name = "AT Safe filter"
     fold.name = "Classic filter"

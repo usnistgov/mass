@@ -3,7 +3,6 @@ Contains classes to do time-domain optimal filtering.
 """
 
 import numpy as np
-import scipy as sp
 import matplotlib.pylab as plt
 import numpy.typing as npt
 from typing import Optional
@@ -31,6 +30,7 @@ def band_limit(modelmatrix: npt.ArrayLike, sample_time: float, fmax: Optional[fl
     if fmax is None and f_3db is None:
         return
 
+    modelmatrix = np.asarray(modelmatrix)
     assert len(modelmatrix.shape) <= 2
     if len(modelmatrix.shape) == 2:
         for i in range(modelmatrix.shape[1]):
@@ -476,8 +476,8 @@ class ToeplitzWhitener:
         """
         self.theta = np.array(thetacoef)
         self.phi = np.array(phicoef)
-        self.p = len(phicoef) - 1
-        self.q = len(thetacoef) - 1
+        self.p = len(self.phi) - 1
+        self.q = len(self.theta) - 1
 
     def whiten(self, v: npt.ArrayLike) -> np.ndarray:
         "Return whitened vector (or matrix of column vectors) Wv"
@@ -485,6 +485,7 @@ class ToeplitzWhitener:
 
     def __call__(self, v: npt.ArrayLike) -> np.ndarray:
         "Return whitened vector (or matrix of column vectors) Wv"
+        v = np.asarray(v)
         if v.ndim > 3:
             raise ValueError("v must be an array of dimension 1 or 2")
         elif v.ndim == 2:
@@ -516,6 +517,7 @@ class ToeplitzWhitener:
 
     def solveW(self, v: npt.ArrayLike) -> np.ndarray:
         "Return unwhitened vector (or matrix of column vectors) inv(W)*v"
+        v = np.asarray(v)
         if v.ndim > 3:
             raise ValueError("v must be dimension 1 or 2")
         elif v.ndim == 2:
@@ -547,6 +549,7 @@ class ToeplitzWhitener:
 
     def solveWT(self, v: npt.ArrayLike) -> np.ndarray:
         "Return vector (or matrix of column vectors) inv(W')*v"
+        v = np.asarray(v)
         if v.ndim > 3:
             raise ValueError("v must be dimension 1 or 2")
         elif v.ndim == 2:
@@ -566,6 +569,7 @@ class ToeplitzWhitener:
 
     def applyWT(self, v: npt.ArrayLike) -> np.ndarray:
         """Return vector (or matrix of column vectors) W'v"""
+        v = np.asarray(v)
         if v.ndim > 3:
             raise ValueError("v must be dimension 1 or 2")
         elif v.ndim == 2:
