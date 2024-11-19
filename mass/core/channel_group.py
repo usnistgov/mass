@@ -1012,7 +1012,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         for i, ds in enumerate(self):
             try:
                 if ds.filter is not None:
-                    rms = ds.filter.variances[filter_name]**0.5
+                    rms = ds.filter.variance**0.5
                 else:
                     rms = ds.hdf5_group[f'filters/filt_{filter_name}'].attrs['variance']**0.5
                 v_dv = (1 / rms) / rms_fwhm

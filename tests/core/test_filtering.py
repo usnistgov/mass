@@ -76,10 +76,8 @@ class TestFilters:
         expected = {"ats": 458.5, "5lag": 456.7}[filter_type]
         for ds in data:
             f = ds.filter
-            assert "noconst" in f.variances
-            assert "noconst" in f.predicted_v_over_dv
-            assert f.variances["noconst"] == pytest.approx(155.1, abs=0.2)
-            assert f.predicted_v_over_dv["noconst"] == pytest.approx(expected, abs=0.3)
+            assert f.variance == pytest.approx(155.1, abs=0.2)
+            assert f.predicted_v_over_dv == pytest.approx(expected, abs=0.3)
 
     def test_vdv_5lag_filters(self):
         """Make sure old filters have a v/dv"""

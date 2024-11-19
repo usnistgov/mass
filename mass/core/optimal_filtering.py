@@ -5,7 +5,8 @@ Contains classes to do time-domain optimal filtering.
 import numpy as np
 import matplotlib.pylab as plt
 import numpy.typing as npt
-from typing import Optional
+from typing import Optional, Callable
+from dataclasses import dataclass
 
 from mass.mathstat.toeplitz import ToeplitzSolver
 
@@ -51,14 +52,24 @@ def band_limit(modelmatrix: npt.ArrayLike, sample_time: float, fmax: Optional[fl
     vector[:] = np.fft.irfft(sig_ft, n=filt_length)
 
 
+@dataclass
 class Filter:
-    """A set of optimal filters based on a single signal and noise set."""
+    """An optimal filter based on a single signal and noise set."""
 
-    def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,  # noqa: PLR0917
-                 whitener=None, sample_time=None, shorten=0, cut_pre=0, cut_post=0):
+    signal_model: npt.ArrayLike
+    n_pretrigger: int
+    noise_autocorr: npt.ArrayLike = None
+    noise_psd: npt.ArrayLike = None
+    whitener: Callable = None
+    sample_time: float = 0.0
+    peak: float = 0.0
+    shorten: int = 0
+    cut_pre: int = 0
+    cut_post: int = 0
+    remove_dc: bool = True
+
+    def __post_init__(self):
         """Create a set of filters under various assumptions and for various purposes.
-
-        Note that you now have to call Filter.compute() yourself to compute the filters.
 
         Arguments:
 
@@ -86,71 +97,65 @@ class Filter:
                 samples from each end.  (Do this for convenience of convolution over
                 multiple lags.)
         """
-        self.sample_time = sample_time
-        self.shorten = shorten
-        self.cut_pre = cut_pre
-        self.cut_post = cut_post
-        self.ns = len(avg_signal)
+        self.ns = self.signal_model.shape[0]
+        if len(self.signal_model.shape) > 1:
+            self.ncomponents = self.signal_model.shape[1]
+        else:
+            self.ncomponents = 1
+            self.signal_model = self.signal_model.reshape((self.ns, 1))
 
         if self.cut_pre < 0 or self.cut_post < 0:
             raise ValueError(f"(cut_pre,cut_post)=({self.cut_pre},{self.cut_post}), but neither can be negative")
         if self.cut_pre + self.cut_post >= self.ns - 2 * self.shorten:
             raise ValueError(f"cut_pre+cut_post = {self.cut_pre + self.cut_post} but should be < {self.ns - 2 * self.shorten}")
 
-        pre_avg = avg_signal[self.cut_pre:n_pretrigger - 1].mean()
+        avg_signal = self.signal_model[:, 0]
+        pre_avg = avg_signal[self.cut_pre:self.n_pretrigger - 1].mean()
 
         # Find signal's peak value. This is normally peak=(max-pretrigger).
         # If signal is negative-going, however, then peak=(pretrigger-min).
-        a = avg_signal[self.cut_pre:self.ns - self.cut_post].min()
-        b = avg_signal[self.cut_pre:self.ns - self.cut_post].max()
-        is_negative = pre_avg - a > b - pre_avg
-        if is_negative:
-            self.peak_signal = a - pre_avg
+        if self.peak > 0.0:
+            self.peak_signal = self.peak
         else:
-            self.peak_signal = b - pre_avg
+            a = avg_signal[self.cut_pre:self.ns - self.cut_post].min()
+            b = avg_signal[self.cut_pre:self.ns - self.cut_post].max()
+            is_negative = pre_avg - a > b - pre_avg
+            if is_negative:
+                self.peak_signal = a - pre_avg
+            else:
+                self.peak_signal = b - pre_avg
 
         # self.avg_signal is normalized to have unit peak
         self.avg_signal = (avg_signal - pre_avg) / self.peak_signal
-        self.avg_signal[:n_pretrigger] = 0.0
+        self.avg_signal[:self.n_pretrigger] = 0.0
         self.avg_signal = self.avg_signal[self.cut_pre:self.ns - self.cut_post]
 
-        self.n_pretrigger = n_pretrigger
-        if noise_psd is None:
-            self.noise_psd = None
-        else:
-            self.noise_psd = np.asarray(noise_psd)
-        if noise_autocorr is None:
-            self.noise_autocorr = None
-        else:
-            self.noise_autocorr = np.asarray(noise_autocorr[:self.ns - (self.cut_pre + self.cut_post)])
-        self.whitener = whitener
-        if noise_psd is None and noise_autocorr is None and whitener is None:
+        # Make sure we have either a noise PSD or an autocorrelation or a whitener
+        if self.noise_psd is None and self.noise_autocorr is None and self.whitener is None:
             raise ValueError("Filter must have noise_psd, noise_autocorr, or whitener arguments")
 
-        self.filt_fourier = None
-        self.filt_fourierfull = None
-        self.filt_noconst = None
-        self.filt_baseline = None
-        self.filt_baseline_pretrig = None
+        # If there's an autocorrelation, cut it down to length.
+        if self.noise_autocorr is not None:
+            self.noise_autocorr = self.noise_autocorr[:self.ns - (self.cut_pre + self.cut_post)]
 
-        self.variances = {}
-        self.predicted_v_over_dv = {}
+        self.variance = 0.0
+        self.predicted_v_over_dv = 0.0
 
-    def normalize_filter(self, q):
-        """Rescale filter <q> in-place so that it gives unit response to self.avg_signal"""
-        if len(q) == len(self.avg_signal):
-            q *= 1 / np.dot(q, self.avg_signal)
+    def normalize_filter(self, f):
+        """Rescale filter `f` in-place so that it gives unit response to self.avg_signal"""
+        if len(f) == len(self.avg_signal):
+            f *= 1 / np.dot(f, self.avg_signal)
         elif self.shorten >= 2:
             conv = np.zeros(5, dtype=float)
             for i in range(5):
-                conv[i] = np.dot(q, self.avg_signal[i:i + len(q)])
+                conv[i] = np.dot(f, self.avg_signal[i:i + len(f)])
             x = np.arange(-2, 2.1)
             fit = np.polyfit(x, conv, 2)
             fit_ctr = -0.5 * fit[1] / fit[0]
             fit_peak = np.polyval(fit, fit_ctr)
-            q *= 1.0 / fit_peak
+            f *= 1.0 / fit_peak
         else:
-            q *= 1.0 / np.dot(q, self.avg_signal[self.shorten:-self.shorten])
+            f *= 1.0 / np.dot(f, self.avg_signal[self.shorten:-self.shorten])
 
     def _compute_fourier_filter(self):
         """Compute the Fourier-domain filter."""
@@ -203,14 +208,14 @@ class Filter:
         if self.noise_autocorr is None:
             noise_ft_squared = (len(self.noise_psd) - 1) / self.sample_time * self.noise_psd
             kappa = (np.abs(sig_ft * self.peak_signal)**2 / noise_ft_squared)[:].sum()
-            self.variances['fourierfull'] = 1. / kappa
+            self.variance_fourierfull = 1. / kappa
 
             kappa = (np.abs(sig_ft * self.peak_signal)**2 / noise_ft_squared)[1:].sum()
-            self.variances['fourier'] = 1. / kappa
+            self.variance_fourier = 1. / kappa
         else:
             ac = self.noise_autocorr[:len(self.filt_fourier)].copy()
-            self.variances['fourier'] = self.bracketR(self.filt_fourier, ac) / self.peak_signal**2
-            self.variances['fourierfull'] = self.bracketR(
+            self.variance_fourier = self.bracketR(self.filt_fourier, ac) / self.peak_signal**2
+            self.variance_fourierfull = self.bracketR(
                 self.filt_fourierfull, ac) / self.peak_signal**2
 
     def compute(self, fmax=None, f_3db=None):
@@ -227,7 +232,7 @@ class Filter:
 
         self.fmax = fmax
         self.f_3db = f_3db
-        self.variances = {}
+        self.variance = 0.0
 
         # Have not implemented cut_pre and cut_post for old fourier filtering routine.
         if self.cut_pre == 0 and self.cut_post == 0:
@@ -254,22 +259,7 @@ class Filter:
             band_limit(self.filt_noconst, self.sample_time, self.fmax, self.f_3db)
 
         self.normalize_filter(self.filt_noconst)
-        self.variances['noconst'] = self.bracketR(self.filt_noconst, self.noise_autocorr)
-
-        self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_1 - Rinv_sig.sum() * Rinv_sig
-        self.filt_baseline /= self.filt_baseline.sum()
-        self.variances['baseline'] = self.bracketR(self.filt_baseline, self.noise_autocorr)
-
-        try:
-            Rpretrig = sp.linalg.toeplitz(
-                self.noise_autocorr[:self.n_pretrigger - self.cut_pre] / self.peak_signal**2)
-            self.filt_baseline_pretrig = np.linalg.solve(
-                Rpretrig, np.ones(self.n_pretrigger - self.cut_pre))
-            self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
-            self.variances['baseline_pretrig'] = self.bracketR(
-                self.filt_baseline_pretrig, Rpretrig[0, :])
-        except sp.linalg.LinAlgError:
-            pass
+        self.variance = self.bracketR(self.filt_noconst, self.noise_autocorr)
 
         # Set weights in the cut_pre and cut_post windows to 0
         if self.cut_pre > 0 or self.cut_post > 0:
@@ -280,8 +270,7 @@ class Filter:
             self.filt_baseline_pretrig = np.hstack(
                 [np.zeros(self.cut_pre), self.filt_baseline_pretrig])
 
-        for key in self.variances.keys():
-            self.predicted_v_over_dv[key] = self.peak_signal / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
+        self.predicted_v_over_dv = self.peak_signal / (np.sqrt(np.log(2) * 8) * self.variance**0.5)
 
     @staticmethod
     def bracketR(q, noise):
@@ -311,64 +300,43 @@ class Filter:
         except AttributeError:
             pass
 
-    def report(self, filters=None, std_energy=5898.8):
-        """Report on V/dV for all filters
+    def report(self, std_energy=5898.8):
+        """Report on V/dV for the filter
 
         Args:
-            <filters>   Either the name of one filter or a sequence of names.  If not given, then all filters
-                not starting with "baseline" will be reported.
-
             <std_energy> Energy (in eV) of a "standard" pulse.  Resolution will be given in eV at this energy,
                 assuming linear devices.
         """
-
-        # Handle <filters> is a single string --> convert to tuple of 1 string
-        def isstr(x):
-            return isinstance(x, ("".__class__, "".__class__))
-
-        if isstr(filters):
-            filters = (filters,)
-
-        # Handle default <filters> not given.
-        if filters is None:
-            filters = list(self.variances.keys())
-            for f in self.variances:
-                if f.startswith("baseline"):
-                    filters.remove(f)
-            filters.sort()
-
-        for f in filters:
-            try:
-                var = self.variances[f]
-                if var < 0:
-                    v_dv = np.nan  # don't want to take a sqrt of negative number
-                    # avoid printing warnings
-                else:
-                    v_dv = var**(-.5) / np.sqrt(8 * np.log(2))
-                fwhm_eV = std_energy / v_dv
-                print(f"{f} {v_dv=:.2f} {var=:.2f} {fwhm_eV=:.2f} at {std_energy=:.2f} eV")
-            except KeyError:
-                print(f"{f:20s} not known")
+        var = self.variance
+        if var < 0:
+            v_dv = np.nan  # don't want to take a sqrt of negative number
+            # avoid printing warnings
+        else:
+            v_dv = var**(-.5) / np.sqrt(8 * np.log(2))
+        fwhm_eV = std_energy / v_dv
+        print(f"{v_dv=:.2f} {var=:.2f} {fwhm_eV=:.2f} at {std_energy=:.2f} eV")
 
 
+@dataclass
 class ArrivalTimeSafeFilter(Filter):
-    """Compute a filter for pulses given a pulse model expressed as a
+    """An optimal filter based on a single signal and noise set, with "arrival-time-safe" properties.
+
+    Compute a filter for pulses given a pulse model expressed as a
     polynomial in "arrival time". The filter will be insensitive to the
     linear (and any higher-order) terms.
     """
 
-    def __init__(self, pulsemodel, n_pretrigger, noise_autocorr=None,
-                 whitener=None, sample_time=None, peak=1.0):
-        if noise_autocorr is None and whitener is None:
-            raise ValueError(f"{self.__class__.__name__} requires either noise_autocorr or whitener to be set")
-        noise_psd = None
-
-        avg_signal = pulsemodel[:, 0] * peak
-        self.pulsemodel = pulsemodel
-        super(self.__class__, self).__init__(
-            avg_signal, n_pretrigger, noise_psd, noise_autocorr=noise_autocorr,
-            whitener=whitener, sample_time=sample_time, shorten=0)
-        self.peak = peak
+    signal_model: npt.ArrayLike
+    n_pretrigger: int
+    noise_autocorr: npt.ArrayLike = None
+    noise_psd: npt.ArrayLike = None
+    whitener: Callable = None
+    sample_time: float = 0.0
+    peak: float = 1.0
+    shorten: int = 0
+    cut_pre: int = 0
+    cut_post: int = 0
+    remove_dc: bool = True
 
     def compute(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         """Compute a single filter.
@@ -385,17 +353,17 @@ class ArrivalTimeSafeFilter(Filter):
                 "Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
         if cut_pre < 0 or cut_post < 0:
             raise ValueError(f"(cut_pre,cut_post)=({self.cut_pre},{self.cut_post}), but neither can be negative")
-        ns = self.pulsemodel.shape[0]
+        ns = self.signal_model.shape[0]
         if cut_pre + cut_post >= ns:
             raise ValueError(f"cut_pre+cut_post = {cut_pre + cut_post} but should be < {ns}")
 
         self.fmax = fmax
         self.f_3db = f_3db
-        self.variances = {}
+        self.variance
 
         n = len(self.avg_signal) - 2 * self.shorten
         unit = np.ones(n)
-        MT = np.vstack((self.pulsemodel.T, unit))
+        MT = np.vstack((self.signal_model.T, unit))
         MT = MT[:, cut_pre:n - cut_post]
         n -= (cut_pre + cut_post)
 
@@ -436,11 +404,9 @@ class ArrivalTimeSafeFilter(Filter):
         Ainv *= self.peak**-2
 
         R = self.noise_autocorr
-        self.variances['noconst'] = self.bracketR(self.filt_noconst, R)
-        self.variances['baseline'] = self.bracketR(self.filt_baseline, R)
+        self.variance = self.bracketR(self.filt_noconst, R)
 
-        for key in self.variances.keys():
-            self.predicted_v_over_dv[key] = self.peak_signal / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
+        self.predicted_v_over_dv = self.peak_signal / (np.sqrt(np.log(2) * 8) * self.variance**0.5)
 
 
 class ToeplitzWhitener:

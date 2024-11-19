@@ -787,8 +787,9 @@ class MicrocalDataSet:  # noqa: PLR0904
         elif filter_type == "5lag":
             self.filter = Filter(self.average_pulse[...],
                                  self.nPresamples - self.pretrigger_ignore_samples,
+                                 self.noise_autocorr,
                                  self.noise_psd[...],
-                                 self.noise_autocorr, sample_time=self.timebase,
+                                 sample_time=self.timebase,
                                  shorten=shorten)
         else:
             raise Exception(f"filter_type={filter_type}, must be `ats` or `5lag`")
@@ -802,10 +803,9 @@ class MicrocalDataSet:  # noqa: PLR0904
                 filter_ds = filter_group[k]
                 setattr(self.filter, k, filter_ds[...])
                 if 'variance' in filter_ds.attrs:
-                    self.filter.variances[k.split("filt_")[1]] = filter_ds.attrs['variance']
+                    self.filter.variance = filter_ds.attrs['variance']
                 if 'predicted_v_over_dv' in filter_ds.attrs:
-                    self.filter.predicted_v_over_dv[k.split(
-                        "filt_")[1]] = filter_ds.attrs['predicted_v_over_dv']
+                    self.filter.predicted_v_over_dv = filter_ds.attrs['predicted_v_over_dv']
 
     def __load_cals_from_hdf5(self, overwrite=False):
         """Load all calibrations in self.hdf5_group["calibration"] into the dict
@@ -1149,10 +1149,8 @@ class MicrocalDataSet:  # noqa: PLR0904
                 del h5grp[k]
             if getattr(self.filter, k, None) is not None:
                 vec = h5grp.create_dataset(k, data=getattr(self.filter, k))
-                shortname = k.split('filt_')[1]
-                vec.attrs['variance'] = self.filter.variances.get(shortname, 0.0)
-                vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv.get(
-                    shortname, 0.0)
+                vec.attrs['variance'] = self.filter.variance
+                vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv
 
     @property
     def shortname(self):
@@ -1189,7 +1187,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         if np.sum(np.abs(self.average_pulse)) == 0:
             raise Exception("average pulse is all zeros, try avg_pulses_auto_masks first")
         f = mass.core.Filter(avg_signal, self.nPresamples - self.pretrigger_ignore_samples,
-                             spectrum, self.noise_autocorr, sample_time=self.timebase,
+                             self.noise_autocorr, spectrum, sample_time=self.timebase,
                              shorten=2, cut_pre=cut_pre, cut_post=cut_post)
         f.compute(fmax=fmax, f_3db=f_3db)
         return f
@@ -1374,8 +1372,8 @@ class MicrocalDataSet:  # noqa: PLR0904
                         maximum_n_pulses=4000, noise_weight_basis=True, category={}):
         assert n_basis >= 3
         assert isinstance(f, ArrivalTimeSafeFilter), "requires arrival time safe filter"
-        deriv_like_model = f.pulsemodel[:, 1]
-        pulse_like_model = f.pulsemodel[:, 0]
+        deriv_like_model = f.signal_model[:, 1]
+        pulse_like_model = f.signal_model[:, 0]
         if not len(pulse_like_model) == self.nSamples:
             raise Exception(f"filter length {len(pulse_like_model)} and nSamples {self.nSamples} don't match, "
                             "you likely need to use shift1=False in compute_ats_filter")
@@ -1401,7 +1399,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         else:
             raise Exception(
                 "use autocuts when making projectors, so it can save more info about desired cuts")
-        v_dv = f.predicted_v_over_dv.get("noconst", 0.0)
+        v_dv = f.predicted_v_over_dv
         self.pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd,
                                       v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename,
                                       extra_n_basis_5lag, f_5lag.filt_noconst,
