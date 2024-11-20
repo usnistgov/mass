@@ -1165,7 +1165,7 @@ class MicrocalDataSet:  # noqa: PLR0904
     def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):
         """Requires that compute_noise has been run and that average pulse has been computed"""
         if "filters" in self.hdf5_group and not forceNew:
-            LOG.info(f"ch {self.channum} skpping comput 5lag filter because it is already done")
+            LOG.info(f"ch {self.channum} skipping compute 5-lag filter because it is already done")
             return
         if all(self.noise_autocorr[:] == 0):
             raise Exception("compute noise first")
@@ -1319,7 +1319,7 @@ class MicrocalDataSet:  # noqa: PLR0904
             forceNew: Whether to recompute when already exists (default False)
         """
         if not (forceNew or all(self.p_filt_value[:] == 0)):
-            LOG.info('\nchan %d did not filter because results were already loaded', self.channum)
+            LOG.info('chan %d did not filter because results were already loaded', self.channum)
             return
 
         if use_cython is None:
