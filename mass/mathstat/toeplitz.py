@@ -154,6 +154,9 @@ class ToeplitzSolver:
 
     def __solve_symmetric(self, y):
         """Return the solution x when Tx=y for a symmetric Toeplitz matrix T."""
+        if y.ndim == 2:
+            result = np.vstack([self.__solve_symmetric(ycol) for ycol in y.T])
+            return result.T
         n = self.n
         assert len(y) == n
         assert self.symmetric
@@ -161,7 +164,7 @@ class ToeplitzSolver:
         x = np.zeros(n, dtype=float)
         g = np.zeros(n, dtype=float)
 
-        R = self.R.copy()
+        R = self.R
         R0 = R[0]
         x[0] = y[0] / R0
         g[0] = R[1] / R0

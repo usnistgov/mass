@@ -1,5 +1,5 @@
 """
-Contains classes to do time-domain optimal filtering.
+Classes to create time-domain and Fourier-domain optimal filters.
 """
 
 import numpy as np
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from mass.mathstat.toeplitz import ToeplitzSolver
 
 
-def band_limit(modelmatrix: npt.ArrayLike, sample_time: float, fmax: Optional[float], f_3db: Optional[float]):
+def band_limit(modelmatrix: np.ndarray, sample_time: float, fmax: Optional[float], f_3db: Optional[float]):
     """Band-limit the column-vectors in a model matrix with a hard and/or
     1-pole low-pass filter. Change the input `modelmatrix` in-place.
 
@@ -19,8 +19,8 @@ def band_limit(modelmatrix: npt.ArrayLike, sample_time: float, fmax: Optional[fl
 
     Parameters
     ----------
-    modelmatrix : npt.ArrayLike
-        The 1D or 2D array to band-limit. (If a 2D array, columns are independently band-limited)
+    modelmatrix : np.ndarray
+        The 1D or 2D array to band-limit. (If a 2D array, columns are independently band-limited.)
     sample_time : float
         The sampling period
     fmax : Optional[float]
@@ -31,7 +31,7 @@ def band_limit(modelmatrix: npt.ArrayLike, sample_time: float, fmax: Optional[fl
     if fmax is None and f_3db is None:
         return
 
-    modelmatrix = np.asarray(modelmatrix)
+    # Handle the 2D case by calling this function once per column.
     assert len(modelmatrix.shape) <= 2
     if len(modelmatrix.shape) == 2:
         for i in range(modelmatrix.shape[1]):
