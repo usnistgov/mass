@@ -1459,12 +1459,10 @@ class MicrocalDataSet:  # noqa: PLR0904
         assert len(filter_values) + 1 == self.nSamples
 
         seg_size = end - first
-        ptmean = self.p_pretrig_mean[first:end]
         data = self.data[first:end]
         if transform is not None:
-            ptmean.shape = (seg_size, 1)
-            data = transform(self.data - ptmean)
-            ptmean.shape = (seg_size,)
+            ptmean = self.p_pretrig_mean[first:end]
+            data = transform(self.data - ptmean.reshape((seg_size, 1)))
         conv0 = np.dot(data[:, 1:], filter_values)
         conv1 = np.dot(data[:, 1:], filter_AT)
 
@@ -1479,12 +1477,10 @@ class MicrocalDataSet:  # noqa: PLR0904
         # when using a zero threshold trigger (eg dastard using the kink-model) no shift is neccesary
         assert len(filter_values == self.nSamples)
         seg_size = end - first
-        ptmean = self.p_pretrig_mean[first:end]
         data = self.data[first:end, :]
         if transform is not None:
-            ptmean.shape = (seg_size, 1)
-            data = transform(data - ptmean)
-            ptmean.shape = (seg_size,)
+            ptmean = self.p_pretrig_mean[first:end]
+            data = transform(data - ptmean.reshape((seg_size, 1)))
         conv0 = np.dot(data, filter_values)
         conv1 = np.dot(data, filter_AT)
         AT = conv1 / conv0
