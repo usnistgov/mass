@@ -28,7 +28,7 @@ from .pulse_model import PulseModel
 
 from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile
-from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
+from mass.core.optimal_filtering import FilterMaker
 from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
@@ -747,65 +747,53 @@ class MicrocalDataSet:  # noqa: PLR0904
             return
         filter_group = self.hdf5_group['filters']
 
-        fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
-        f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
-        shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
+        fmax = filter_group.attrs.get("fmax", None)
+        f_3db = filter_group.attrs.get("f_3db", None)
 
-        version = 0  # older hdf5 files with filters have no version number, assign 0
-        if "version" in filter_group.attrs:
-            version = filter_group.attrs["version"]
+        version = filter_group.attrs.get("version", 0)
+        if version not in {1, 2}:  # don't support the older HDF5 without version numbers
+            return
 
-        filter_type = "5lag"
-        if version > 0:
-            filter_type = filter_group.attrs["filter_type"]  # a string
-            if isinstance(filter_type, bytes):
-                filter_type = filter_type.decode()
-        elif "newfilter" in filter_group.attrs:
-            # version 0 hdf5 files either did or did not have the "newfilter" attribute, newfilter corresponds to ats filters
-            filter_type = "ats"
+        filter_type = filter_group.attrs.get("filter_type", "ats")
+        if isinstance(filter_type, bytes):
+            filter_type = filter_type.decode()
 
-        if filter_type == "ats":
-            # arrival time safe filter can be shorter than records by 1 sample, or equal in length
-            if version > 0:
-                # Version 1 avg_signal was an attribute until Nov 2021, when we fixed #208.
-                # Try to read as a dataset, then as attribute so that old HDF5 files still work.
+        if version == 1:
+            # Version 1 avg_signal was an attribute until Nov 2021, when we fixed #208.
+            # Try to read as a dataset, then as attribute so that old HDF5 files still work.
+            if filter_type == "ats":
+                # arrival time safe filter can be shorter than records by 1 sample, or equal in length
                 try:
                     avg_signal = filter_group["avg_signal"][()]
                 except KeyError:
                     avg_signal = filter_group.attrs["avg_signal"][()]
                 aterms = filter_group["filt_aterms"][()]
-            else:
-                # version 0 hdf5 files did not store avg_signal, use truncated average_pulse instead
-                avg_signal, aterms = self.average_pulse[1:], filter_group["filt_aterms"][()]
-            model = np.vstack([avg_signal, aterms]).T
-            modelpeak = np.max(avg_signal)
-            self.filter = ArrivalTimeSafeFilter(model,
-                                                self.nPresamples - self.pretrigger_ignore_samples,
-                                                self.noise_autocorr,
-                                                sample_time=self.timebase,
-                                                peak=modelpeak)
-        elif filter_type == "5lag":
-            self.filter = Filter(self.average_pulse[...],
-                                 self.nPresamples - self.pretrigger_ignore_samples,
-                                 self.noise_autocorr,
-                                 self.noise_psd[...],
-                                 sample_time=self.timebase,
-                                 shorten=shorten)
-        else:
-            raise Exception(f"filter_type={filter_type}, must be `ats` or `5lag`")
-        self.filter.fmax = fmax
-        self.filter.f_3db = f_3db
-        self._filter_type = filter_type
+                modelpeak = np.max(avg_signal)
+                maker = FilterMaker(avg_signal, self.nPresamples - self.pretrigger_ignore_samples,
+                                    self.noise_autocorr, self.noise_psd, aterms,
+                                    sample_time=self.timebase, peak=modelpeak)
+                self.filter = maker.compute_ats(fmax=fmax, f_3db=f_3db)
+        if version == 2:
+            if filter_type == "ats":
+                values = filter_group["values"][:]
+                dt_values = filter_group["dt_values"][:]
+                variance = filter_group["values"].attrs.get("variance", 0.0)
+                vdv = filter_group["values"].attrs.get("predicted_v_over_dv", 0.0)
+                self.filter = mass.Filter(values, variance, vdv, dt_values, 1, fmax=fmax, f_3db=f_3db, _filter_type="ats")
 
-        for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                  "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
-            if k in filter_group:
-                filter_ds = filter_group[k]
-                setattr(self.filter, k, filter_ds[...])
-                if 'variance' in filter_ds.attrs:
-                    self.filter.variance = filter_ds.attrs['variance']
-                if 'predicted_v_over_dv' in filter_ds.attrs:
-                    self.filter.predicted_v_over_dv = filter_ds.attrs['predicted_v_over_dv']
+            else:
+                modelpeak = np.max(self.average_pulse)
+                maker = FilterMaker(self.average_pulse[:], self.nPresamples - self.pretrigger_ignore_samples,
+                                    self.noise_autocorr, self.noise_psd,
+                                    sample_time=self.timebase, peak=modelpeak)
+                if filter_type == "5lag":
+                    self.filter = maker.compute_5lag(fmax=fmax, f_3db=f_3db)
+                elif filter_type == "fourier":
+                    self.filter = maker.compute_fourier(fmax=fmax, f_3db=f_3db)
+                else:
+                    raise Exception(f"filter_type={filter_type}, must be `ats`, `5lag`, or `fourier`")
+
+        self._filter_type = filter_type
 
     def __load_cals_from_hdf5(self, overwrite=False):
         """Load all calibrations in self.hdf5_group["calibration"] into the dict
@@ -1090,15 +1078,15 @@ class MicrocalDataSet:  # noqa: PLR0904
             forceNew -- Whether to recompute when already exists (default False)
         """
         # Don't proceed if not necessary and not forced
-        already_done = self.average_pulse[-1] != 0
+        already_done = np.any(self.average_pulse[:] != 0)
         if already_done and not forceNew:
             LOG.info("skipping compute average pulse on chan %d", self.channum)
             return
 
         average_pulse = self.data[mask, :].mean(axis=0)
         if subtract_mean:
-            average_pulse -= np.mean(average_pulse[:self.nPresamples
-                                                   - self.pretrigger_ignore_samples])
+            nsamp = self.nPresamples - self.pretrigger_ignore_samples
+            average_pulse -= np.mean(average_pulse[:nsamp])
         self.average_pulse[:] = average_pulse
 
     @_add_group_loop()
@@ -1130,7 +1118,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                                    forceNew=forceNew)
 
     def _filter_to_hdf5(self):
-        # Store all filters created to a new HDF5 group
+        # Store any optimal filter to a new HDF5 group
         if "filters" in self.hdf5_group:
             del self.hdf5_group["filters"]
         h5grp = self.hdf5_group.require_group('filters')
@@ -1138,19 +1126,16 @@ class MicrocalDataSet:  # noqa: PLR0904
             h5grp.attrs['f_3db'] = self.filter.f_3db
         if self.filter.fmax is not None:
             h5grp.attrs['fmax'] = self.filter.fmax
-        h5grp.attrs['peak'] = self.filter.peak_signal
-        h5grp.attrs['shorten'] = self.filter.shorten
-        h5grp.attrs['filter_type'] = self._filter_type
-        h5grp.attrs["version"] = 1
-        h5grp.create_dataset("avg_signal", data=self.filter.avg_signal)
-        for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                  "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
-            if k in h5grp:
-                del h5grp[k]
-            if getattr(self.filter, k, None) is not None:
-                vec = h5grp.create_dataset(k, data=getattr(self.filter, k))
-                vec.attrs['variance'] = self.filter.variance
-                vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv
+        h5grp.attrs['filter_type'] = self.filter._filter_type
+        h5grp.attrs["version"] = 2
+        for name in ("values", "dt_values"):
+            if name in h5grp:
+                del h5grp[name]
+        vec = h5grp.create_dataset("values", data=self.filter.values)
+        vec.attrs["variance"] = self.filter.variance
+        vec.attrs["predicted_v_over_dv"] = self.filter.predicted_v_over_dv
+        if self.filter._filter_type == "ats":
+            h5grp.create_dataset("dt_values", data=self.filter.dt_values)
 
     @property
     def shortname(self):
@@ -1184,12 +1169,11 @@ class MicrocalDataSet:  # noqa: PLR0904
         except Exception:
             spectrum = self.noise_psd[:]
         avg_signal = self.average_pulse[:]
-        if np.sum(np.abs(self.average_pulse)) == 0:
+        if np.all(np.abs(self.average_pulse) == 0):
             raise Exception("average pulse is all zeros, try avg_pulses_auto_masks first")
-        f = mass.core.Filter(avg_signal, self.nPresamples - self.pretrigger_ignore_samples,
-                             self.noise_autocorr, spectrum, sample_time=self.timebase,
-                             shorten=2, cut_pre=cut_pre, cut_post=cut_post)
-        f.compute(fmax=fmax, f_3db=f_3db)
+        maker = FilterMaker(avg_signal, self.nPresamples - self.pretrigger_ignore_samples,
+                            self.noise_autocorr, spectrum, sample_time=self.timebase)
+        f = maker.compute_5lag(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         return f
 
     @_add_group_loop()
@@ -1295,15 +1279,16 @@ class MicrocalDataSet:  # noqa: PLR0904
 
         modelpeak = np.median(rawscale)
         self.pulsemodel = model
-        f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr,
-                                  sample_time=self.timebase, peak=modelpeak)
-        f.compute(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
+
+        maker = FilterMaker(model[:, 0], self.nPresamples, self.noise_autocorr,
+                            dt_model=model[:, 1], sample_time=self.timebase, peak=modelpeak)
+        f = maker.compute_ats(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
-        if np.any(np.isnan(f.filt_noconst)) or np.any(np.isnan(f.filt_aterms)):
+        if np.any(np.isnan(f.values)) or np.any(np.isnan(f.dt_values)):
             raise Exception("{}. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
                 "there are nan values in your filters!! BAD",
                 model, self.nPresamples, self.noise_autocorr, self.timebase, modelpeak))
-        self._filter_type = "ats"
+        self._filter_type = f._filter_type
         self._filter_to_hdf5()
         return f
 
@@ -1371,7 +1356,7 @@ class MicrocalDataSet:  # noqa: PLR0904
     def get_pulse_model(self, f, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag=0,
                         maximum_n_pulses=4000, noise_weight_basis=True, category={}):
         assert n_basis >= 3
-        assert isinstance(f, ArrivalTimeSafeFilter), "requires arrival time safe filter"
+        assert f.is_arrival_time_safe, "requires arrival-time-safe filter"
         deriv_like_model = f.signal_model[:, 1]
         pulse_like_model = f.signal_model[:, 0]
         if not len(pulse_like_model) == self.nSamples:
