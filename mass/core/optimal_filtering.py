@@ -58,6 +58,9 @@ class Filter:
     variance: float
     predicted_v_over_dv: float
     dt_values: Optional[np.ndarray]
+    const_values: Optional[np.ndarray]
+    signal_model: Optional[np.ndarray]
+    dt_model: Optional[np.ndarray]
     convolution_lags: int = 1
     fmax: float = None
     f_3db: float = None
@@ -177,7 +180,7 @@ class FilterMaker:
             filt_noconst = np.hstack([np.zeros(cut_pre), filt_noconst, np.zeros(cut_post)])
 
         vdv = peak / (8 * np.log(2) * variance)**0.5
-        return Filter(filt_noconst, variance, vdv, None, 1 + 2 * shorten,
+        return Filter(filt_noconst, variance, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
                       fmax, f_3db, cut_pre, cut_post, "5lag")
 
     def compute_fourier(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
@@ -233,10 +236,10 @@ class FilterMaker:
             ac = self.noise_autocorr[:len(filt_fourier)].copy()
             variance_fourier = bracketR(filt_fourier, ac) / self.peak**2
         vdv = peak / (8 * np.log(2) * variance_fourier)**0.5
-        return Filter(filt_fourier, variance_fourier, vdv, None, 1 + 2 * shorten,
+        return Filter(filt_fourier, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
                       fmax, f_3db, cut_pre, cut_post, "fourier")
 
-    def compute_ats(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
+    def compute_ats(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):  # noqa: PLR0914
         """Compute a single filter.
 
         <fmax>   The strict maximum frequency to be passed in all filters.
@@ -294,13 +297,13 @@ class FilterMaker:
 
         filt_noconst = filt[0]
         filt_dt = filt[1]
-        # filt_baseline = filt[2]
+        filt_baseline = filt[2]
 
         filt_noconst *= scale
         filt_dt *= scale
         variance = bracketR(filt_noconst, self.noise_autocorr)
         vdv = peak / (np.log(2) * 8 * variance)**0.5
-        return Filter(filt_noconst, variance, vdv, filt_dt, 1,
+        return Filter(filt_noconst, variance, vdv, filt_dt, filt_baseline, avg_signal, dt_model, 1,
                       fmax, f_3db, cut_pre, cut_post, "ats")
 
     def _compute_autocorr(self, cut_pre, cut_post):

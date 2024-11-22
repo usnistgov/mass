@@ -970,8 +970,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    def plot_filters(self, axis=None, channels=None, cmap=None,
-                     filtname="filt_noconst", legend=True):
+    def plot_filters(self, axis=None, channels=None, cmap=None, legend=True):
         """Plot the optimal filters.
 
         Args:
@@ -996,7 +995,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             ds = self.channel[channum]
             if ds.filter is None:
                 continue
-            plt.plot(ds.filter.__dict__[filtname], label=f"Chan {ds.channum}",
+            plt.plot(ds.filter.values, label=f"Chan {ds.channum}",
                      color=cmap(float(ds_num) / len(channels)))
 
         plt.xlabel("Sample number")

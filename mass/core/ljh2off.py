@@ -156,8 +156,8 @@ def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_p
 
 def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True,
                  show_progress=LOG.isEnabledFor(logging.WARN)):
-    basename, _channum = mass.ljh_util.ljh_basename_channum(ljhpath)
-    _ljhdir, file_basename = os.path.split(basename)
+    basename, _ = mass.ljh_util.ljh_basename_channum(ljhpath)
+    _, file_basename = os.path.split(basename)
     off_basename = os.path.join(output_dir, file_basename)
     ljh_filename_lists, off_filenames = multi_ljh2off_loop([basename], h5_path, off_basename,
                                                            max_channels, n_ignore_presamples, show_progress)

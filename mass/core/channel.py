@@ -779,7 +779,8 @@ class MicrocalDataSet:  # noqa: PLR0904
                 dt_values = filter_group["dt_values"][:]
                 variance = filter_group["values"].attrs.get("variance", 0.0)
                 vdv = filter_group["values"].attrs.get("predicted_v_over_dv", 0.0)
-                self.filter = mass.Filter(values, variance, vdv, dt_values, 1, fmax=fmax, f_3db=f_3db, _filter_type="ats")
+                self.filter = mass.Filter(values, variance, vdv, dt_values, None, None, None,
+                                          1, fmax=fmax, f_3db=f_3db, _filter_type="ats")
 
             else:
                 modelpeak = np.max(self.average_pulse)
@@ -1293,12 +1294,10 @@ class MicrocalDataSet:  # noqa: PLR0904
         return f
 
     @_add_group_loop()
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=None):
+    def filter_data(self, transform=None, forceNew=False, use_cython=None):
         """Filter the complete data file one chunk at a time.
 
         Args:
-            filter_name: the object under self.filter to use for filtering the
-                data records (default 'filt_noconst')
             transform: a callable object that will be called on all data records
                 before filtering (default None)
             forceNew: Whether to recompute when already exists (default False)
@@ -1311,9 +1310,9 @@ class MicrocalDataSet:  # noqa: PLR0904
             use_cython = self._filter_type == "5lag"
 
         if self.filter is not None:
-            filter_values = self.filter.__dict__[filter_name]
+            filter_values = self.filter.values
         else:
-            filter_values = self.hdf5_group[f'filters/{filter_name}'][()]
+            filter_values = self.hdf5_group['filters/values'][:]
 
         if use_cython:
             if self._filter_type == "ats":
@@ -1336,7 +1335,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                 # when dastard uses kink model for determining trigger location, we don't need to shift1
                 # this code path should be followed when filters are created with the shift1=False argument
                 filterfunction = self._filter_data_segment_ats_dont_shift1
-            filter_AT = self.filter.filt_aterms[0]
+            filter_AT = self.filter.dt_values
         elif self._filter_type == "5lag":
             filterfunction = self._filter_data_segment_5lag
             filter_AT = None
@@ -1357,14 +1356,14 @@ class MicrocalDataSet:  # noqa: PLR0904
                         maximum_n_pulses=4000, noise_weight_basis=True, category={}):
         assert n_basis >= 3
         assert f.is_arrival_time_safe, "requires arrival-time-safe filter"
-        deriv_like_model = f.signal_model[:, 1]
-        pulse_like_model = f.signal_model[:, 0]
+        deriv_like_model = f.dt_model
+        pulse_like_model = f.signal_model
         if not len(pulse_like_model) == self.nSamples:
             raise Exception(f"filter length {len(pulse_like_model)} and nSamples {self.nSamples} don't match, "
                             "you likely need to use shift1=False in compute_ats_filter")
-        projectors1 = np.vstack([f.filt_baseline,
-                                 f.filt_aterms[0],
-                                 f.filt_noconst])
+        projectors1 = np.vstack([f.const_values,
+                                 f.dt_values,
+                                 f.values])
         if noise_weight_basis:
             basis1 = np.vstack([np.ones(len(pulse_like_model), dtype=float),
                                 deriv_like_model,
@@ -1387,7 +1386,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         v_dv = f.predicted_v_over_dv
         self.pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd,
                                       v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename,
-                                      extra_n_basis_5lag, f_5lag.filt_noconst,
+                                      extra_n_basis_5lag, f_5lag.values,
                                       self.average_pulse[:], self.noise_psd[:], self.noise_psd.attrs['delta_f'],
                                       self.noise_autocorr[:])
         return self.pulse_model
@@ -1771,9 +1770,9 @@ class MicrocalDataSet:  # noqa: PLR0904
         prms = self.p_pulse_rms[:]
 
         if self.filter is not None:
-            dataFilter = self.filter.__dict__['filt_noconst']
+            dataFilter = self.filter.values
         else:
-            dataFilter = self.hdf5_group['filters/filt_noconst'][:]
+            dataFilter = self.hdf5_group['filters/values'][:]
         tc = mass.core.analysis_algorithms.FilterTimeCorrection(
             data, prompt[g], prms[g], dataFilter,
             self.nPresamples, typicalResolution=typical_resolution)

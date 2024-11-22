@@ -426,9 +426,10 @@ class TestTESGroup:
         output_dir = tmp_path_factory.mktemp("off-1")
         max_channels = 100
         n_ignore_presamples = 0
-        _ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
+        _, off_filenames = mass.ljh2off.ljh2off_loop(
             ds.filename, hdf5_filename, output_dir, max_channels,
             n_ignore_presamples, require_experiment_state=False)
+        assert len(off_filenames) >= 1
         off = mass.off.off.OffFile(off_filenames[0])
         assert np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:])
 
