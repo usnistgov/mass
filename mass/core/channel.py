@@ -767,7 +767,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                     avg_signal = filter_group["avg_signal"][()]
                 except KeyError:
                     avg_signal = filter_group.attrs["avg_signal"][()]
-                aterms = filter_group["filt_aterms"][()]
+                aterms = filter_group["filt_aterms"][()].ravel()
                 modelpeak = np.max(avg_signal)
                 maker = FilterMaker(avg_signal, self.nPresamples - self.pretrigger_ignore_samples,
                                     self.noise_autocorr, self.noise_psd, aterms,
