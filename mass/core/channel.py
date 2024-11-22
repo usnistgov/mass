@@ -779,7 +779,8 @@ class MicrocalDataSet:  # noqa: PLR0904
                 dt_values = filter_group["dt_values"][:]
                 variance = filter_group["values"].attrs.get("variance", 0.0)
                 vdv = filter_group["values"].attrs.get("predicted_v_over_dv", 0.0)
-                self.filter = mass.Filter(values, variance, vdv, dt_values, None, None, None,
+                peak = filter_group["values"].attrs.get("nominal_peak", 0.0)
+                self.filter = mass.Filter(values, peak, variance, vdv, dt_values, None, None, None,
                                           1, fmax=fmax, f_3db=f_3db, _filter_type="ats")
 
             else:
@@ -1133,6 +1134,7 @@ class MicrocalDataSet:  # noqa: PLR0904
             if name in h5grp:
                 del h5grp[name]
         vec = h5grp.create_dataset("values", data=self.filter.values)
+        vec.attrs["nominal_peak"] = self.filter.nominal_peak
         vec.attrs["variance"] = self.filter.variance
         vec.attrs["predicted_v_over_dv"] = self.filter.predicted_v_over_dv
         if self.filter._filter_type == "ats":

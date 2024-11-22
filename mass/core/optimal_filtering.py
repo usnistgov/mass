@@ -55,6 +55,7 @@ def band_limit(modelmatrix: np.ndarray, sample_time: float, fmax: Optional[float
 @dataclass(frozen=True)
 class Filter:
     values: np.ndarray
+    nominal_peak: float
     variance: float
     predicted_v_over_dv: float
     dt_values: Optional[np.ndarray]
@@ -180,7 +181,7 @@ class FilterMaker:
             filt_noconst = np.hstack([np.zeros(cut_pre), filt_noconst, np.zeros(cut_post)])
 
         vdv = peak / (8 * np.log(2) * variance)**0.5
-        return Filter(filt_noconst, variance, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
+        return Filter(filt_noconst, peak, variance, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
                       fmax, f_3db, cut_pre, cut_post, "5lag")
 
     def compute_fourier(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
@@ -236,7 +237,7 @@ class FilterMaker:
             ac = self.noise_autocorr[:len(filt_fourier)].copy()
             variance_fourier = bracketR(filt_fourier, ac) / self.peak**2
         vdv = peak / (8 * np.log(2) * variance_fourier)**0.5
-        return Filter(filt_fourier, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
+        return Filter(filt_fourier, peak, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
                       fmax, f_3db, cut_pre, cut_post, "fourier")
 
     def compute_ats(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):  # noqa: PLR0914
@@ -300,7 +301,7 @@ class FilterMaker:
 
         variance = bracketR(filt_noconst, self.noise_autocorr)
         vdv = peak / (np.log(2) * 8 * variance)**0.5
-        return Filter(filt_noconst, variance, vdv, filt_dt, filt_baseline, avg_signal, dt_model, 1,
+        return Filter(filt_noconst, peak, variance, vdv, filt_dt, filt_baseline, avg_signal, dt_model, 1,
                       fmax, f_3db, cut_pre, cut_post, "ats")
 
     def _compute_autocorr(self, cut_pre, cut_post):
