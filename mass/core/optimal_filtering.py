@@ -112,13 +112,9 @@ class Filter:
                 assuming linear devices, by default 5898.8
         """
         var = self.variance
-        if var < 0:
-            v_dv = np.nan  # don't want to take a sqrt of negative number
-            # avoid printing warnings
-        else:
-            v_dv = var**(-.5) / np.sqrt(8 * np.log(2))
+        v_dv = self.predicted_v_over_dv
         fwhm_eV = std_energy / v_dv
-        print(f"{v_dv=:.2f} {var=:.2f} {fwhm_eV=:.2f} at {std_energy=:.2f} eV")
+        print(f"v/\u03b4v={v_dv: .2f}, variance ={var:.2f} \u03b4E={fwhm_eV:.2f} eV (FWHM) at E={std_energy:.2f} eV")
 
 
 @dataclass(frozen=True)
