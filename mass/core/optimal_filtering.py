@@ -54,6 +54,28 @@ def band_limit(modelmatrix: np.ndarray, sample_time: float, fmax: Optional[float
 
 @dataclass(frozen=True)
 class Filter:
+    """A single optimal filter, possibly with optimal estimators of the Delta-t and of the DC level.
+
+    Returns
+    -------
+    Filter
+        A set of optimal filter values.
+
+        These values are chosen with the following specifics:
+        * one model of the pulses and of the noise, including pulse record length,
+        * a first-order arrival-time detection filter is (optionally) computed
+        * filtering model (1-lag, or other odd # of lags),
+        * low-pass smoothing of the filter itself,
+        * a fixed number of samples "cut" (given zero weight) at the start and/or end of records.
+
+        The object also stores the pulse shape and (optionally) the delta-T shape used to generate it,
+        and the low-pass filter's fmax or f_3db (cutoff or rolloff) frequency.
+
+        It also stores the predicted `variance` due to noise and the resulting `predicted_v_over_dv`,
+        the ratio of the filtered pulse height to the (FWHM) noise, in pulse height units. Both
+        of these values assume pulses of the same size as that used to generate the filter: `nominal_peak`.
+
+"""
     values: np.ndarray
     nominal_peak: float
     variance: float
@@ -69,16 +91,10 @@ class Filter:
     cut_post: int = 0
     _filter_type: str = ""
 
-    def __post_init__(self):
-        if self.cut_pre < 0 or self.cut_post < 0:
-            raise ValueError(f"(cut_pre,cut_post)=({self.cut_pre},{self.cut_post}), but neither can be negative")
-        ns = len(self.values)
-        if self.cut_pre + self.cut_post >= ns:
-            raise ValueError(f"cut_pre+cut_post = {self.cut_pre + self.cut_post} but should be < {ns}")
-
     @property
     def is_arrival_time_safe(self):
-        return self.dt_values is not None and self.convolution_lags == 1
+        """Is this an arrival-time-safe filter?"""
+        return self.convolution_lags == 1 and self.dt_values is not None
 
     def plot(self, axis=None, **kwargs):
         if axis is None:
@@ -87,11 +103,13 @@ class Filter:
         axis.plot(self.values, **kwargs)
 
     def report(self, std_energy=5898.8):
-        """Report on V/dV for the filter
+        """Report on estimated V/dV for the filter.
 
-        Args:
-            <std_energy> Energy (in eV) of a "standard" pulse.  Resolution will be given in eV at this energy,
-                assuming linear devices.
+        Parameters
+        ----------
+        std_energy : float, optional
+            Energy (in eV) of a "standard" pulse.  Resolution will be given in eV at this energy,
+                assuming linear devices, by default 5898.8
         """
         var = self.variance
         if var < 0:
@@ -140,13 +158,33 @@ class FilterMaker:
     sample_time: float = 0.0
     peak: float = 0.0
 
-    def compute_5lag(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
-        """Compute a single filter.
+    def compute_5lag(self, fmax: Optional[float] = None, f_3db: Optional[float] = None,
+                     cut_pre: int = 0, cut_post: int = 0) -> Filter:
+        """Compute a single filter, with optional low-pass filtering, and with optional zero
+        weights at the pre-trigger or post-trigger end of the filter.
 
-        <fmax>  The strict maximum frequency to be passed in all filters.
-        <f_3db> The 3 dB point for a one-pole low-pass filter to be applied to all filters.
+        Either or both of `fmax` and `f_3db` are allowed.
 
-        Either or both of <fmax> and <f_3db> are allowed.
+        Parameters
+        ----------
+        fmax : Optional[float], optional
+            The strict maximum frequency to be passed in all filters, by default None
+        f_3db : Optional[float], optional
+            The 3 dB point for a one-pole low-pass filter to be applied to all filters, by default None
+        cut_pre : int
+            The number of initial samples to be given zero weight, by default 0
+        cut_post : int
+            The number of samples at the end of a record to be given zero weight, by default 0
+
+        Returns
+        -------
+        Filter
+            A 5-lag optimal filter.
+
+        Raises
+        ------
+        ValueError
+            Under various conditions where arguments are inconsistent with the data
         """
         if self.noise_autocorr is None and self.whitener is None:
             raise ValueError("Filter must have noise_autocorr or whitener arguments to generate 5-lag filters")
@@ -163,7 +201,7 @@ class FilterMaker:
         shorten = 2
         avg_signal = avg_signal[shorten:-shorten]
         n = len(avg_signal)
-        assert len(noise_autocorr) >= n
+        assert len(noise_autocorr) >= n, "Noise autocorrelation vector is too short for signal size"
 
         noise_corr = noise_autocorr[:n]
         TS = ToeplitzSolver(noise_corr, symmetric=True)
@@ -184,7 +222,35 @@ class FilterMaker:
         return Filter(filt_noconst, peak, variance, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
                       fmax, f_3db, cut_pre, cut_post, "5lag")
 
-    def compute_fourier(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
+    def compute_fourier(self, fmax: Optional[float] = None, f_3db: Optional[float] = None,
+                        cut_pre: int = 0, cut_post: int = 0) -> Filter:
+        """Compute a single Fourier-domain filter, with optional low-pass filtering, and with optional
+        zero weights at the pre-trigger or post-trigger end of the filter. Fourier domain calculation
+        implicitly assumes periodic boundary conditions.
+
+        Either or both of `fmax` and `f_3db` are allowed.
+
+        Parameters
+        ----------
+        fmax : Optional[float], optional
+            The strict maximum frequency to be passed in all filters, by default None
+        f_3db : Optional[float], optional
+            The 3 dB point for a one-pole low-pass filter to be applied to all filters, by default None
+        cut_pre : int
+            The number of initial samples to be given zero weight, by default 0
+        cut_post : int
+            The number of samples at the end of a record to be given zero weight, by default 0
+
+        Returns
+        -------
+        Filter
+            A 5-lag optimal filter, computed in the Fourier domain.
+
+        Raises
+        ------
+        ValueError
+            Under various conditions where arguments are inconsistent with the data
+        """
         # Make sure we have either a noise PSD or an autocorrelation or a whitener
         if self.noise_psd is None:
             raise ValueError("Filter must have noise_psd to generate a Fourier filter")
@@ -240,15 +306,33 @@ class FilterMaker:
         return Filter(filt_fourier, peak, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
                       fmax, f_3db, cut_pre, cut_post, "fourier")
 
-    def compute_ats(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):  # noqa: PLR0914
-        """Compute a single filter.
+    def compute_ats(self, fmax: Optional[float] = None, f_3db: Optional[float] = None,
+                    cut_pre: int = 0, cut_post: int = 0) -> Filter:  # noqa: PLR0914
+        """Compute a single "arrival-time-safe" filter, with optional low-pass filtering,
+        and with optional zero weights at the pre-trigger or post-trigger end of the filter.
 
-        <fmax>   The strict maximum frequency to be passed in all filters.
-        <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-        <cut_pre> Cut this many samples from the start of the filter, giving them 0 weight.
-        <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
+        Either or both of `fmax` and `f_3db` are allowed.
 
-        Either or both of <fmax> and <f_3db> are allowed.
+        Parameters
+        ----------
+        fmax : Optional[float], optional
+            The strict maximum frequency to be passed in all filters, by default None
+        f_3db : Optional[float], optional
+            The 3 dB point for a one-pole low-pass filter to be applied to all filters, by default None
+        cut_pre : int
+            The number of initial samples to be given zero weight, by default 0
+        cut_post : int
+            The number of samples at the end of a record to be given zero weight, by default 0
+
+        Returns
+        -------
+        Filter
+            An arrival-time-safe optimal filter.
+
+        Raises
+        ------
+        ValueError
+            Under various conditions where arguments are inconsistent with the data
         """
         if self.noise_autocorr is None and self.whitener is None:
             raise ValueError("Filter must have noise_autocorr or whitener arguments to generate ATS filters")
@@ -304,16 +388,21 @@ class FilterMaker:
         return Filter(filt_noconst, peak, variance, vdv, filt_dt, filt_baseline, avg_signal, dt_model, 1,
                       fmax, f_3db, cut_pre, cut_post, "ats")
 
-    def _compute_autocorr(self, cut_pre, cut_post):
+    def _compute_autocorr(self, cut_pre: int = 0, cut_post: int = 0) -> np.ndarray:
         # If there's an autocorrelation, cut it down to length.
         if self.noise_autocorr is None:
             return None
         return self.noise_autocorr[:len(self.signal_model) - (cut_pre + cut_post)]
 
-    def _normalize_signal(self, cut_pre, cut_post):
+    def _normalize_signal(self, cut_pre: int = 0, cut_post: int = 0) -> tuple[np.ndarray, float, Optional[np.ndarray]]:
         avg_signal = self.signal_model.copy()
         ns = len(avg_signal)
         pre_avg = avg_signal[cut_pre:self.n_pretrigger - 1].mean()
+
+        if cut_pre < 0 or cut_post < 0:
+            raise ValueError(f"(cut_pre,cut_post)=({cut_pre},{cut_post}), but neither can be negative")
+        if cut_pre + cut_post >= ns:
+            raise ValueError(f"cut_pre+cut_post = {cut_pre + cut_post} but should be < {ns}")
 
         # Unless passed in, find the signal's peak value. This is normally peak=(max-pretrigger).
         # If signal is negative-going, however, then peak=(pretrigger-min).
@@ -342,7 +431,7 @@ class FilterMaker:
             dt_model = dt_model[cut_pre:ns - cut_post]
         return avg_signal, peak_signal, dt_model
 
-    def normalize_filter(self, f, avg_signal):
+    def normalize_filter(self, f: np.ndarray, avg_signal: np.ndarray):
         """Rescale filter `f` in-place so that it gives unit response to avg_signal"""
         if len(f) == len(avg_signal):
             f *= 1 / np.dot(f, avg_signal)
