@@ -73,8 +73,8 @@ class TestFilters:
     @staticmethod
     def verify_filters(data, filter_type):
         "Check that the filters contain what we expect"
-        expected_vdv = {"ats": 459, "5lag": 457}[filter_type]
-        expected_var = {"ats": 154.6, "5lag": 155.1}[filter_type]
+        expected_vdv = {"ats": 490, "5lag": 457}[filter_type]
+        expected_var = {"ats": 135.7, "5lag": 155.1}[filter_type]
         for ds in data:
             f = ds.filter
             assert f.variance == pytest.approx(expected_var, abs=0.2)

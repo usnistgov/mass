@@ -287,7 +287,6 @@ class FilterMaker:
             filt = np.dot(Ainv, RinvM.T)
 
         band_limit(filt.T, self.sample_time, fmax, f_3db)
-        scale = np.max(avg_signal) / np.dot(filt[0], avg_signal)
 
         if cut_pre > 0 or cut_post > 0:
             nfilt = filt.shape[0]
@@ -299,8 +298,6 @@ class FilterMaker:
         filt_dt = filt[1]
         filt_baseline = filt[2]
 
-        filt_noconst *= scale
-        filt_dt *= scale
         variance = bracketR(filt_noconst, self.noise_autocorr)
         vdv = peak / (np.log(2) * 8 * variance)**0.5
         return Filter(filt_noconst, variance, vdv, filt_dt, filt_baseline, avg_signal, dt_model, 1,
@@ -317,7 +314,7 @@ class FilterMaker:
         ns = len(avg_signal)
         pre_avg = avg_signal[cut_pre:self.n_pretrigger - 1].mean()
 
-        # Find signal's peak value. This is normally peak=(max-pretrigger).
+        # Unless passed in, find the signal's peak value. This is normally peak=(max-pretrigger).
         # If signal is negative-going, however, then peak=(pretrigger-min).
         if self.peak > 0.0:
             peak_signal = self.peak
@@ -331,13 +328,16 @@ class FilterMaker:
                 peak_signal = b - pre_avg
 
         # avg_signal: normalize to have unit peak
-        avg_signal = (avg_signal - pre_avg) / peak_signal
+        avg_signal -= pre_avg
+
+        rescale = 1 / np.max(avg_signal)
+        avg_signal *= rescale
         avg_signal[:self.n_pretrigger] = 0.0
         avg_signal = avg_signal[cut_pre:ns - cut_post]
         if self.dt_model is None:
             dt_model = None
         else:
-            dt_model = self.dt_model / peak_signal
+            dt_model = self.dt_model * rescale
             dt_model = dt_model[cut_pre:ns - cut_post]
         return avg_signal, peak_signal, dt_model
 

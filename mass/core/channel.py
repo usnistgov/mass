@@ -1356,24 +1356,24 @@ class MicrocalDataSet:  # noqa: PLR0904
                         maximum_n_pulses=4000, noise_weight_basis=True, category={}):
         assert n_basis >= 3
         assert f.is_arrival_time_safe, "requires arrival-time-safe filter"
+        assert noise_weight_basis, "basis not noise weighted is not implemented"
+
         deriv_like_model = f.dt_model
         pulse_like_model = f.signal_model
+        v_dv = f.predicted_v_over_dv
         if not len(pulse_like_model) == self.nSamples:
             raise Exception(f"filter length {len(pulse_like_model)} and nSamples {self.nSamples} don't match, "
                             "you likely need to use shift1=False in compute_ats_filter")
+
         projectors1 = np.vstack([f.const_values,
                                  f.dt_values,
                                  f.values])
-        if noise_weight_basis:
-            basis1 = np.vstack([np.ones(len(pulse_like_model), dtype=float),
-                                deriv_like_model,
-                                pulse_like_model]).T
-        else:
-            def joint_norm(x):
-                """return y such that x.dot(y)==1 or at least pretty close"""
-                return x / x.dot(x)
-            # this leads to terrible results, but I'm leaving it in for now so I don't get tempted to try adding it back for testing
-            basis1 = np.vstack([joint_norm(p) for p in projectors1]).T
+        basis1 = np.vstack([
+            np.ones(len(pulse_like_model), dtype=float),
+            deriv_like_model,
+            pulse_like_model,
+        ]).T
+
         if pulses_for_svd is None:
             pulses_for_svd, _ = self.first_n_good_pulses(maximum_n_pulses, category=category)
             pulses_for_svd = pulses_for_svd.T
@@ -1383,7 +1383,6 @@ class MicrocalDataSet:  # noqa: PLR0904
         else:
             raise Exception(
                 "use autocuts when making projectors, so it can save more info about desired cuts")
-        v_dv = f.predicted_v_over_dv
         self.pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd,
                                       v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename,
                                       extra_n_basis_5lag, f_5lag.values,

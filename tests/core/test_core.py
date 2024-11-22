@@ -445,14 +445,13 @@ class TestTESGroup:
 
         should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
         wrongness = np.abs(should_be_identity - np.identity(n_basis))
-        # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        print(f"Wrongness matrix (abs-max is {np.amax(wrongness)})")
         print(wrongness)
-        print(np.amax(wrongness))
-        assert np.amax(wrongness) < 0.16
+        assert np.amax(wrongness) < 1e-9
         pulse_model.plot()
 
-        output_dir = tmp_path_factory.mktemp("off-2")
         # test multi_ljh2off_loop with multiple ljhfiles
+        output_dir = tmp_path_factory.mktemp("off-2")
         basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
         N = len(off)
         prefix = os.path.split(basename)[1]
