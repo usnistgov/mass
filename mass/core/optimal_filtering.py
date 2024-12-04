@@ -387,7 +387,7 @@ class FilterMaker:
 
         band_limit(filt_noconst, self.sample_time, fmax, f_3db)
 
-        self.normalize_filter(filt_noconst, avg_signal)
+        self._normalize_5lag_filter(filt_noconst, avg_signal)
         variance = bracketR(filt_noconst, noise_corr)
 
         # Set weights in the cut_pre and cut_post windows to 0
@@ -468,7 +468,7 @@ class FilterMaker:
 
         sig_ft_weighted[0] = 0.0
         filt_fourier = np.fft.irfft(sig_ft_weighted) / window
-        self.normalize_filter(filt_fourier, avg_signal)
+        self._normalize_5lag_filter(filt_fourier, avg_signal)
 
         # How we compute the uncertainty depends on whether there's a noise autocorrelation result
         if self.noise_autocorr is None:
@@ -640,21 +640,39 @@ class FilterMaker:
             dt_model = dt_model[cut_pre:ns - cut_post]
         return avg_signal, peak_signal, dt_model
 
-    def normalize_filter(self, f: np.ndarray, avg_signal: np.ndarray):
-        """Rescale filter `f` in-place so that it gives unit response to avg_signal"""
-        if len(f) == len(avg_signal):
-            f *= 1 / np.dot(f, avg_signal)
-        elif self.shorten >= 2:
-            conv = np.zeros(5, dtype=float)
-            for i in range(5):
-                conv[i] = np.dot(f, avg_signal[i:i + len(f)])
-            x = np.arange(-2, 2.1)
-            fit = np.polyfit(x, conv, 2)
-            fit_ctr = -0.5 * fit[1] / fit[0]
-            fit_peak = np.polyval(fit, fit_ctr)
-            f *= 1.0 / fit_peak
-        else:
-            f *= 1.0 / np.dot(f, avg_signal[self.shorten:-self.shorten])
+    @staticmethod
+    def _normalize_5lag_filter(f: np.ndarray, avg_signal: np.ndarray):
+        """Rescale 5-lag filter `f` in-place so that it gives unit response to avg_signal
+
+        Parameters
+        ----------
+        f : np.ndarray
+            Optimal filter values, which need to be renormalized
+        avg_signal : np.ndarray
+            The signal to which filter `f` should give unit response
+        """
+        conv = np.zeros(5, dtype=float)
+        for i in range(5):
+            conv[i] = np.dot(f, avg_signal[i:i + len(f)])
+        x = np.arange(-2, 2.1)
+        fit = np.polyfit(x, conv, 2)
+        fit_ctr = -0.5 * fit[1] / fit[0]
+        fit_peak = np.polyval(fit, fit_ctr)
+        f *= 1.0 / fit_peak
+
+    @staticmethod
+    def _normalize_filter(f: np.ndarray, avg_signal: np.ndarray):
+        """Rescale single-lag filter `f` in-place so that it gives unit response to avg_signal
+
+        Parameters
+        ----------
+        f : np.ndarray
+            Optimal filter values, which need to be renormalized
+        avg_signal : np.ndarray
+            The signal to which filter `f` should give unit response
+        """
+        assert len(f) == len(avg_signal)
+        f *= 1 / np.dot(f, avg_signal)
 
 
 def bracketR(q, noise):
