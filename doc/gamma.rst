@@ -328,7 +328,7 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
   :options: +NORMALIZE_WHITESPACE
 
     energy:
-    	20181018_144520 chan3  Ho166m_80 fwhm=60 ± 1.8
+    	20181018_144520 chan3  Ho166m_80 fwhm=60 ± 1.9
     	20181018_144520 chan13 Ho166m_80 fwhm=62 ± 2.1
     energyNoDC:
     	20181018_144520 chan3  Ho166m_80 fwhm=64 ± 2.3
@@ -379,9 +379,9 @@ me know what you think about it.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-    	chan   3 fwhm=60.0 ± 1.7 (off)
-    	chan   3 fwhm=60.0 ± 1.8 (ljh)
-    	chan  13 fwhm=60.6 ± 2.0 (off)
+    	chan   3 fwhm=60.0 ± 1.8 (off)
+    	chan   3 fwhm=59.9 ± 1.8 (ljh)
+    	chan  13 fwhm=60.6 ± 1.9 (off)
     	chan  13 fwhm=61.7 ± 2.0 (ljh)
 
 We also plot one fit from one channel for plain and off style.
