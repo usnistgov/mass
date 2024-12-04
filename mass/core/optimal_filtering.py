@@ -436,10 +436,11 @@ class FilterMaker:
             raise ValueError(f"(cut_pre,cut_post)=({cut_pre},{cut_post}), but neither can be negative")
 
         avg_signal, peak, _ = self._normalize_signal(cut_pre, cut_post)
+        noise_psd = np.asarray(self.noise_psd)
 
         shorten = 2  # to use in 5-lag style
         avg_signal = avg_signal[shorten:-shorten]
-        n = len(self.noise_psd)
+        n = len(noise_psd)
         window = 1.0
         sig_ft = np.fft.rfft(avg_signal * window)
 
@@ -449,12 +450,10 @@ class FilterMaker:
         # Careful with PSD: "shorten" it by converting into a real space autocorrelation,
         # truncating the middle, and going back to Fourier space
         if shorten > 0:
-            noise_autocorr = np.fft.irfft(self.noise_psd)
+            noise_autocorr = np.fft.irfft(noise_psd)
             noise_autocorr = np.hstack((noise_autocorr[:n - shorten - 1],
                                         noise_autocorr[-n + shorten:]))
             noise_psd = np.fft.rfft(noise_autocorr)
-        else:
-            noise_psd = self.noise_psd
         sig_ft_weighted = sig_ft / noise_psd
 
         # Band-limit
@@ -472,11 +471,11 @@ class FilterMaker:
 
         # How we compute the uncertainty depends on whether there's a noise autocorrelation result
         if self.noise_autocorr is None:
-            noise_ft_squared = (len(self.noise_psd) - 1) / self.sample_time * self.noise_psd
+            noise_ft_squared = (len(noise_psd) - 1) / self.sample_time * noise_psd
             kappa = (np.abs(sig_ft * self.peak)**2 / noise_ft_squared)[1:].sum()
             variance_fourier = 1. / kappa
         else:
-            ac = self.noise_autocorr[:len(filt_fourier)].copy()
+            ac = np.array(self.noise_autocorr)[:len(filt_fourier)]
             variance_fourier = bracketR(filt_fourier, ac) / self.peak**2
         vdv = peak / (8 * np.log(2) * variance_fourier)**0.5
         return Filter(filt_fourier, peak, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
@@ -581,8 +580,10 @@ class FilterMaker:
         """
         # If there's an autocorrelation, cut it down to length.
         if self.noise_autocorr is None:
-            return None
-        return self.noise_autocorr[:len(self.signal_model) - (cut_pre + cut_post)]
+            return np.array([], dtype=float)
+        N = len(np.asarray(self.signal_model))
+        return np.asarray(self.noise_autocorr)[:N - (cut_pre + cut_post)]
+
     def _normalize_signal(self, cut_pre: int = 0, cut_post: int = 0) -> tuple[np.ndarray, float, np.ndarray]:
         """Compute the normalized signal, peak value, and first-order arrival-time model.
 
@@ -605,6 +606,7 @@ class FilterMaker:
         ValueError
             If negative numbers of samples are to be cut, or the entire record is to be cut.
         """
+        avg_signal = np.array(self.signal_model)
         ns = len(avg_signal)
         pre_avg = avg_signal[cut_pre:self.n_pretrigger - 1].mean()
 
@@ -634,7 +636,7 @@ class FilterMaker:
         avg_signal[:self.n_pretrigger] = 0.0
         avg_signal = avg_signal[cut_pre:ns - cut_post]
         if self.dt_model is None:
-            dt_model = None
+            dt_model = np.array([], dtype=float)
         else:
             dt_model = self.dt_model * rescale
             dt_model = dt_model[cut_pre:ns - cut_post]
