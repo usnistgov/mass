@@ -245,8 +245,8 @@ class Filter:
     signal_model: Optional[np.ndarray]
     dt_model: Optional[np.ndarray]
     convolution_lags: int = 1
-    fmax: float = None
-    f_3db: float = None
+    fmax: Optional[float] = None
+    f_3db: Optional[float] = None
     cut_pre: int = 0
     cut_post: int = 0
     _filter_type: str = ""
@@ -269,7 +269,7 @@ class Filter:
             axis = plt.subplot(111)
         axis.plot(self.values, **kwargs)
 
-    def report(self, std_energy=5898.8):
+    def report(self, std_energy: float = 5898.8):
         """Report on estimated V/dV for the filter.
 
         Parameters
@@ -327,9 +327,9 @@ class FilterMaker:
 
     signal_model: npt.ArrayLike
     n_pretrigger: int
-    noise_autocorr: npt.ArrayLike = None
-    noise_psd: npt.ArrayLike = None
-    dt_model: npt.ArrayLike = None
+    noise_autocorr: Optional[npt.ArrayLike] = None
+    noise_psd: Optional[npt.ArrayLike] = None
+    dt_model: Optional[npt.ArrayLike] = None
     whitener: Optional[ToeplitzWhitener] = None
     sample_time: float = 0.0
     peak: float = 0.0
