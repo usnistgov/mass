@@ -256,7 +256,14 @@ class Filter:
         """Is this an arrival-time-safe filter?"""
         return self.convolution_lags == 1 and self.dt_values is not None
 
-    def plot(self, axis=None, **kwargs):
+    def plot(self, axis: Optional[plt.Axes] = None, **kwargs):
+        """Make a plot of the filter
+
+        Parameters
+        ----------
+        axis : plt.Axes, optional
+            A pre-existing axis to plot on, by default None
+        """
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
@@ -274,7 +281,7 @@ class Filter:
         var = self.variance
         v_dv = self.predicted_v_over_dv
         fwhm_eV = std_energy / v_dv
-        print(f"v/\u03b4v={v_dv: .2f}, variance ={var:.2f} \u03b4E={fwhm_eV:.2f} eV (FWHM) at E={std_energy:.2f} eV")
+        print(f"v/\u03b4v: {v_dv: .2f}, variance: {var:.2f} \u03b4E: {fwhm_eV:.2f} eV (FWHM), assuming standard E={std_energy:.2f} eV")
 
 
 @dataclass(frozen=True)
@@ -283,26 +290,39 @@ class FilterMaker:
 
     Arguments:
 
-    <signal_model> The average signal shape.  Filters will be rescaled so that the output
-            upon putting this signal into the filter equals the *peak value* of this
-            filter (that is, peak value relative to the baseline level).
-    <n_pretrigger>   The number of leading samples in the average signal that are considered
-            to be pre-trigger samples.  The avg_signal in this section is replaced by
-            its constant averaged value before creating filters.  Also, one filter
-            (filt_baseline_pretrig) is designed to infer the baseline using only
-            <n_pretrigger> samples at the start of a record.
-    <noise_autocorr> The autocorrelation function of the noise, where the lag spacing is
-            assumed to be the same as the sample period of <avg_signal>.  If None,
-            then several filters won't be computed.  (One of <noise_psd> or
-            <noise_autocorr> must be a valid array, or <whitener> must be given.)
-    <noise_psd>      The noise power spectral density.  If None, then filt_fourier won't be
-            computed.  If not None, then it must be of length (2N+1), where N is the
-            length of <avg_signal>, and its values are assumed to cover the non-negative
-            frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
-    <whitener>       An optional function object which, when called, whitens a vector or the
-            columns of a matrix. Supersedes <noise_autocorr> if both are given.
-    <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
-            This must be given if <fmax> or <f_3db> are ever to be used.
+    signal_model : npt.ArrayLike
+        The average signal shape.  Filters will be rescaled so that the output
+        upon putting this signal into the filter equals the *peak value* of this
+        filter (that is, peak value relative to the baseline level).
+    n_pretrigger : int
+        The number of leading samples in the average signal that are considered
+        to be pre-trigger samples.  The avg_signal in this section is replaced by
+        its constant averaged value before creating filters.  Also, one filter
+        (filt_baseline_pretrig) is designed to infer the baseline using only
+        `n_pretrigger` samples at the start of a record.
+    noise_autocorr : Optional[npt.ArrayLike]
+        The autocorrelation function of the noise, where the lag spacing is
+        assumed to be the same as the sample period of `avg_signal`.  If None,
+        then several filters won't be computed.  (One of `noise_psd` or
+        `noise_autocorr` must be a valid array, or `whitener` must be given.)
+    noise_psd : Optional[npt.ArrayLike]
+        The noise power spectral density.  If None, then filt_fourier won't be
+        computed.  If not None, then it must be of length (2N+1), where N is the
+        length of `avg_signal`, and its values are assumed to cover the non-negative
+        frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
+    whitener : Optional[ToeplitzWhitener]
+        An optional function object which, when called, whitens a vector or the
+        columns of a matrix. Supersedes `noise_autocorr` if both are given.
+    sample_time : float
+        The time step between samples in `avg_signal` and `noise_autocorr`
+        This must be given if `fmax` or `f_3db` are ever to be used.
+    peak : float
+        The peak amplitude of the standard signal
+
+    Returns
+    -------
+    FilterMaker
+        An object that can make a variety of optimal filters, assuming a single signal and noise analysis.
     """
 
     signal_model: npt.ArrayLike
@@ -545,13 +565,46 @@ class FilterMaker:
                       fmax, f_3db, cut_pre, cut_post, "ats")
 
     def _compute_autocorr(self, cut_pre: int = 0, cut_post: int = 0) -> np.ndarray:
+        """Return the noise autocorrelation, if any, cut down by the requested number of values at the start and end.
+
+        Parameters
+        ----------
+        cut_pre : int, optional
+            How many samples to remove from the start of the each pulse record, by default 0
+        cut_post : int, optional
+            How many samples to remove from the end of the each pulse record, by default 0
+
+        Returns
+        -------
+        np.ndarray
+            The noise autocorrelation of the appropriate length. Or a length-0 array if not known.
+        """
         # If there's an autocorrelation, cut it down to length.
         if self.noise_autocorr is None:
             return None
         return self.noise_autocorr[:len(self.signal_model) - (cut_pre + cut_post)]
+    def _normalize_signal(self, cut_pre: int = 0, cut_post: int = 0) -> tuple[np.ndarray, float, np.ndarray]:
+        """Compute the normalized signal, peak value, and first-order arrival-time model.
 
-    def _normalize_signal(self, cut_pre: int = 0, cut_post: int = 0) -> tuple[np.ndarray, float, Optional[np.ndarray]]:
-        avg_signal = self.signal_model.copy()
+        Parameters
+        ----------
+        cut_pre : int, optional
+            How many samples to remove from the start of the each pulse record, by default 0
+        cut_post : int, optional
+            How many samples to remove from the end of the each pulse record, by default 0
+
+        Returns
+        -------
+        tuple[np.ndarray, float, np.ndarray]
+            (sig, pk, dsig), where `sig` is the nominal signal model (normalized to have unit amplitude), `pk` is the
+            peak values of the nominal signal, and `dsig` is the delta between `sig` that differ by one sample in
+            arrival time. The `dsig` will be an empty array if no arrival-time model is known.
+
+        Raises
+        ------
+        ValueError
+            If negative numbers of samples are to be cut, or the entire record is to be cut.
+        """
         ns = len(avg_signal)
         pre_avg = avg_signal[cut_pre:self.n_pretrigger - 1].mean()
 
