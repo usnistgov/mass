@@ -375,13 +375,13 @@ class FilterMaker:
 
         # Time domain filters
         shorten = 2
-        avg_signal = avg_signal[shorten:-shorten]
-        n = len(avg_signal)
+        truncated_signal = avg_signal[shorten:-shorten]
+        n = len(truncated_signal)
         assert len(noise_autocorr) >= n, "Noise autocorrelation vector is too short for signal size"
 
         noise_corr = noise_autocorr[:n]
         TS = ToeplitzSolver(noise_corr, symmetric=True)
-        Rinv_sig = TS(avg_signal)
+        Rinv_sig = TS(truncated_signal)
         Rinv_1 = TS(np.ones(n))
         filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
 
@@ -653,10 +653,11 @@ class FilterMaker:
         avg_signal : np.ndarray
             The signal to which filter `f` should give unit response
         """
+        assert len(f) <= len(avg_signal) - 4
         conv = np.zeros(5, dtype=float)
         for i in range(5):
             conv[i] = np.dot(f, avg_signal[i:i + len(f)])
-        x = np.arange(-2, 2.1)
+        x = np.linspace(-2, 2, 5)
         fit = np.polyfit(x, conv, 2)
         fit_ctr = -0.5 * fit[1] / fit[0]
         fit_peak = np.polyval(fit, fit_ctr)
