@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from mass.mathstat.toeplitz import ToeplitzSolver
 
 
+@dataclass(frozen=True)
 class ToeplitzWhitener:
     """An object that can perform approximate noise whitening.
 
@@ -29,23 +30,34 @@ class ToeplitzWhitener:
     * `tw.solveWT(v)` returns inv(W')*v
     * `tw.applyWT(v)` returns W'v
     * `tw.solveW(v)` returns inv(W)*v
+
+    Arguments
+    ---------
+    theta : np.ndarray
+        The moving-average (MA) process coefficients
+    phi : np.ndarray
+        The autoregressive (AR) process coefficients
+
+    Returns
+    -------
+    ToeplitzWhitener
+        Object that can perform approximate, time-invariant noise whitening.
+
+    Raises
+    ------
+    ValueError
+        If the operative methods are passed an array of dimension higher than 2.
     """
+    theta: np.ndarray
+    phi: np.ndarray
 
-    def __init__(self, thetacoef: npt.ArrayLike, phicoef: npt.ArrayLike):
-        """Initialize using the coefficients `thetacoef` of the MA process
-        and `phicoef` of the AR process.
+    @property
+    def p(self):
+        return len(self.phi) - 1
 
-        Parameters
-        ----------
-        thetacoef : npt.ArrayLike
-            The moving-average (MA) process coefficients
-        phicoef : npt.ArrayLike
-            The autoregressive (AR) process coefficients
-        """
-        self.theta = np.array(thetacoef)
-        self.phi = np.array(phicoef)
-        self.p = len(self.phi) - 1
-        self.q = len(self.theta) - 1
+    @property
+    def q(self):
+        return len(self.theta) - 1
 
     def whiten(self, v: npt.ArrayLike) -> np.ndarray:
         "Return whitened vector (or matrix of column vectors) Wv"
