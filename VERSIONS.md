@@ -4,6 +4,7 @@
 
 * Completely refactor filter code to use modern Python and MASS practices, and less spaghetti (issue 312).
   Some user code that involves filters might be broken.
+* Move the _use_ of optimal filters out of the `MicrocalDataSet` object into the `Filter` (issue 314).
 
 **0.8.5** November 15, 2024
 
