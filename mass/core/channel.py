@@ -640,8 +640,6 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.number_of_columns = None
         self.column_number = None
 
-        self._filter_type = "ats"
-
         self.tes_group = tes_group
 
         try:
@@ -662,6 +660,17 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.__load_cals_from_hdf5()
         self.__load_auto_cuts()
         self.__load_corrections()
+
+    @property
+    def _filter_type(self):
+        try:
+            if isinstance(self.filter, mass.FilterATS):
+                return "ats"
+            if isinstance(self.filter, mass.Filter5Lag):
+                return "5lag"
+        except AttributeError:
+            return None
+        return None
 
     def toOffStyle(self):
         a = self._makeNumpyArray()
@@ -780,8 +789,8 @@ class MicrocalDataSet:  # noqa: PLR0904
                 variance = filter_group["values"].attrs.get("variance", 0.0)
                 vdv = filter_group["values"].attrs.get("predicted_v_over_dv", 0.0)
                 peak = filter_group["values"].attrs.get("nominal_peak", 0.0)
-                self.filter = mass.Filter(values, peak, variance, vdv, dt_values, None, None, None,
-                                          1, fmax=fmax, f_3db=f_3db, _filter_type="ats")
+                self.filter = mass.FilterATS(values, peak, variance, vdv, dt_values, None, None, None,
+                                             1, fmax=fmax, f_3db=f_3db)
 
             else:
                 modelpeak = np.max(self.average_pulse)
@@ -794,8 +803,6 @@ class MicrocalDataSet:  # noqa: PLR0904
                     self.filter = maker.compute_fourier(fmax=fmax, f_3db=f_3db)
                 else:
                     raise Exception(f"filter_type={filter_type}, must be `ats`, `5lag`, or `fourier`")
-
-        self._filter_type = filter_type
 
     def __load_cals_from_hdf5(self, overwrite=False):
         """Load all calibrations in self.hdf5_group["calibration"] into the dict
@@ -1137,7 +1144,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         vec.attrs["nominal_peak"] = self.filter.nominal_peak
         vec.attrs["variance"] = self.filter.variance
         vec.attrs["predicted_v_over_dv"] = self.filter.predicted_v_over_dv
-        if self.filter._filter_type == "ats":
+        if isinstance(self.filter, mass.FilterATS):
             h5grp.create_dataset("dt_values", data=self.filter.dt_values)
 
     @property
@@ -1162,7 +1169,6 @@ class MicrocalDataSet:  # noqa: PLR0904
                 "category argument has no effect on compute_oldfilter, pass None or {}. compute_oldfilter uses self.average_pulse")
         f = self._compute_5lag_filter_no_mutation(fmax, f_3db, cut_pre, cut_post)
         self.filter = f
-        self._filter_type = "5lag"
         self._filter_to_hdf5()
         return f
 
@@ -1288,10 +1294,9 @@ class MicrocalDataSet:  # noqa: PLR0904
         f = maker.compute_ats(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
         if np.any(np.isnan(f.values)) or np.any(np.isnan(f.dt_values)):
-            raise Exception("{}. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
+            raise ValueError("{}. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
                 "there are nan values in your filters!! BAD",
                 model, self.nPresamples, self.noise_autocorr, self.timebase, modelpeak))
-        self._filter_type = f._filter_type
         self._filter_to_hdf5()
         return f
 
@@ -1420,11 +1425,11 @@ class MicrocalDataSet:  # noqa: PLR0904
 
         seg_size = end - first
         data = self.data[first:end]
-        conv = np.zeros((5, seg_size), dtype=float)
         if transform is not None:
             ptmean = self.p_pretrig_mean[first:end]
             ptmean.shape = (seg_size, 1)
             data = transform(data - ptmean)
+        conv = np.zeros((5, seg_size), dtype=float)
         conv[0, :] = np.dot(data[:, 0:-4], filter_values)
         conv[1, :] = np.dot(data[:, 1:-3], filter_values)
         conv[2, :] = np.dot(data[:, 2:-2], filter_values)

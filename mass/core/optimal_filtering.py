@@ -261,12 +261,15 @@ class Filter:
     f_3db: Optional[float] = None
     cut_pre: int = 0
     cut_post: int = 0
-    _filter_type: str = ""
 
     @property
     def is_arrival_time_safe(self):
         """Is this an arrival-time-safe filter?"""
-        return self.convolution_lags == 1 and self.dt_values is not None
+        return False
+
+    @property
+    def _filter_type(self):
+        return "unknown"
 
     def plot(self, axis: Optional[plt.Axes] = None, **kwargs):
         """Make a plot of the filter
@@ -294,6 +297,120 @@ class Filter:
         v_dv = self.predicted_v_over_dv
         fwhm_eV = std_energy / v_dv
         print(f"v/\u03b4v: {v_dv: .2f}, variance: {var:.2f} \u03b4E: {fwhm_eV:.2f} eV (FWHM), assuming standard E={std_energy:.2f} eV")
+
+
+@dataclass(frozen=True)
+class Filter5Lag(Filter):
+    """Represent an optimal filter, specifically one intended for 5-lag convolution with data
+
+    Returns
+    -------
+    Filter5Lag
+        An optimal filter, for convolution with data (at 5 lags, obviously)
+    """
+
+    def __post_init__(self):
+        assert self.convolution_lags == 5
+
+    @property
+    def _filter_type(self):
+        return "5lag"
+
+    # These parameters fit a parabola to any 5 evenly-spaced points
+    FIVELAG_FITTER = np.array((
+        (-6, 24, 34, 24, -6),
+        (-14, -7, 0, 7, 14),
+        (10, -5, -10, -5, 10),
+    ), dtype=float) / 70.0
+
+    def filter_records(self, x: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray]:
+        """Filter one microcalorimeter record or an array of records.
+
+        Parameters
+        ----------
+        x : npt.ArrayLike
+            A 1-d array, a single pulse record, or a 2-d array, each row a pulse records.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            1. The optimally filtered value, or an array (one per row) if the input is a 2-d array.
+            2. The phase, or arrival-time estimate in samples. Same shape as the filtered value.
+
+        Raises
+        ------
+        AssertionError
+            If the input array is the wrong length
+        """
+        x = np.asarray(x)
+        if x.ndim == 1:
+            x = x.reshape((1, len(x)))
+        nrec, nsamp = x.shape
+        assert nsamp == len(self.values) + self.convolution_lags - 1
+        conv = np.zeros((5, nrec), dtype=float)
+        conv[0, :] = np.dot(x[:, 0:-4], self.values)
+        conv[1, :] = np.dot(x[:, 1:-3], self.values)
+        conv[2, :] = np.dot(x[:, 2:-2], self.values)
+        conv[3, :] = np.dot(x[:, 3:-1], self.values)
+        conv[4, :] = np.dot(x[:, 4:], self.values)
+
+        param = np.dot(self.FIVELAG_FITTER, conv)
+        peak_x = -0.5 * param[1, :] / param[2, :]
+        peak_y = param[0, :] - 0.25 * param[1, :]**2 / param[2, :]
+        return peak_x, peak_y
+
+
+@dataclass(frozen=True)
+class FilterATS(Filter):
+    """Represent an optimal filter according to the arrival-time-safe design of 2015
+
+    Returns
+    -------
+    FilterATS
+        An optimal filter, for convolution with data (at 5 lags, obviously)
+    """
+
+    def __post_init__(self):
+        assert self.convolution_lags == 1
+        assert self.dt_values is not None
+
+    @property
+    def is_arrival_time_safe(self):
+        """Is this an arrival-time-safe filter?"""
+        return True
+
+    @property
+    def _filter_type(self):
+        return "ats"
+
+    def filter_records(self, x: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray]:
+        """Filter one microcalorimeter record or an array of records.
+
+        Parameters
+        ----------
+        x : npt.ArrayLike
+            A 1-d array, a single pulse record, or a 2-d array, each row a pulse records.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            1. The optimally filtered value, or an array (one per row) if the input is a 2-d array.
+            2. The phase, or arrival-time estimate in samples. Same shape as the filtered value.
+
+        Raises
+        ------
+        AssertionError
+            If the input array is the wrong length
+        """
+        x = np.asarray(x)
+        if x.ndim == 1:
+            x = x.reshape((1, len(x)))
+        _, nsamp = x.shape
+        assert nsamp == len(self.values)
+        conv0 = np.dot(x, self.values)
+        conv1 = np.dot(x, self.dt_values)
+        ArrivalTime = conv1 / conv0
+        return conv0, ArrivalTime
 
 
 @dataclass(frozen=True)
@@ -420,8 +537,8 @@ class FilterMaker:
             filt_noconst = np.hstack([np.zeros(cut_pre), filt_noconst, np.zeros(cut_post)])
 
         vdv = peak / (8 * np.log(2) * variance)**0.5
-        return Filter(filt_noconst, peak, variance, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
-                      fmax, f_3db, cut_pre, cut_post, "5lag")
+        return Filter5Lag(filt_noconst, peak, variance, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
+                          fmax, f_3db, cut_pre, cut_post)
 
     def compute_fourier(self, fmax: Optional[float] = None, f_3db: Optional[float] = None,
                         cut_pre: int = 0, cut_post: int = 0) -> Filter:
@@ -503,8 +620,8 @@ class FilterMaker:
             ac = np.array(self.noise_autocorr)[:len(filt_fourier)]
             variance_fourier = bracketR(filt_fourier, ac) / self.peak**2
         vdv = peak / (8 * np.log(2) * variance_fourier)**0.5
-        return Filter(filt_fourier, peak, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
-                      fmax, f_3db, cut_pre, cut_post, "fourier")
+        return Filter5Lag(filt_fourier, peak, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
+                          fmax, f_3db, cut_pre, cut_post)
 
     def compute_ats(self, fmax: Optional[float] = None, f_3db: Optional[float] = None,
                     cut_pre: int = 0, cut_post: int = 0) -> Filter:  # noqa: PLR0914
@@ -585,8 +702,8 @@ class FilterMaker:
 
         variance = bracketR(filt_noconst, self.noise_autocorr)
         vdv = peak / (np.log(2) * 8 * variance)**0.5
-        return Filter(filt_noconst, peak, variance, vdv, filt_dt, filt_baseline, avg_signal, dt_model, 1,
-                      fmax, f_3db, cut_pre, cut_post, "ats")
+        return FilterATS(filt_noconst, peak, variance, vdv, filt_dt, filt_baseline, avg_signal, dt_model, 1,
+                         fmax, f_3db, cut_pre, cut_post)
 
     def _compute_autocorr(self, cut_pre: int = 0, cut_post: int = 0) -> np.ndarray:
         """Return the noise autocorrelation, if any, cut down by the requested number of values at the start and end.
