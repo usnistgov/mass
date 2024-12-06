@@ -1316,10 +1316,8 @@ class MicrocalDataSet:  # noqa: PLR0904
         if use_cython is None:
             use_cython = self._filter_type == "5lag"
 
-        if self.filter is not None:
-            filter_values = self.filter.values
-        else:
-            filter_values = self.hdf5_group['filters/values'][:]
+        assert self.filter is not None
+        filter_values = self.filter.values
 
         if use_cython:
             if self._filter_type == "ats":
@@ -1335,26 +1333,36 @@ class MicrocalDataSet:  # noqa: PLR0904
 
     @show_progress("channel.filter_data_tdm")
     def _filter_data_nocython(self, filter_values, transform=None):
-        if self._filter_type == "ats":
-            if len(filter_values) == self.nSamples - 1:
-                filterfunction = self._filter_data_segment_ats
-            elif len(filter_values) == self.nSamples:
-                # when dastard uses kink model for determining trigger location, we don't need to shift1
-                # this code path should be followed when filters are created with the shift1=False argument
-                filterfunction = self._filter_data_segment_ats_dont_shift1
-            filter_AT = self.filter.dt_values
-        elif self._filter_type == "5lag":
-            filterfunction = self._filter_data_segment_5lag
-            filter_AT = None
-        else:
-            raise ValueError(f"filter_type={self._filter_type}, must be `ats` or `5lag`")
+        # when dastard uses kink model for determining trigger location, we don't need to shift1
+        # this code path should be followed when filters are created with the shift1=False argument
+        effective_filter_length = len(filter_values) + self.filter.convolution_lags - 1
+        use_shift1 = (effective_filter_length == self.nSamples - 1)
+        if not use_shift1:
+            assert effective_filter_length == self.nSamples
 
         for s in range(self.pulse_records.n_segments):
             first = s * self.pulse_records.pulses_per_seg
             end = min(self.nPulses, first + self.pulse_records.pulses_per_seg)
-            (self.p_filt_phase[first:end],
-             self.p_filt_value[first:end]) = \
-                filterfunction(filter_values, filter_AT, first, end, transform)
+            seg_size = end - first
+            data = self.data[first:end]
+
+            # Handle "shift1" data by removing the 1st sample from most records, but the
+            # last sample from those with self.p_shift1 set to True.
+            if use_shift1:
+                shift_these_records = self.p_shift1[first:end]
+                if np.any(shift_these_records):
+                    data = np.array(data)
+                    data[shift_these_records, 1:] = data[shift_these_records, :-1]
+                data = data[:, 1:]
+
+            if transform is not None:
+                ptmean = self.p_pretrig_mean[first:end]
+                ptmean.shape = (seg_size, 1)
+                data = transform(data - ptmean)
+
+            (self.p_filt_value[first:end],
+             self.p_filt_phase[first:end]) = \
+                self.filter.filter_records(data)
             yield (end + 1) / float(self.nPulses)
 
         self.hdf5_group.file.flush()

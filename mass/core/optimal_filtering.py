@@ -408,6 +408,8 @@ class FilterATS(Filter):
         if x.ndim == 1:
             x = x.reshape((1, len(x)))
         _, nsamp = x.shape
+        print("Heyho! ", nsamp, x.shape, len(self.values), type(self))
+
         assert nsamp == len(self.values)
         conv0 = np.dot(x, self.values)
         conv1 = np.dot(x, self.dt_values)
