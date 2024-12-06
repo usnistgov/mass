@@ -303,6 +303,8 @@ class Filter:
 class Filter5Lag(Filter):
     """Represent an optimal filter, specifically one intended for 5-lag convolution with data
 
+        The traditional 5-lag filter used by default until 2015.
+
     Returns
     -------
     Filter5Lag
@@ -364,7 +366,7 @@ class Filter5Lag(Filter):
 
 @dataclass(frozen=True)
 class FilterATS(Filter):
-    """Represent an optimal filter according to the arrival-time-safe design of 2015
+    """Represent an optimal filter according to the arrival-time-safe, single-lag design of 2015.
 
     Returns
     -------
