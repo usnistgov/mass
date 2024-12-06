@@ -970,8 +970,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    def plot_filters(self, axis=None, channels=None, cmap=None,
-                     filtname="filt_noconst", legend=True):
+    def plot_filters(self, axis=None, channels=None, cmap=None, legend=True):
         """Plot the optimal filters.
 
         Args:
@@ -996,7 +995,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             ds = self.channel[channum]
             if ds.filter is None:
                 continue
-            plt.plot(ds.filter.__dict__[filtname], label=f"Chan {ds.channum}",
+            plt.plot(ds.filter.values, label=f"Chan {ds.channum}",
                      color=cmap(float(ds_num) / len(channels)))
 
         plt.xlabel("Sample number")
@@ -1012,7 +1011,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         for i, ds in enumerate(self):
             try:
                 if ds.filter is not None:
-                    rms = ds.filter.variances[filter_name]**0.5
+                    rms = ds.filter.variance**0.5
                 else:
                     rms = ds.hdf5_group[f'filters/filt_{filter_name}'].attrs['variance']**0.5
                 v_dv = (1 / rms) / rms_fwhm
@@ -1136,11 +1135,11 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 if include_dc:
                     freq[0] = freq[1] * 0.1
                     axis.plot(freq, yvalue, label=f'Chan {channum}',
-                            color=cmap(float(i) / nplot))
+                              color=cmap(float(i) / nplot))
                     fmin = min(fmin, freq[0] * 0.8)
                 else:
                     axis.plot(freq[1:], yvalue[1:], label=f'Chan {channum}',
-                            color=cmap(float(i) / nplot))
+                              color=cmap(float(i) / nplot))
                     fmin = min(fmin, freq[1] * 0.8)
                 fmax = max(fmax, freq[-1] * 1.2)
             except Exception:

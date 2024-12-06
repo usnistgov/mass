@@ -426,9 +426,10 @@ class TestTESGroup:
         output_dir = tmp_path_factory.mktemp("off-1")
         max_channels = 100
         n_ignore_presamples = 0
-        _ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
+        _, off_filenames = mass.ljh2off.ljh2off_loop(
             ds.filename, hdf5_filename, output_dir, max_channels,
             n_ignore_presamples, require_experiment_state=False)
+        assert len(off_filenames) >= 1
         off = mass.off.off.OffFile(off_filenames[0])
         assert np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:])
 
@@ -444,14 +445,13 @@ class TestTESGroup:
 
         should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
         wrongness = np.abs(should_be_identity - np.identity(n_basis))
-        # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        print(f"Wrongness matrix (abs-max is {np.amax(wrongness)})")
         print(wrongness)
-        print(np.amax(wrongness))
-        assert np.amax(wrongness) < 0.16
+        assert np.amax(wrongness) < 1e-9
         pulse_model.plot()
 
-        output_dir = tmp_path_factory.mktemp("off-2")
         # test multi_ljh2off_loop with multiple ljhfiles
+        output_dir = tmp_path_factory.mktemp("off-2")
         basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
         N = len(off)
         prefix = os.path.split(basename)[1]

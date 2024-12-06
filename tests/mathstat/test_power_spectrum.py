@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-import mass
 import pylab as plt
+import mass
 
 from mass.mathstat.power_spectrum import computeSpectrum
 
@@ -32,13 +32,17 @@ def test_values():
 # test functions used in the oct23 true bq analysis
 # where the pulses did not live in ljh files, instead the pulses needed to be passed
 # explicitly as arguments to the psd and autocorr calculation
-def test_orthognal_to_exponential_filter():
+#
+# This documents how power spectrum and noise autocorrelation can be computed,
+# and how to use them to create a `FilterMaker` and in turn a `Filter`.
+def test_creating_filter_from_non_LJH_data():
     record_len = 100
     npre = 50
     n_noise_records = 50
     frametime_s = 1e-5
-    filter_orthogonal_to_exponential_time_constant_ms = 5
-    avg_pulse_values = 1000 * np.arange(record_len)  # we're just testing math here, this is easier than making an actual pulse shape
+    avg_pulse_values = 1000 * np.arange(record_len, dtype=float)
+    # ^ we're just testing math here, this "average pulse" is easier than making an actual pulse shape
+
     noise_traces = rng.standard_normal((record_len, n_noise_records))
     noise_autocorr = mass.mathstat.power_spectrum.autocorrelation_broken_from_pulses(noise_traces)
     noise_psd_calculator = mass.mathstat.power_spectrum.PowerSpectrum(record_len // 2, dt=frametime_s)
@@ -49,13 +53,11 @@ def test_orthognal_to_exponential_filter():
     noise_psd_calculator.plot()
     plt.close()
     noise_psd = noise_psd_calculator.spectrum()
-    filter_obj = mass.ExperimentalFilter(
-        avg_pulse_values, npre,
-        noise_psd, sample_time=frametime_s,
-        noise_autocorr=noise_autocorr,
-        tau=filter_orthogonal_to_exponential_time_constant_ms)
-    filter_obj.compute()
+
+    maker = mass.FilterMaker(avg_pulse_values, npre, noise_autocorr=noise_autocorr,
+                             noise_psd=noise_psd, sample_time_sec=frametime_s)
+    filter_obj = maker.compute_5lag()
     print("predicted resolutions")
     filter_obj.report(std_energy=1000)
-    chosen_filter = filter_obj.filt_noexpcon
-    np.dot(chosen_filter, avg_pulse_values)
+    chosen_filter = filter_obj.values
+    np.dot(chosen_filter, avg_pulse_values[2:-2])

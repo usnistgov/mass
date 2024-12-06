@@ -114,7 +114,6 @@ class PulseModel:
         The projectors and basis will be ordered as:
         mean, deriv_ike, pulse_like, any svd components...
         """
-
         # Check sanity of inputs
         n_samples, n_existing = basis.shape
         assert (n_existing, n_samples) == projectors.shape
