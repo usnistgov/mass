@@ -354,10 +354,12 @@ class Filter5Lag(Filter):
         conv[3, :] = np.dot(x[:, 3:-1], self.values)
         conv[4, :] = np.dot(x[:, 4:], self.values)
 
+        # Least-squares fit of 5 values to a parabola.
+        # Order is row 0 = constant ... row 2 = quadratic coefficients.
         param = np.dot(self.FIVELAG_FITTER, conv)
         peak_x = -0.5 * param[1, :] / param[2, :]
         peak_y = param[0, :] - 0.25 * param[1, :]**2 / param[2, :]
-        return peak_x, peak_y
+        return peak_y, peak_x
 
 
 @dataclass(frozen=True)
