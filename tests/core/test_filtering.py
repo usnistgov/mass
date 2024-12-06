@@ -183,17 +183,19 @@ class TestFilters:
         for cut_pre in (0, n_pre // 10, n_pre // 4):
             for cut_post in (0, (N - n_pre) // 10, (N - n_pre) // 4):
                 thispulse = pulse[cut_pre:N - cut_post]
-                filterS = ATSF(thispulse, n_pre - cut_pre, noise, sample_time=dt)
+                filterS = ATSF(thispulse, n_pre - cut_pre, noise, sample_time_sec=dt)
                 fS = filterS.values
 
-                filterL = ATSF(pulse, n_pre, noise, sample_time=dt, cut_pre=cut_pre, cut_post=cut_post)
+                filterL = ATSF(pulse, n_pre, noise, sample_time_sec=dt,
+                               cut_pre=cut_pre, cut_post=cut_post)
                 fL = filterL.values[cut_pre:N - cut_post]
                 assert np.allclose(fS, fL)
 
 
-def ATSF(pulse, npre, noise, sample_time, peak=0.0, f_3db=None, cut_pre=0, cut_post=0):
+def ATSF(pulse, npre, noise, sample_time_sec, peak=0.0, f_3db=None, cut_pre=0, cut_post=0):
     assert pulse.shape[1] == 2
-    maker = mass.FilterMaker(pulse[:, 0], npre, noise, dt_model=pulse[:, 1], sample_time=sample_time, peak=peak)
+    maker = mass.FilterMaker(pulse[:, 0], npre, noise, dt_model=pulse[:, 1],
+                             sample_time_sec=sample_time_sec, peak=peak)
     return maker.compute_ats(f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
 
 
@@ -213,7 +215,8 @@ def test_dc_insensitive():
     fake_noise[0] = 10.0
     dt = 6.72e-6
 
-    maker = mass.FilterMaker(pulse_like, nPresamples, fake_noise, dt_model=deriv_like, sample_time=dt, peak=np.max(pulse_like))
+    maker = mass.FilterMaker(pulse_like, nPresamples, fake_noise, dt_model=deriv_like,
+                             sample_time_sec=dt, peak=np.max(pulse_like))
     with pytest.raises(ValueError):
         maker.compute_fourier()
     for computer in (maker.compute_ats, maker.compute_5lag):
@@ -258,7 +261,8 @@ def test_long_filter(tmp_path):
         model = np.vstack([ds.average_pulse, aterms]).T
         modelpeak = np.max(ds.average_pulse)
 
-        f = ATSF(model, ds.nPresamples, ds.noise_autocorr, sample_time=ds.timebase, peak=modelpeak, f_3db=5000)
+        f = ATSF(model, ds.nPresamples, ds.noise_autocorr,
+                 sample_time_sec=ds.timebase, peak=modelpeak, f_3db=5000)
         ds.filter = f
         ds._filter_type = "ats"
         ds._filter_to_hdf5()

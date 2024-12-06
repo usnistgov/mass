@@ -771,7 +771,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                 modelpeak = np.max(avg_signal)
                 maker = FilterMaker(avg_signal, self.nPresamples - self.pretrigger_ignore_samples,
                                     self.noise_autocorr, self.noise_psd, aterms,
-                                    sample_time=self.timebase, peak=modelpeak)
+                                    sample_time_sec=self.timebase, peak=modelpeak)
                 self.filter = maker.compute_ats(fmax=fmax, f_3db=f_3db)
         if version == 2:
             if filter_type == "ats":
@@ -787,7 +787,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                 modelpeak = np.max(self.average_pulse)
                 maker = FilterMaker(self.average_pulse[:], self.nPresamples - self.pretrigger_ignore_samples,
                                     self.noise_autocorr, self.noise_psd,
-                                    sample_time=self.timebase, peak=modelpeak)
+                                    sample_time_sec=self.timebase, peak=modelpeak)
                 if filter_type == "5lag":
                     self.filter = maker.compute_5lag(fmax=fmax, f_3db=f_3db)
                 elif filter_type == "fourier":
@@ -1175,7 +1175,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         if np.all(np.abs(self.average_pulse) == 0):
             raise Exception("average pulse is all zeros, try avg_pulses_auto_masks first")
         maker = FilterMaker(avg_signal, self.nPresamples - self.pretrigger_ignore_samples,
-                            self.noise_autocorr, spectrum, sample_time=self.timebase)
+                            self.noise_autocorr, spectrum, sample_time_sec=self.timebase)
         f = maker.compute_5lag(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         return f
 
@@ -1284,7 +1284,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.pulsemodel = model
 
         maker = FilterMaker(model[:, 0], self.nPresamples, self.noise_autocorr,
-                            dt_model=model[:, 1], sample_time=self.timebase, peak=modelpeak)
+                            dt_model=model[:, 1], sample_time_sec=self.timebase, peak=modelpeak)
         f = maker.compute_ats(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
         if np.any(np.isnan(f.values)) or np.any(np.isnan(f.dt_values)):

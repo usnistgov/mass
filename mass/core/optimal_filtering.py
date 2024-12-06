@@ -183,7 +183,7 @@ class ToeplitzWhitener:
         return np.linalg.solve(MA, AR)
 
 
-def band_limit(modelmatrix: np.ndarray, sample_time: float, fmax: Optional[float], f_3db: Optional[float]):
+def band_limit(modelmatrix: np.ndarray, sample_time_sec: float, fmax: Optional[float], f_3db: Optional[float]):
     """Band-limit the column-vectors in a model matrix with a hard and/or
     1-pole low-pass filter. Change the input `modelmatrix` in-place.
 
@@ -193,10 +193,10 @@ def band_limit(modelmatrix: np.ndarray, sample_time: float, fmax: Optional[float
     ----------
     modelmatrix : np.ndarray
         The 1D or 2D array to band-limit. (If a 2D array, columns are independently band-limited.)
-    sample_time : float
-        The sampling period
+    sample_time_sec : float
+        The sampling period, normally in seconds.
     fmax : Optional[float]
-        The hard maximum frequency (units are inverse of `sample_time` units)
+        The hard maximum frequency (units are inverse of `sample_time_sec` units, or Hz)
     f_3db : Optional[float]
         The 1-pole low-pass filter's 3 dB point (same units as `fmax`)
     """
@@ -207,13 +207,13 @@ def band_limit(modelmatrix: np.ndarray, sample_time: float, fmax: Optional[float
     assert len(modelmatrix.shape) <= 2
     if len(modelmatrix.shape) == 2:
         for i in range(modelmatrix.shape[1]):
-            band_limit(modelmatrix[:, i], sample_time, fmax, f_3db)
+            band_limit(modelmatrix[:, i], sample_time_sec, fmax, f_3db)
         return
 
     vector = modelmatrix
     filt_length = len(vector)
     sig_ft = np.fft.rfft(vector)
-    freq = np.fft.fftfreq(filt_length, d=sample_time)
+    freq = np.fft.fftfreq(filt_length, d=sample_time_sec)
     freq = np.abs(freq[:len(sig_ft)])
     if fmax is not None:
         sig_ft[freq > fmax] = 0.0
@@ -323,8 +323,8 @@ class FilterMaker:
     whitener : Optional[ToeplitzWhitener]
         An optional function object which, when called, whitens a vector or the
         columns of a matrix. Supersedes `noise_autocorr` if both are given.
-    sample_time : float
-        The time step between samples in `avg_signal` and `noise_autocorr`
+    sample_time_sec : float
+        The time step between samples in `avg_signal` and `noise_autocorr` (in seconds).
         This must be given if `fmax` or `f_3db` are ever to be used.
     peak : float
         The peak amplitude of the standard signal
@@ -356,7 +356,7 @@ class FilterMaker:
     noise_psd: Optional[npt.ArrayLike] = None
     dt_model: Optional[npt.ArrayLike] = None
     whitener: Optional[ToeplitzWhitener] = None
-    sample_time: float = 0.0
+    sample_time_sec: float = 0.0
     peak: float = 0.0
 
     def compute_5lag(self, fmax: Optional[float] = None, f_3db: Optional[float] = None,
@@ -392,9 +392,9 @@ class FilterMaker:
         noise_autocorr = self._compute_autocorr(cut_pre, cut_post)
         avg_signal, peak, _ = self._normalize_signal(cut_pre, cut_post)
 
-        if self.sample_time <= 0 and not (fmax is None and f_3db is None):
+        if self.sample_time_sec <= 0 and not (fmax is None and f_3db is None):
             raise ValueError(
-                "Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+                "Filter must have a sample_time_sec if it's to be smoothed with fmax or f_3db")
         if cut_pre < 0 or cut_post < 0:
             raise ValueError(f"(cut_pre,cut_post)=({cut_pre},{cut_post}), but neither can be negative")
 
@@ -410,7 +410,7 @@ class FilterMaker:
         Rinv_1 = TS(np.ones(n))
         filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
 
-        band_limit(filt_noconst, self.sample_time, fmax, f_3db)
+        band_limit(filt_noconst, self.sample_time_sec, fmax, f_3db)
 
         self._normalize_5lag_filter(filt_noconst, avg_signal)
         variance = bracketR(filt_noconst, noise_corr)
@@ -484,7 +484,7 @@ class FilterMaker:
         # Band-limit
         if fmax is not None or f_3db is not None:
             freq = np.arange(0, n - shorten, dtype=float) * \
-                0.5 / ((n - 1) * self.sample_time)
+                0.5 / ((n - 1) * self.sample_time_sec)
             if fmax is not None:
                 sig_ft_weighted[freq > fmax] = 0.0
             if f_3db is not None:
@@ -496,7 +496,7 @@ class FilterMaker:
 
         # How we compute the uncertainty depends on whether there's a noise autocorrelation result
         if self.noise_autocorr is None:
-            noise_ft_squared = (len(noise_psd) - 1) / self.sample_time * noise_psd
+            noise_ft_squared = (len(noise_psd) - 1) / self.sample_time_sec * noise_psd
             kappa = (np.abs(sig_ft * self.peak)**2 / noise_ft_squared)[1:].sum()
             variance_fourier = 1. / kappa
         else:
@@ -538,9 +538,9 @@ class FilterMaker:
             raise ValueError("Filter must have noise_autocorr or whitener arguments to generate ATS filters")
         if self.dt_model is None:
             raise ValueError("Filter must have dt_model to generate ATS filters")
-        if self.sample_time is None and not (fmax is None and f_3db is None):
+        if self.sample_time_sec is None and not (fmax is None and f_3db is None):
             raise ValueError(
-                "Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+                "Filter must have a sample_time_sec if it's to be smoothed with fmax or f_3db")
 
         noise_autocorr = self._compute_autocorr(cut_pre, cut_post)
         avg_signal, peak, dt_model = self._normalize_signal(cut_pre, cut_post)
@@ -571,7 +571,7 @@ class FilterMaker:
             Ainv = np.linalg.inv(A)
             filt = np.dot(Ainv, RinvM.T)
 
-        band_limit(filt.T, self.sample_time, fmax, f_3db)
+        band_limit(filt.T, self.sample_time_sec, fmax, f_3db)
 
         if cut_pre > 0 or cut_post > 0:
             nfilt = filt.shape[0]
