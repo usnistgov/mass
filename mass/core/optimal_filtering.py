@@ -314,14 +314,12 @@ class FilterMaker:
         `n_pretrigger` samples at the start of a record.
     noise_autocorr : Optional[npt.ArrayLike]
         The autocorrelation function of the noise, where the lag spacing is
-        assumed to be the same as the sample period of `avg_signal`.  If None,
-        then several filters won't be computed.  (One of `noise_psd` or
-        `noise_autocorr` must be a valid array, or `whitener` must be given.)
+        assumed to be the same as the sample period of `avg_signal`.
     noise_psd : Optional[npt.ArrayLike]
-        The noise power spectral density.  If None, then filt_fourier won't be
-        computed.  If not None, then it must be of length (2N+1), where N is the
-        length of `avg_signal`, and its values are assumed to cover the non-negative
-        frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
+        The noise power spectral density.  If not None, then it must be of length (2N+1),
+        where N is the length of `avg_signal`, and its values are assumed to cover the
+        non-negative frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
+        If None, then method `compute_fourier()` will not work.
     whitener : Optional[ToeplitzWhitener]
         An optional function object which, when called, whitens a vector or the
         columns of a matrix. Supersedes `noise_autocorr` if both are given.
@@ -330,6 +328,10 @@ class FilterMaker:
         This must be given if `fmax` or `f_3db` are ever to be used.
     peak : float
         The peak amplitude of the standard signal
+
+    If both `noise_autocorr` and `whitener` are None, then methods `compute_5lag` and
+    `compute_ats` will both fail, as they require a time-domain characterization of the
+    noise.
 
     Returns
     -------
