@@ -329,9 +329,20 @@ class FilterMaker:
     peak : float
         The peak amplitude of the standard signal
 
-    If both `noise_autocorr` and `whitener` are None, then methods `compute_5lag` and
+
+    Notes
+    -----
+
+    * If both `noise_autocorr` and `whitener` are None, then methods `compute_5lag` and
     `compute_ats` will both fail, as they require a time-domain characterization of the
     noise.
+
+    * The units of `noise_autocorr` are the square of the units used in `signal_model` and/or
+    `peak`. The units of `whitener` are the inverse of the signal units.  Any rescaling of the
+    noise autocorrelation or whitener does not affect any filter values, but only
+    the predicted signal/noise ratios.
+
+    * The units of `noise_psd` are square signal units, per Hertz.
 
     Returns
     -------
