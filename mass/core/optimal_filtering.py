@@ -505,13 +505,13 @@ class FilterMaker:
             Under various conditions where arguments are inconsistent with the data
         """
         if self.noise_autocorr is None and self.whitener is None:
-            raise ValueError("Filter must have noise_autocorr or whitener arguments to generate 5-lag filters")
+            raise ValueError("FilterMaker must have noise_autocorr or whitener arguments to generate 5-lag filters")
         noise_autocorr = self._compute_autocorr(cut_pre, cut_post)
         avg_signal, peak, _ = self._normalize_signal(cut_pre, cut_post)
 
         if self.sample_time_sec <= 0 and not (fmax is None and f_3db is None):
             raise ValueError(
-                "Filter must have a sample_time_sec if it's to be smoothed with fmax or f_3db")
+                "FilterMaker must have a sample_time_sec if it's to be smoothed with fmax or f_3db")
         if cut_pre < 0 or cut_post < 0:
             raise ValueError(f"(cut_pre,cut_post)=({cut_pre},{cut_post}), but neither can be negative")
 
@@ -571,7 +571,7 @@ class FilterMaker:
         """
         # Make sure we have either a noise PSD or an autocorrelation or a whitener
         if self.noise_psd is None:
-            raise ValueError("Filter must have noise_psd to generate a Fourier filter")
+            raise ValueError("FilterMaker must have noise_psd to generate a Fourier filter")
         if cut_pre > 0 or cut_post > 0:
             raise NotImplementedError("Haven't implemented sample non-weighting for Fourier filters")
         if cut_pre < 0 or cut_post < 0:
@@ -652,12 +652,12 @@ class FilterMaker:
             Under various conditions where arguments are inconsistent with the data
         """
         if self.noise_autocorr is None and self.whitener is None:
-            raise ValueError("Filter must have noise_autocorr or whitener arguments to generate ATS filters")
+            raise ValueError("FilterMaker must have noise_autocorr or whitener arguments to generate ATS filters")
         if self.dt_model is None:
-            raise ValueError("Filter must have dt_model to generate ATS filters")
+            raise ValueError("FilterMaker must have dt_model to generate ATS filters")
         if self.sample_time_sec is None and not (fmax is None and f_3db is None):
             raise ValueError(
-                "Filter must have a sample_time_sec if it's to be smoothed with fmax or f_3db")
+                "FilterMaker must have a sample_time_sec if it's to be smoothed with fmax or f_3db")
 
         noise_autocorr = self._compute_autocorr(cut_pre, cut_post)
         avg_signal, peak, dt_model = self._normalize_signal(cut_pre, cut_post)
