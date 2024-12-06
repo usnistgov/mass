@@ -35,7 +35,7 @@ def test_values():
 #
 # This documents how power spectrum and noise autocorrelation can be computed,
 # and how to use them to create a `FilterMaker` and in turn a `Filter`.
-def test_orthognal_to_exponential_filter():
+def test_creating_filter_from_non_LJH_data():
     record_len = 100
     npre = 50
     n_noise_records = 50
