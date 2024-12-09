@@ -267,6 +267,12 @@ def test_long_filter(tmp_path):
         ds._filter_to_hdf5()
 
 
+def test_no_concrete_baseFilter():
+    "Make sure that mass.Filter is an abstract base class, can't be instantiated directly,"
+    with pytest.raises(TypeError):
+        _ = mass.Filter(np.zeros(100), 100.0, 100.0, 100.0)
+
+
 class TestWhitener:
     """Test ToeplitzWhitener."""
 

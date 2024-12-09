@@ -4,9 +4,11 @@ Classes to create time-domain and Fourier-domain optimal filters.
 
 import numpy as np
 import matplotlib.pylab as plt
+
 import numpy.typing as npt
 from typing import Optional
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 from mass.mathstat.toeplitz import ToeplitzSolver
 
@@ -225,7 +227,7 @@ def band_limit(modelmatrix: np.ndarray, sample_time_sec: float, fmax: Optional[f
 
 
 @dataclass(frozen=True)
-class Filter:
+class Filter(ABC):
     """A single optimal filter, possibly with optimal estimators of the Delta-t and of the DC level.
 
     Returns
@@ -263,13 +265,15 @@ class Filter:
     cut_post: int = 0
 
     @property
+    @abstractmethod
     def is_arrival_time_safe(self):
         """Is this an arrival-time-safe filter?"""
         return False
 
     @property
+    @abstractmethod
     def _filter_type(self):
-        return "unknown"
+        return "illegal: this is supposed to be an abstract base class"
 
     def plot(self, axis: Optional[plt.Axes] = None, **kwargs):
         """Make a plot of the filter
@@ -298,6 +302,10 @@ class Filter:
         fwhm_eV = std_energy / v_dv
         print(f"v/\u03b4v: {v_dv: .2f}, variance: {var:.2f} \u03b4E: {fwhm_eV:.2f} eV (FWHM), assuming standard E={std_energy:.2f} eV")
 
+    @abstractmethod
+    def filter_records(self, x: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray]:
+        pass
+
 
 @dataclass(frozen=True)
 class Filter5Lag(Filter):
@@ -313,6 +321,11 @@ class Filter5Lag(Filter):
 
     def __post_init__(self):
         assert self.convolution_lags == 5
+
+    @property
+    def is_arrival_time_safe(self):
+        """Is this an arrival-time-safe filter?"""
+        return False
 
     @property
     def _filter_type(self):
