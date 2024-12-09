@@ -223,15 +223,15 @@ def test_dc_insensitive():
         filter_to_test = computer(f_3db=None, fmax=None)
         std = np.median(np.abs(filter_to_test.values))
         mean = filter_to_test.values.mean()
-        assert mean < 1e-10 * std, f"{filter_to_test._filter_type} failed DC test w/o lowpass"
+        assert mean < 1e-10 * std, f"{filter_to_test} failed DC test w/o lowpass"
 
         filter_to_test = computer(f_3db=1e4, fmax=None)
         mean = filter_to_test.values.mean()
-        assert mean < 1e-10 * std, f"{filter_to_test._filter_type} failed DC test w/ f_3db"
+        assert mean < 1e-10 * std, f"{filter_to_test} failed DC test w/ f_3db"
 
         filter_to_test = computer(f_3db=None, fmax=1e4)
         mean = filter_to_test.values.mean()
-        assert mean < 1e-10 * std, f"{filter_to_test._filter_type} failed DC test w/ fmax"
+        assert mean < 1e-10 * std, f"{filter_to_test} failed DC test w/ fmax"
 
 
 def test_long_filter(tmp_path):
@@ -264,8 +264,13 @@ def test_long_filter(tmp_path):
         f = ATSF(model, ds.nPresamples, ds.noise_autocorr,
                  sample_time_sec=ds.timebase, peak=modelpeak, f_3db=5000)
         ds.filter = f
-        ds._filter_type = "ats"
         ds._filter_to_hdf5()
+
+
+def test_no_concrete_baseFilter():
+    "Make sure that mass.Filter is an abstract base class, can't be instantiated directly,"
+    with pytest.raises(TypeError):
+        _ = mass.Filter(np.zeros(100), 100.0, 100.0, 100.0)
 
 
 class TestWhitener:

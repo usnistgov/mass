@@ -640,8 +640,6 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.number_of_columns = None
         self.column_number = None
 
-        self._filter_type = "ats"
-
         self.tes_group = tes_group
 
         try:
@@ -662,6 +660,17 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.__load_cals_from_hdf5()
         self.__load_auto_cuts()
         self.__load_corrections()
+
+    @property
+    def _filter_type(self):
+        try:
+            if isinstance(self.filter, mass.FilterATS):
+                return "ats"
+            if isinstance(self.filter, mass.Filter5Lag):
+                return "5lag"
+        except AttributeError:
+            return None
+        return None
 
     def toOffStyle(self):
         a = self._makeNumpyArray()
@@ -780,8 +789,8 @@ class MicrocalDataSet:  # noqa: PLR0904
                 variance = filter_group["values"].attrs.get("variance", 0.0)
                 vdv = filter_group["values"].attrs.get("predicted_v_over_dv", 0.0)
                 peak = filter_group["values"].attrs.get("nominal_peak", 0.0)
-                self.filter = mass.Filter(values, peak, variance, vdv, dt_values, None, None, None,
-                                          1, fmax=fmax, f_3db=f_3db, _filter_type="ats")
+                self.filter = mass.FilterATS(values, peak, variance, vdv, dt_values, None, None, None,
+                                             1, fmax=fmax, f_3db=f_3db)
 
             else:
                 modelpeak = np.max(self.average_pulse)
@@ -794,8 +803,6 @@ class MicrocalDataSet:  # noqa: PLR0904
                     self.filter = maker.compute_fourier(fmax=fmax, f_3db=f_3db)
                 else:
                     raise Exception(f"filter_type={filter_type}, must be `ats`, `5lag`, or `fourier`")
-
-        self._filter_type = filter_type
 
     def __load_cals_from_hdf5(self, overwrite=False):
         """Load all calibrations in self.hdf5_group["calibration"] into the dict
@@ -1137,7 +1144,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         vec.attrs["nominal_peak"] = self.filter.nominal_peak
         vec.attrs["variance"] = self.filter.variance
         vec.attrs["predicted_v_over_dv"] = self.filter.predicted_v_over_dv
-        if self.filter._filter_type == "ats":
+        if isinstance(self.filter, mass.FilterATS):
             h5grp.create_dataset("dt_values", data=self.filter.dt_values)
 
     @property
@@ -1162,7 +1169,6 @@ class MicrocalDataSet:  # noqa: PLR0904
                 "category argument has no effect on compute_oldfilter, pass None or {}. compute_oldfilter uses self.average_pulse")
         f = self._compute_5lag_filter_no_mutation(fmax, f_3db, cut_pre, cut_post)
         self.filter = f
-        self._filter_type = "5lag"
         self._filter_to_hdf5()
         return f
 
@@ -1288,10 +1294,9 @@ class MicrocalDataSet:  # noqa: PLR0904
         f = maker.compute_ats(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
         if np.any(np.isnan(f.values)) or np.any(np.isnan(f.dt_values)):
-            raise Exception("{}. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
+            raise ValueError("{}. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
                 "there are nan values in your filters!! BAD",
                 model, self.nPresamples, self.noise_autocorr, self.timebase, modelpeak))
-        self._filter_type = f._filter_type
         self._filter_to_hdf5()
         return f
 
@@ -1311,10 +1316,8 @@ class MicrocalDataSet:  # noqa: PLR0904
         if use_cython is None:
             use_cython = self._filter_type == "5lag"
 
-        if self.filter is not None:
-            filter_values = self.filter.values
-        else:
-            filter_values = self.hdf5_group['filters/values'][:]
+        assert self.filter is not None
+        filter_values = self.filter.values
 
         if use_cython:
             if self._filter_type == "ats":
@@ -1330,26 +1333,36 @@ class MicrocalDataSet:  # noqa: PLR0904
 
     @show_progress("channel.filter_data_tdm")
     def _filter_data_nocython(self, filter_values, transform=None):
-        if self._filter_type == "ats":
-            if len(filter_values) == self.nSamples - 1:
-                filterfunction = self._filter_data_segment_ats
-            elif len(filter_values) == self.nSamples:
-                # when dastard uses kink model for determining trigger location, we don't need to shift1
-                # this code path should be followed when filters are created with the shift1=False argument
-                filterfunction = self._filter_data_segment_ats_dont_shift1
-            filter_AT = self.filter.dt_values
-        elif self._filter_type == "5lag":
-            filterfunction = self._filter_data_segment_5lag
-            filter_AT = None
-        else:
-            raise ValueError(f"filter_type={self._filter_type}, must be `ats` or `5lag`")
+        # when dastard uses kink model for determining trigger location, we don't need to shift1
+        # this code path should be followed when filters are created with the shift1=False argument
+        effective_filter_length = len(filter_values) + self.filter.convolution_lags - 1
+        use_shift1 = (effective_filter_length == self.nSamples - 1)
+        if not use_shift1:
+            assert effective_filter_length == self.nSamples
 
         for s in range(self.pulse_records.n_segments):
             first = s * self.pulse_records.pulses_per_seg
             end = min(self.nPulses, first + self.pulse_records.pulses_per_seg)
-            (self.p_filt_phase[first:end],
-             self.p_filt_value[first:end]) = \
-                filterfunction(filter_values, filter_AT, first, end, transform)
+            seg_size = end - first
+            data = self.data[first:end]
+
+            # Handle "shift1" data by removing the 1st sample from most records, but the
+            # last sample from those with self.p_shift1 set to True.
+            if use_shift1:
+                shift_these_records = self.p_shift1[first:end]
+                if np.any(shift_these_records):
+                    data = np.array(data)
+                    data[shift_these_records, 1:] = data[shift_these_records, :-1]
+                data = data[:, 1:]
+
+            if transform is not None:
+                ptmean = self.p_pretrig_mean[first:end]
+                ptmean.shape = (seg_size, 1)
+                data = transform(data - ptmean)
+
+            (self.p_filt_value[first:end],
+             self.p_filt_phase[first:end]) = \
+                self.filter.filter_records(data)
             yield (end + 1) / float(self.nPulses)
 
         self.hdf5_group.file.flush()
@@ -1404,72 +1417,6 @@ class MicrocalDataSet:  # noqa: PLR0904
         save_inverted = self.invert_data
         hdf5_group = hdf5_file.create_group(f"{self.channum}")
         pulse_model.toHDF5(hdf5_group, save_inverted)
-
-    def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
-        """Traditional 5-lag filter used by default until 2015."""
-        if first >= self.nPulses:
-            return None, None
-
-        # These parameters fit a parabola to any 5 evenly-spaced points
-        fit_array = np.array((
-            (-6, 24, 34, 24, -6),
-            (-14, -7, 0, 7, 14),
-            (10, -5, -10, -5, 10)), dtype=float) / 70.0
-
-        assert len(filter_values) + 4 == self.nSamples
-
-        seg_size = end - first
-        data = self.data[first:end]
-        conv = np.zeros((5, seg_size), dtype=float)
-        if transform is not None:
-            ptmean = self.p_pretrig_mean[first:end]
-            ptmean.shape = (seg_size, 1)
-            data = transform(data - ptmean)
-        conv[0, :] = np.dot(data[:, 0:-4], filter_values)
-        conv[1, :] = np.dot(data[:, 1:-3], filter_values)
-        conv[2, :] = np.dot(data[:, 2:-2], filter_values)
-        conv[3, :] = np.dot(data[:, 3:-1], filter_values)
-        conv[4, :] = np.dot(data[:, 4:], filter_values)
-
-        param = np.dot(fit_array, conv)
-        peak_x = -0.5 * param[1, :] / param[2, :]
-        peak_y = param[0, :] - 0.25 * param[1, :]**2 / param[2, :]
-        return peak_x, peak_y
-
-    def _filter_data_segment_ats(self, filter_values, filter_AT, first, end, transform=None):
-        """single-lag filter developed in 2015"""
-        if first >= self.nPulses:
-            return None, None
-
-        assert len(filter_values) + 1 == self.nSamples
-
-        seg_size = end - first
-        data = self.data[first:end]
-        if transform is not None:
-            ptmean = self.p_pretrig_mean[first:end]
-            data = transform(self.data - ptmean.reshape((seg_size, 1)))
-        conv0 = np.dot(data[:, 1:], filter_values)
-        conv1 = np.dot(data[:, 1:], filter_AT)
-
-        # Find pulses that triggered 1 sample too late and "want to shift"
-        want_to_shift = self.p_shift1[first:end]
-        conv0[want_to_shift] = np.dot(data[want_to_shift, :-1], filter_values)
-        conv1[want_to_shift] = np.dot(data[want_to_shift, :-1], filter_AT)
-        AT = conv1 / conv0
-        return AT, conv0
-
-    def _filter_data_segment_ats_dont_shift1(self, filter_values, filter_AT, first, end, transform=None):
-        # when using a zero threshold trigger (eg dastard using the kink-model) no shift is neccesary
-        assert len(filter_values == self.nSamples)
-        seg_size = end - first
-        data = self.data[first:end, :]
-        if transform is not None:
-            ptmean = self.p_pretrig_mean[first:end]
-            data = transform(data - ptmean.reshape((seg_size, 1)))
-        conv0 = np.dot(data, filter_values)
-        conv1 = np.dot(data, filter_AT)
-        AT = conv1 / conv0
-        return AT, conv0
 
     def plot_summaries(self, valid='uncut', downsample=None, log=False):
         """Plot a summary of the data set, including time series and histograms of
