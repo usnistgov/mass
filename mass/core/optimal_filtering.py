@@ -331,7 +331,7 @@ class Filter5Lag(Filter):
         Parameters
         ----------
         x : npt.ArrayLike
-            A 1-d array, a single pulse record, or a 2-d array, each row a pulse records.
+            A 1-d array, a single pulse record, or a 2-d array, where `x[i, :]` is pulse record number `i`.
 
         Returns
         -------
@@ -410,13 +410,12 @@ class FilterATS(Filter):
         if x.ndim == 1:
             x = x.reshape((1, len(x)))
         _, nsamp = x.shape
-        print("Heyho! ", nsamp, x.shape, len(self.values), type(self))
 
         assert nsamp == len(self.values)
         conv0 = np.dot(x, self.values)
         conv1 = np.dot(x, self.dt_values)
-        ArrivalTime = conv1 / conv0
-        return conv0, ArrivalTime
+        arrival_time = conv1 / conv0
+        return conv0, arrival_time
 
 
 @dataclass(frozen=True)
