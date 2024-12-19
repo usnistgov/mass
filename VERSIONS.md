@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.8.6** November, 2024-
+**0.8.6** December 19, 2024
 
 * Completely refactor filter code to use modern Python and MASS practices, and less spaghetti (issue 312).
   Some user code that involves filters might be broken.
