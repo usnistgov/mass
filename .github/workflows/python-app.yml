@@ -58,6 +58,7 @@ jobs:
       run: |
         uv sync --all-extras --group docs
         which sphinx-build
+        export PATH=$PATH:`which sphinx-build`
         cd doc
         make clean
         make doctest
