@@ -3,6 +3,7 @@
 **0.8.7** January 9, 2025-
 
 * Remove some dependencies in `pyproject.toml` that are no longer required.
+* Use `uv` to install requirements within GitHub Actions.
 
 **0.8.6** December 19, 2024
 

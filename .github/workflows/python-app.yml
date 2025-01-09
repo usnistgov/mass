@@ -48,7 +48,7 @@ jobs:
       if: ${{ matrix.python-version == 3.13 }}
       run: |
         ruff check --preview || ruff check --preview --statistics --exit-zero
-        # flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude nonstandard
+        uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude nonstandard
 
     - name: Test with pytest
       run: pytest
