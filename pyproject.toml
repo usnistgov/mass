@@ -6,6 +6,11 @@ authors = [
     {name = "Joe Fowler", email = "drjoefowler@gmail.com"},
     {name = "Galen O'Neil", email = "ggggggggg@github.com"},
 ]
+
+requires-python = ">=3.8"
+readme = "README.md"
+license = {text = "MIT"}
+
 dependencies = [
     "deprecation",
     "dill",
@@ -17,6 +22,7 @@ dependencies = [
     "numpy>=1.14",
     "packaging",
     "progress",
+    "scikit-learn",
     "scipy>=0.19, !=1.11.2",
     # Bitbucket pipeline tests failed with scipy-1.11.2 but passed with .1 or .3. Weird, but remember it!
     "uncertainties",
@@ -31,11 +37,6 @@ dependencies = [
     "ruff",
     "flake8",
 ]
-
-requires-python = ">=3.8"
-readme = "README.md"
-license = {text = "MIT"}
-
 
 [project.urls]
 Repository = "https://github.com/usnistgov/mass.git"
