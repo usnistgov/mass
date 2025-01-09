@@ -27,15 +27,17 @@ dependencies = [
     # Bitbucket pipeline tests failed with scipy-1.11.2 but passed with .1 or .3. Weird, but remember it!
     "uncertainties",
     "xraydb",
+]
 
-    # The following are for testing only, but until PEP 735 is accepted, there's not an obvious way
-    # to separate them from run dependencies. So for the time being (July 2024), we'll just plain
-    # require them for all users.
+[dependency-groups]
+tests = [
     "pytest",
-    "sphinx",
-    "recommonmark",
     "ruff",
     "flake8",
+]
+docs = [
+    "sphinx",
+    "recommonmark",
 ]
 
 [project.urls]
