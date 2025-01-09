@@ -57,6 +57,7 @@ jobs:
       if: ${{ matrix.python-version == 3.13 }}
       run: |
         uv sync --all-extras --group docs
+        which sphinx-build
         cd doc
         make clean
         make doctest
