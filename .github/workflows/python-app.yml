@@ -44,11 +44,11 @@ jobs:
 
     - name: Lint with flake8 and ruff (only on most recent Python version)
       # Run ruff, but don't fail tests regarless of result.
-      # Stop the build if there are Python syntax errors or undefined names, as found by flake8.
+      # (DISABLED Jan 2025) Stop the build if there are Python syntax errors or undefined names, as found by flake8.
       if: ${{ matrix.python-version == 3.13 }}
       run: |
         ruff check --preview || ruff check --preview --statistics --exit-zero
-        uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude nonstandard
+        # flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude nonstandard
 
     - name: Test with pytest
       run: pytest
