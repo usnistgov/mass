@@ -24,18 +24,18 @@ dependencies = [
     "progress",
     "scikit-learn",
     "scipy>=0.19, !=1.11.2",
-    # Bitbucket pipeline tests failed with scipy-1.11.2 but passed with .1 or .3. Weird, but remember it!
+    # Bitbucket pipeline tests failed with scipy-1.11.2 but passed with 1.11.1 and 1.11.3. Weird, but remember it!
     "uncertainties",
     "xraydb",
-# ]
+]
 
-# [dependency-groups]
-# dev = [
+[dependency-groups]
+dev = [
     "pytest",
     "ruff",
     "flake8",
-# ]
-# docs = [
+]
+docs = [
     "sphinx",
     "recommonmark",
 ]

@@ -33,7 +33,8 @@ jobs:
       uses: astral-sh/setup-uv@v5
       with:
         python-version: ${{ matrix.python-version }}
-        enable-cache: true
+        # Cache wasn't working. Need a better understanding before we turn this on:
+        # enable-cache: true
 
     - name: Display Python version
       run: python -c "import sys; print(sys.version)"
@@ -48,14 +49,14 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude nonstandard
         # Run ruff, but don't fail tests regarless of result.
         ruff check --preview || ruff check --preview --statistics --exit-zero
+
     - name: Test with pytest
-      run: |
-        pytest
+      run: pytest
 
     - name: Run doctests (only on most recent Python version)
       if: ${{ matrix.python-version == 3.13 }}
       run: |
-        uv sync --all-extras
+        uv sync --all-extras --group docs
         cd doc
         make clean
         make doctest
