@@ -57,11 +57,9 @@ jobs:
       if: ${{ matrix.python-version == 3.13 }}
       run: |
         uv sync --all-extras --group docs
-        which sphinx-build
-        export PATH=$PATH:`which sphinx-build`
         cd doc
-        make clean
-        make doctest
+        uv run make clean
+        uv run make doctest
 
 # TO DO: generate docs automatically and deploy them.
 #
