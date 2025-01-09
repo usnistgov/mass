@@ -1,5 +1,9 @@
 ## Note on version numbers of Mass
 
+**0.8.7** January 9, 2025-
+
+* Remove some dependencies in `pyproject.toml` that are no longer required.
+
 **0.8.6** December 19, 2024
 
 * Completely refactor filter code to use modern Python and MASS practices, and less spaghetti (issue 312).
