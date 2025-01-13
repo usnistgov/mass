@@ -1245,6 +1245,32 @@ addline(
 
 
 addline(
+    element="Ge",
+    material="crystal",
+    linetype="KAlpha",
+    reference_short="Zn Hack",
+    reference_plot_instrument_gaussian_fwhm=None,
+    nominal_peak_energy=STANDARD_FEATURES["GeKAlpha1"],
+    energies=[STANDARD_FEATURES["GeKAlpha2"], STANDARD_FEATURES["GeKAlpha1"]],
+    lorentzian_fwhm=np.array([4,4]),
+    reference_amplitude=np.array([1,2]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=STANDARD_FEATURES["GeKAlpha1"]-STANDARD_FEATURES["GeKAlpha2"],
+)
+addline(
+    element="Ge",
+    material="crystal",
+    linetype="KBeta",
+    reference_short="Zn Hack",
+    reference_plot_instrument_gaussian_fwhm=None,
+    nominal_peak_energy=9572.03,
+    energies=np.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393))*1.23+28.4801,
+    lorentzian_fwhm=np.array((3.52, 3.52, 3.55, 8.08, 5.31))*1.06,
+    reference_amplitude=np.array((757, 388, 171, 68, 55)),  # Table III I_I
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+addline(
     element="Mo",
     material="metal",
     linetype="KAlpha",
