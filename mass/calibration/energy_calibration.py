@@ -5,6 +5,9 @@ Created on May 16, 2011
 """
 import numpy as np
 from scipy.optimize import brentq
+import numpy.typing as npt
+from typing import Optional
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from mass.mathstat.interpolate import CubicSplineFunction, SmoothingSplineFunction, GPRSplineFunction
@@ -58,14 +61,28 @@ STANDARD_FEATURES = LineEnergies()
 
 @dataclass(frozen=True)
 class EnergyCalibrationMaker:
-    ph: np.ndarray
-    energy: np.ndarray
-    dph: np.ndarray
-    de: np.ndarray
+    """An object that can make energy calibration curves under various assumptions,
+    but using a single set of calibration anchor points and uncertainties on them.
+
+    Returns
+    -------
+    EnergyCalibrationMaker
+        A factory for making various `EnergyCalibration` objects from the same anchor points.
+
+    Raises
+    ------
+    ValueError
+        When calibration data arrays have unequal length, or `ph` is not monotone in `energy`.
+    """
+    ph: np.ndarray[np.float64]
+    energy: np.ndarray[np.float64]
+    dph: np.ndarray[np.float64]
+    de: np.ndarray[np.float64]
     names: list[str]
 
     def __post_init__(self):
-        """Sort the input data by energy"""
+        """Check for inputs of unequal length. Check for monotone anchor points.
+        Sort the input data by energy."""
         N = len(self.ph)
         assert N == len(self.energy)
         assert N == len(self.dph)
@@ -87,19 +104,10 @@ class EnergyCalibrationMaker:
         if not np.all(order_ph == order_en):
             a = f"PH:     {self.ph[order_ph]}"
             b = f"Energy: {self.energy[order_ph]}"
-            raise Exception(f"Calibration points are not monotone:\n{a}\n{b}")
-
-    # rms_residual: float
-    # ph_assigned: np.ndarray
-    # residual_e: np.ndarray
-    # assignment_inds: np.ndarray
-    # pfit_gain: np.polynomial.Polynomial
-    # energy_target: np.ndarray
-    # names_target: list[str]  # list of strings with names for the energies in energy_target
-    # ph_target: np.ndarray  # longer than energy target by 0-3
+            raise ValueError(f"Calibration points are not monotone:\n{a}\n{b}")
 
     def _remove_cal_point_idx(self, idx):
-        """Remove calibration point number `idx` from the calibration."""
+        """Remove calibration point number `idx` from the calibration. Return a new maker."""
         ph = np.hstack((self.ph[:idx], self.ph[idx + 1:]))
         energy = np.hstack((self.energy[:idx], self.energy[idx + 1:]))
         dph = np.hstack((self.dph[:idx], self.dph[idx + 1:]))
@@ -108,12 +116,15 @@ class EnergyCalibrationMaker:
         return EnergyCalibrationMaker(ph, energy, dph, de, names)
 
     def remove_cal_point_name(self, name):
-        """If you don't like calibration point named `name`, this removes it. Return a new maker"""
+        """Remove calibration point named `name`. Return a new maker."""
         idx = self.names.index(name)
         return self._remove_cal_point_idx(idx)
 
     def remove_cal_point_prefix(self, prefix):
         """This removes all cal points whose name starts with `prefix`.  Return a new maker."""
+        # Work recursively: remove the first match and make a new Maker, and repeat until none match.
+        # This is clearly less efficient when removing N matches, as N copies are made. So what?
+        # This feature is likely to be rarely used, and we favor clarity over performance here.
         for name in tuple(self.names):
             if name.startswith(prefix):
                 return self.remove_cal_point_name(name).remove_cal_point_prefix(prefix)
@@ -124,40 +135,32 @@ class EnergyCalibrationMaker:
         idxs = np.nonzero(np.abs(self.energy - energy) < de)[0]
         if len(idxs) == 0:
             return self
+        # Also recursive and less efficient. See previous method's comment.
         return self._remove_cal_point_idx(idxs[0]).remove_cal_point_energy(energy, de)
 
-    def add_cal_point(self, ph, energy, name="", ph_error=None, e_error=None, overwrite=True):
+    def add_cal_point(self, ph, energy, name="", ph_error=None, e_error=None, replace=True):
         """Add a single energy calibration point.
 
-        Can call as .add_cal_point(ph, energy, name) or
+        Can call as .add_cal_point(ph, energy, name) or if the "energy" is a line name, then
         .add_cal_point(ph, name) will find energy as `energy=mass.STANDARD_FEATURES[name]`.
+        Thus the following are equivalent:
 
-        `pht` must be in units of the self.ph_field and `energy` is in eV.
-        `pht_error` is the 1-sigma uncertainty on the pulse height.  If None
-        (the default), then assign pht_error = `pht`/1000. `e_error` is the
+            cal = cal.add_cal_point(12345.6, 5898.801, "Mn Ka1")
+            cal = cal.add_cal_point(12456.6, "Mn Ka1")
+
+        `ph` must be in units of the self.ph_field and `energy` is in eV.
+        `ph_error` is the 1-sigma uncertainty on the pulse height.  If None
+        (the default), then assign ph_error = `ph`/1000. `e_error` is the
         1-sigma uncertainty on the energy itself. If None (the default), then
-        assign e_error=`energy`/10^5 (typically 0.05 eV).
+        assign e_error=0.01 eV.
 
-        Also, you can call it with `energy` as a string, provided it's the name
-        of a known feature appearing in the dictionary
-        mass.energy_calibration.STANDARD_FEATURES.  Thus the following are
-        equivalent:
-
-        cal.add_cal_point(12345.6, 5898.801, "Mn Ka1")
-        cal.add_cal_point(12456.6, "Mn Ka1")
-
-        Careful!  If you give a name that's already in the list, then this value
-        replaces the previous one.  If you do NOT give a name, though, then this
-        will NOT replace but will add to any existing points at the same energy.
-        You can prevent overwriting by setting `overwrite`=False.
+        Careful!  If you give a name that's already in the list, or you add an equivalent
+        energy but do NOT give a name, then this value replaces the previous one.
+        You can prevent overwriting (and instead raise an error) by setting `replace`=False.
         """
 
         # If <energy> is a string and a known spectral feature's name, use it as the name instead
         # Otherwise, it needs to be a numeric type convertible to float.
-        # if energy in STANDARD_FEATURES:
-        #     name = energy
-        #     energy = STANDARD_FEATURES[name]
-        # else:
         try:
             energy = float(energy)
         except ValueError:
@@ -175,24 +178,24 @@ class EnergyCalibrationMaker:
 
         update_index = None
         if name and name in self.names:  # Update an existing point by name
-            if not overwrite:
+            if not replace:
                 raise ValueError(
                     f"Calibration point '{name}' is already known and overwrite is False")
             update_index = self.names.index(name)
 
         elif np.abs(energy - self.energy).min() <= e_error:  # Update existing point
-            if not overwrite:
+            if not replace:
                 raise ValueError(
                     f"Calibration point at energy {energy:.2f} eV is already known and overwrite is False")
             update_index = np.abs(energy - self.energy).argmin()
 
-        if update_index is None:   # Add a new point
+        if update_index is None:   # Add a new calibration anchor point
             new_ph = np.hstack((self.ph, ph))
             new_energy = np.hstack((self.energy, energy))
             new_dph = np.hstack((self.dph, ph_error))
             new_de = np.hstack((self.de, e_error))
             new_names = self.names + [name]
-        else:
+        else:  # Replace an existing calibration anchor point.
             new_ph = self.ph.copy()
             new_energy = self.energy.copy()
             new_dph = self.dph.copy()
