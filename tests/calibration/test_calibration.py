@@ -10,18 +10,17 @@ import numpy as np
 import mass
 import h5py
 import os
+from mass import EnergyCalibration, EnergyCalibrationMaker
 
 
 def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation2, npoints=10):
-    cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-    cal1.set_curvetype(curvetype1)
-    cal1.set_use_approximation(use_approximation1)
-    for energy in np.linspace(3000, 6000, npoints):
-        ph = energy**0.8
-        cal1.add_cal_point(ph, energy)
-    cal2 = cal1.copy()
-    cal2.set_curvetype(curvetype2)
-    cal2.set_use_approximation(use_approximation2)
+    energy = np.linspace(3000, 6000, npoints)
+    ph = energy**0.8
+    dph = de = np.zeros_like(ph)
+    names = ["" for _ in range(npoints)]
+    factory = EnergyCalibrationMaker(ph, energy, dph, de, names)
+    cal1 = factory.make_calibration(curvetype1, use_approximation1)
+    cal2 = factory.make_calibration(curvetype2, use_approximation2)
 
     # Careful here: don't use a point in linspace(3000,6000,npoints),
     # or you'll get exact agreement when you don't expect/want it.
@@ -60,14 +59,17 @@ class TestJoeStyleEnergyCalibration:
     @staticmethod
     def test_copy_equality():
         """Test that any deep-copied calibration object is equivalent."""
-        for curvetype in ['loglog', 'linear', 'linear+0', 'gain', 'invgain', 'loggain']:
+        npoints = 10
+        energy = np.linspace(3000, 6000, npoints)
+        ph = energy**0.8
+        dph = ph * 1e-3
+        de = energy * 1e-3
+        names = ["" for _ in range(npoints)]
+        factory = EnergyCalibrationMaker(ph, energy, dph, de, names)
+        for curvetype in factory.ALLOWED_CURVENAMES:
             for use_approximation in [True, False]:
-                cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-                cal1.set_curvetype(curvetype)
-                cal1.set_use_approximation(use_approximation)
-                for energy in np.linspace(3000, 6000, 10):
-                    ph = energy**0.8
-                    cal1.add_cal_point(ph, energy)
+                print(curvetype, use_approximation, "DDDDDD")
+                cal1 = factory.make_calibration(curvetype, use_approximation)
                 cal2 = cal1.copy()
                 ph1, e1 = cal1.energy2ph(5000), cal1.ph2energy(5000)
                 ph2, e2 = cal2.energy2ph(5000), cal2.ph2energy(5000)
