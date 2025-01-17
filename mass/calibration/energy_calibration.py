@@ -574,7 +574,6 @@ class EnergyCalibration:
         cal_group["energy"] = self.energy
         cal_group["dph"] = self.dph
         cal_group["de"] = self.de
-        cal_group.attrs['nonlinearity'] = self.nonlinearity
         cal_group.attrs['curvetype'] = self.curvename
         cal_group.attrs['approximate'] = self.approximating
 
@@ -594,7 +593,6 @@ class EnergyCalibration:
             cal_group["de"][:],
             cal_group["name"][:]
         )
-        # powerlaw = cal_group.attrs['nonlinearity']
         approximate = cal_group.attrs['approximate']
         return maker.make_calibration(curvetype, approximate=approximate)
 
