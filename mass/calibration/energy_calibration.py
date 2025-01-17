@@ -326,8 +326,10 @@ class EnergyCalibrationMaker:
 
         if approximate:
             internal_spline = GPRSplineFunction(x, y, dy, dx)
-        else:
+        elif len(x) > 1:
             internal_spline = CubicSplineFunction(x, y)
+        else:
+            internal_spline = CubicSplineFunction(x*[1, 2], y*[1, 2])
 
         ph_samplepoints = EnergyCalibrationMaker.heuristic_samplepoints(self.ph)
         E_samplepoints = output_transform(

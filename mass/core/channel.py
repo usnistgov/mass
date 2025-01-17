@@ -1859,7 +1859,7 @@ class MicrocalDataSet:  # noqa: PLR0904
             return self.calibration[calname]
 
         LOG.info("Calibrating chan %d to create %s", self.channum, calname)
-        cal = EnergyCalibration(curvetype=curvetype)
+        cal = EnergyCalibration(curvname=curvetype)
         cal.set_use_approximation(approximate)
 
         # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.

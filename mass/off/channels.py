@@ -625,9 +625,9 @@ class Channel(CorG):  # noqa: PLR0904
             line = mass.SpectralLine.quick_monochromatic_line(name, energy, 0.001, 0)
         self.calibrationPlan.addCalPoint(uncalibratedVal, states, line)
         calibrationRough = self.calibrationPlan.getRoughCalibration()
-        calibrationRough.uncalibratedName = self.calibrationPlanAttr
+        uncalibratedName = self.calibrationPlanAttr
         self.recipes.add("energyRough", calibrationRough,
-                         [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
+                         [uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         return self.calibrationPlan
 
     @add_group_loop
@@ -1089,10 +1089,9 @@ class CalibrationPlan:
         return s
 
     def getRoughCalibration(self):
-        cal = mass.EnergyCalibration(curvetype="gain")
-        for (x, y, name) in zip(self.uncalibratedVals, self.energies, self.names):
-            cal.add_cal_point(x, y, name)
-        return cal
+        zero = np.zeros_like(self.energies)
+        factory = mass.EnergyCalibrationMaker(self.uncalibratedVals, self.energies, zero, zero, self.names)
+        return factory.make_calibration(curvename="gain")
 
 
 def getOffFileListFromOneFile(filename, maxChans=None):

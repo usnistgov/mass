@@ -294,9 +294,9 @@ class EnergyCalibrationAutocal:
         else:
             self.binsize_ev = [binsize_ev] * len(self.energies_opt)
 
-        approx_cal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
-        for ph, e in zip(self.ph_opt, self.energies_opt):
-            approx_cal.add_cal_point(ph, e)
+        z = np.zeros_like(self.ph_opt)
+        names = ["dummy"] * len(z)
+        approx_cal = mass.EnergyCalibrationMaker(self.ph_opt, self.energies_opt, z, z, names).make_calibration()
         self.fit_range_ev = fit_range_ev
 
         #  Default fit range width is 100 eV for each line.
