@@ -2,18 +2,19 @@
 Objects to assist with calibration from pulse heights to absolute energies.
 
 Created on May 16, 2011
+Completely redesigned January 2025
 """
 import numpy as np
 from scipy.optimize import brentq
-import numpy.typing as npt
-from typing import Optional
+import pylab as plt
+# import numpy.typing as npt
+# from typing import Optional
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from mass.mathstat.interpolate import CubicSplineFunction, SmoothingSplineFunction, GPRSplineFunction
 from mass.mathstat.derivative import ExponentialFunction, Identity, LogFunction
 from mass.calibration.nist_xray_database import NISTXrayDBFile
-from ..common import isstr
 
 
 def LineEnergies():
