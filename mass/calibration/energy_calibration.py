@@ -10,6 +10,7 @@ import pylab as plt
 import numpy.typing as npt
 # from typing import Optional
 from collections.abc import Callable
+import dataclasses
 from dataclasses import dataclass
 
 from mass.mathstat.interpolate import CubicSplineFunction, GPRSplineFunction
@@ -397,6 +398,9 @@ class EnergyCalibration:
 
     def __post_init__(self):
         assert self.npts > 0
+
+    def copy(self, **changes):
+        return dataclasses.replace(self, **changes)
 
     @property
     def npts(self):
