@@ -10,14 +10,17 @@ import numpy as np
 import mass
 import h5py
 import os
-from mass import EnergyCalibration, EnergyCalibrationMaker
+from mass import EnergyCalibrationMaker
 
 
 def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation2, npoints=10):
     energy = np.linspace(3000, 6000, npoints)
-    ph = energy**0.8
+
+    def e2ph(e):
+        return e**0.8
+    ph = e2ph(energy)
     dph = de = np.zeros_like(ph)
-    names = ["" for _ in range(npoints)]
+    names = npoints * ["dummy"]
     factory = EnergyCalibrationMaker(ph, energy, dph, de, names)
     cal1 = factory.make_calibration(curvetype1, use_approximation1)
     cal2 = factory.make_calibration(curvetype2, use_approximation2)
@@ -27,10 +30,10 @@ def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation
     refenergy = 5100.0
     ph1 = cal1.energy2ph(refenergy)
     ph2 = cal2.energy2ph(refenergy)
-    e1 = cal1.ph2energy(refenergy**0.8)
-    e2 = cal2.ph2energy(refenergy**0.8)
-    doe1 = cal1.drop_one_errors()
-    doe2 = cal2.drop_one_errors()
+    e1 = cal1.ph2energy(e2ph(refenergy))
+    e2 = cal2.ph2energy(e2ph(refenergy))
+    doe1 = factory.drop_one_errors(curvetype1, use_approximation1)
+    doe2 = factory.drop_one_errors(curvetype2, use_approximation2)
     return ph1, e1, doe1, ph2, e2, doe2, cal1, cal2
 
 
@@ -53,19 +56,26 @@ class TestLineDatabase:
         assert E["MnKAlpha1"] > E["MnKAlpha2"]
 
 
+def basic_nonlinearity(e: np.ndarray) -> np.ndarray:
+    return e**0.8
+
+
+def basic_factory(npoints=10):
+    energy = np.linspace(3000, 6000, npoints)
+    ph = basic_nonlinearity(energy)
+    dph = ph * 1e-3
+    de = energy * 1e-3
+    names = [""] * npoints
+    return EnergyCalibrationMaker(ph, energy, dph, de, names)
+
+
 @pytest.mark.filterwarnings("ignore:divide by zero encountered")
 class TestJoeStyleEnergyCalibration:
 
     @staticmethod
     def test_copy_equality():
         """Test that any deep-copied calibration object is equivalent."""
-        npoints = 10
-        energy = np.linspace(3000, 6000, npoints)
-        ph = energy**0.8
-        dph = ph * 1e-3
-        de = energy * 1e-3
-        names = ["" for _ in range(npoints)]
-        factory = EnergyCalibrationMaker(ph, energy, dph, de, names)
+        factory = basic_factory()
         for curvetype in factory.ALLOWED_CURVENAMES:
             for use_approximation in [True, False]:
                 print(curvetype, use_approximation, "DDDDDD")
@@ -161,46 +171,31 @@ class TestJoeStyleEnergyCalibration:
         assert not all(drop1err == drop2err)
 
     @staticmethod
-    def test_basic_energy():
-        cal1 = mass.energy_calibration.EnergyCalibration()
-        for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
+    def test_basic_conversions():
+        factory = basic_factory()
+        cal1 = factory.make_calibration()
         for energy in np.linspace(3500, 5500, 10):
-            ph = energy**0.8
+            ph = basic_nonlinearity(energy)
             assert ph == pytest.approx(cal1.energy2ph(energy), abs=0.1)
-
-    @staticmethod
-    def test_basic_ph():
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
-        for energy in np.linspace(3500, 5500, 10):
-            ph = energy**0.8
             assert energy == pytest.approx(cal1.ph2energy(ph), abs=0.1)
 
     @staticmethod
     def test_notlog_ph():
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        cal1.set_curvetype("linear+0")
-        cal1.set_use_approximation(True)
-        for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
+        factory = basic_factory()
+        cal1 = factory.make_calibration(curvename="linear+0", approximate=True)
         for energy in np.linspace(3500, 5500, 10):
-            ph = energy**0.8
+            ph = basic_nonlinearity(energy)
             assert energy == pytest.approx(cal1.ph2energy(ph), abs=10)
 
     @staticmethod
     def test_unordered_entries():
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        cal1.set_curvetype("gain")
-        cal1.set_use_approximation(True)
-        energies = np.array([6000, 3000, 4500, 4000, 5000, 5500], dtype=float)
-        for energy in energies:
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
+        energy = np.array([6000, 3000, 4500, 4000, 5000, 5500], dtype=float)
+        ph = basic_nonlinearity(energy)
+        dph = ph * 1e-3
+        de = energy * 1e-3
+        names = len(ph) * [""]
+        maker = EnergyCalibrationMaker(ph, energy, dph, de, names)
+        cal1 = maker.make_calibration("gain", True)
         cal1(np.array([2200, 4200, 4400], dtype=float))
 
     @staticmethod
@@ -244,7 +239,7 @@ class TestJoeStyleEnergyCalibration:
         """Negative or zero pulse-heights shouldn't produce NaN or Inf energies."""
         cal = mass.calibration.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.9
+            ph = basic_nonlinearity(energy)
             cal.add_cal_point(ph, energy)
         cal.set_use_approximation(True)
 

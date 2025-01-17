@@ -113,11 +113,12 @@ class EnergyCalibrationMaker:
 
     def _remove_cal_point_idx(self, idx):
         """Remove calibration point number `idx` from the calibration. Return a new maker."""
-        ph = np.hstack((self.ph[:idx], self.ph[idx + 1:]))
-        energy = np.hstack((self.energy[:idx], self.energy[idx + 1:]))
-        dph = np.hstack((self.dph[:idx], self.dph[idx + 1:]))
-        de = np.hstack((self.de[:idx], self.de[idx + 1:]))
-        names = self.names.copy().pop(idx)
+        ph = np.delete(self.ph, idx)
+        energy = np.delete(self.energy, idx)
+        dph = np.delete(self.dph, idx)
+        de = np.delete(self.de, idx)
+        names = self.names.copy()
+        names.pop(idx)
         return EnergyCalibrationMaker(ph, energy, dph, de, names)
 
     def remove_cal_point_name(self, name):
@@ -303,10 +304,12 @@ class EnergyCalibrationMaker:
             dx = dph
             dy = de
             if ("+0" in curvename) and (0.0 not in x):
-                x = np.hstack(([0.0], x))
-                y = np.hstack(([0.0], y))
-                dx = np.hstack(([0.0], dx))
-                dy = np.hstack(([0.0], dy))
+                # Add a "zero"-energy and -PH point. But to avoid numerical problems, actually just use
+                # 1e-3 times the lowest value, giving ±100% uncertainty on the values.
+                x = np.hstack(([x.min() * 1e-3], x))
+                y = np.hstack(([y.min() * 1e-3], y))
+                dx = np.hstack(([x[0] * 1e-3], dx))
+                dy = np.hstack((y[0] * 1e-3, dy))
 
         elif curvename == "loggain":
             input_transform = EnergyCalibration._ecal_input_identity
@@ -363,6 +366,22 @@ class EnergyCalibrationMaker:
             output_transform=output_transform,
             energy2ph=energy2ph
         )
+
+    def drop_one_errors(self, curvename: str = "loglog",
+                        approximate: bool = False,
+                        powerlaw: float = 1.15) -> tuple[np.ndarray, np.ndarray]:
+        # """For each calibration point, calculate the difference between the 'correct' energy
+        # and the energy predicted by creating a calibration without that point and using
+        # ph2energy to calculate the predicted energy, return (energies, drop_one_energy_diff)"""
+        drop_one_energy_diff = np.zeros(self.npts)
+        for i in range(self.npts):
+            dropped_pulseheight = self.ph[i]
+            dropped_energy = self.energy[i]
+            drop_one_maker = self._remove_cal_point_idx(i)
+            drop_one_cal = drop_one_maker.make_calibration(curvename=curvename, approximate=approximate, powerlaw=powerlaw)
+            predicted_energy = drop_one_cal.ph2energy(dropped_pulseheight)
+            drop_one_energy_diff[i] = predicted_energy - dropped_energy
+        return self.energy, drop_one_energy_diff
 
 
 @dataclass(frozen=True)
@@ -745,17 +764,3 @@ class OldEnergyCalibration:  # noqa: PLR0904
 
         result = [brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
         return np.array(result)
-
-    def drop_one_errors(self):
-        """For each calibration point, calculate the difference between the 'correct' energy
-        and the energy predicted by creating a calibration without that point and using
-        ph2energy to calculate the predicted energy, return energies, drop_one_energy_diff"""
-        drop_one_energy_diff = np.zeros(self.npts)
-        for i in range(self.npts):
-            drop_one_energy, drop_one_pulseheight = self._energies[i], self._ph[i]
-            cal2 = self.copy()
-            cal2._remove_cal_point_idx(i)
-            predicted_energy = cal2.ph2energy(drop_one_pulseheight)
-            drop_one_energy_diff[i] = predicted_energy - drop_one_energy
-        perm = np.argsort(self._energies)
-        return self._energies[perm], drop_one_energy_diff[perm]
