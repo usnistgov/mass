@@ -212,7 +212,7 @@ class EnergyCalibrationMaker:
             new_names[update_index] = name
         return EnergyCalibrationMaker(new_ph, new_energy, new_dph, new_de, new_names)
 
-    _ALLOWED_CURVNAMES = {
+    ALLOWED_CURVENAMES = {
         "linear", "linear+0", "loglog",
         "gain", "invgain", "loggain",
     }
@@ -247,8 +247,8 @@ class EnergyCalibrationMaker:
     def make_calibration(self, curvename="loglog", approximate=False, powerlaw=1.15):
         if approximate and self.npts < 3:
             raise ValueError(f"approximating curves require 3 or more cal anchor points, have {self.npts}")
-        if curvename not in self._ALLOWED_CURVNAMES:
-            raise ValueError(f"curvename='{curvename}', must be in {self._ALLOWED_CURVNAMES}")
+        if curvename not in self.ALLOWED_CURVENAMES:
+            raise ValueError(f"curvename='{curvename}', must be in {self.ALLOWED_CURVENAMES}")
 
         # Use a heuristic to repair negative uncertainties.
         def regularize_uncertainties(x):
@@ -265,14 +265,14 @@ class EnergyCalibrationMaker:
             input_transform = EnergyCalibration._ecal_input_log
             output_transform = EnergyCalibration._ecal_output_log
             x = np.log(self.ph)
-            y = np.log(self.energies)
+            y = np.log(self.energy)
             # When there's only one point, enhance it by a fake point to enforce power-law behavior
             if self.npts == 1:
                 arboffset = 1.0
                 x = np.hstack([x, x + arboffset])
                 y = np.hstack([y, y + arboffset / powerlaw])
-                dx = dph / self.ph
-                dy = de / self.energy
+            dx = dph / self.ph
+            dy = de / self.energy
 
         elif curvename == "gain":
             input_transform = EnergyCalibration._ecal_input_identity
@@ -301,7 +301,7 @@ class EnergyCalibrationMaker:
             y = self.energy
             dx = dph
             dy = de
-            if ("+0" in self.curvename()) and (0.0 not in x):
+            if ("+0" in curvename) and (0.0 not in x):
                 x = np.hstack(([0.0], x))
                 y = np.hstack(([0.0], y))
                 dx = np.hstack(([0.0], dx))
