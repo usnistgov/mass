@@ -74,10 +74,10 @@ class EnergyCalibrationMaker:
     ValueError
         When calibration data arrays have unequal length, or `ph` is not monotone in `energy`.
     """
-    ph: np.ndarray[np.float64]
-    energy: np.ndarray[np.float64]
-    dph: np.ndarray[np.float64]
-    de: np.ndarray[np.float64]
+    ph: npt.NDArray[np.float64]
+    energy: npt.NDArray[np.float64]
+    dph: npt.NDArray[np.float64]
+    de: npt.NDArray[np.float64]
     names: list[str]
 
     @classmethod
@@ -395,10 +395,10 @@ class EnergyCalibrationMaker:
             curvename=curvename,
             approximating=approximate,
             spline=internal_spline,
+            energy2ph=energy2ph,
             ph2uncertainty=uncertainty_spline,
             input_transform=input_transform,
             output_transform=output_transform,
-            energy2ph=energy2ph
         )
 
     def drop_one_errors(self, curvename: str = "loglog",
@@ -436,18 +436,18 @@ class EnergyCalibration:
     ValueError
         _description_
     """
-    ph: np.ndarray[np.float64]
-    energy: np.ndarray[np.float64]
-    dph: np.ndarray[np.float64]
-    de: np.ndarray[np.float64]
+    ph: npt.NDArray[np.float64]
+    energy: npt.NDArray[np.float64]
+    dph: npt.NDArray[np.float64]
+    de: npt.NDArray[np.float64]
     names: list[str]
     curvename: str
     approximating: bool
     spline: Callable
+    energy2ph: Callable
     ph2uncertainty: Callable
     input_transform: Callable
     output_transform: Callable | None = None
-    energy2ph: Callable | None = None
 
     def __post_init__(self):
         assert self.npts > 0
@@ -612,7 +612,7 @@ class EnergyCalibration:
         cal_group.attrs['approximate'] = self.approximating
 
     @staticmethod
-    def load_from_hdf5(hdf5_group, name):
+    def load_from_hdf5(hdf5_group, name) -> EnergyCalibration:
         cal_group = hdf5_group[name]
 
         # Fix a behavior of h5py for writing in py2, reading in py3.
@@ -630,26 +630,26 @@ class EnergyCalibration:
         approximate = cal_group.attrs['approximate']
         return maker.make_calibration(curvetype, approximate=approximate)
 
-    def plotgain(self, **kwargs):
+    def plotgain(self, **kwargs) -> None:
         kwargs["plottype"] = "gain"
         self.plot(**kwargs)
 
-    def plotinvgain(self, **kwargs):
+    def plotinvgain(self, **kwargs) -> None:
         kwargs["plottype"] = "invgain"
         self.plot(**kwargs)
 
-    def plotloggain(self, **kwargs):
+    def plotloggain(self, **kwargs) -> None:
         kwargs["plottype"] = "loggain"
         self.plot(**kwargs)
 
     def plot(self, axis=None, color="blue", markercolor="red", plottype="linear", ph_rescale_power=0.0,  # noqa: PLR0917
-             removeslope=False, energy_x=False, showtext=True, showerrors=True, min_energy=None, max_energy=None):
+             removeslope=False, energy_x=False, showtext=True, showerrors=True, min_energy=None, max_energy=None) -> None:
         # Plot smooth curve
         minph, maxph = self.ph.min() * .9, self.ph.max() * 1.1
         if min_energy is not None:
-            minph = self.e2ph(min_energy)
+            minph = self.energy2ph(min_energy)
         if max_energy is not None:
-            maxph = self.e2ph(max_energy)
+            maxph = self.energy2ph(max_energy)
         phplot = np.linspace(minph, maxph, 1000)
         eplot = self(phplot)
         gplot = phplot / eplot

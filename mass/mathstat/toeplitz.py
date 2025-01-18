@@ -138,6 +138,7 @@ class ToeplitzSolver:
             gsave = g[:K].copy()
             g[:K] -= g[K] * h[K - 1::-1]
             h[:K] -= h[K] * gsave[K - 1::-1]
+        raise ValueError("unreachable")
 
     def __precompute_symmetric(self):
         """Precompute some data so that the solve_symmetric method can be done in
@@ -161,6 +162,7 @@ class ToeplitzSolver:
             g[K] = ((self.T[K:0:-1] * g[:K]).sum() - self.T[K + 1]) / self.xg_denom[K]
             self.gK_leading[K] = g[K]
             g[:K] -= g[K] * g[K - 1::-1]
+        raise ValueError("unreachable")
 
     def __solve_symmetric(self, y: npt.ArrayLike) -> np.ndarray:
         """Return the solution x when Tx=y for a symmetric Toeplitz matrix T."""
@@ -193,3 +195,4 @@ class ToeplitzSolver:
             # Steps e and f
             g[K] = self.gK_leading[K]
             g[:K] -= g[K] * g[K - 1::-1]
+        raise ValueError("unreachable")
