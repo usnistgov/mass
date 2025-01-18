@@ -41,11 +41,10 @@ def test_find_local_maxima():
 
 def test_build_fit_ranges():
     known_energies = np.array([1000, 2000, 2050, 3000])
-    # make a 1 to 10 calibration
-    cal1 = mass.energy_calibration.EnergyCalibration(1, approximate=False)
-    for ke in known_energies:
-        # args are (pulseheight, energy)
-        cal1.add_cal_point(0.1 * ke, ke)
+    z = np.zeros_like(known_energies)
+    names = ["dummy"] * len(z)
+    factory = mass.EnergyCalibrationMaker(0.1*known_energies, known_energies, z, z, names)
+    cal1 = factory.make_calibration(approximate=False)
 
     # this call asks for fit ranges at each known energy, and asks to avoid the line at 3050,
     # uses cal1 for the apprixmate calibraiton and asks for 100 eV wide fit ranges
@@ -68,11 +67,10 @@ def test_build_fit_ranges():
 
 def test_build_fit_ranges_ph():
     known_energies = np.array([1000, 2000, 2050, 3000])
-    # make a 1 to 10 calibration
-    cal1 = mass.energy_calibration.EnergyCalibration(1, approximate=False)
-    for ke in known_energies:
-        # args are (pulseheight, energy)
-        cal1.add_cal_point(0.1 * ke, ke)
+    z = np.zeros_like(known_energies)
+    names = ["dummy"] * len(z)
+    factory = mass.EnergyCalibrationMaker(0.1*known_energies, known_energies, z, z, names)
+    cal1 = factory.make_calibration(approximate=False)
 
     # this call asks for fit ranges at each known energy, and asks to avoid the line at 3050,
     # uses cal1 for the apprixmate calibraiton and asks for 100 eV wide fit ranges
@@ -110,10 +108,12 @@ def test_complete():
     line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
     _names_e, energies_opt, ph_opt = find_opt_assignment(lm, line_names)
+    ph_opt = np.asarray(ph_opt)
+    energies_opt = np.asanyarray(energies_opt)
 
-    approxcal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
-    for (ee, phph) in zip(energies_opt, ph_opt):
-        approxcal.add_cal_point(phph, ee)
+    z = np.zeros_like(energies_opt)
+    factory = mass.EnergyCalibrationMaker(ph_opt, energies_opt, z, z, line_names)
+    approxcal = factory.make_calibration(approximate=False)
 
     _energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt, [], approxcal, 100)
     binsize_ev = 1.0
