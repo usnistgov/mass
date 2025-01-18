@@ -604,7 +604,7 @@ class EnergyCalibration:
             del hdf5_group[name]
 
         cal_group = hdf5_group.create_group(name)
-        cal_group["name"] = [_name.encode() for _name in self.names]
+        cal_group["name"] = [str(n).encode() for n in self.names]
         cal_group["ph"] = self.ph
         cal_group["energy"] = self.energy
         cal_group["dph"] = self.dph
