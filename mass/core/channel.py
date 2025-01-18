@@ -1859,13 +1859,10 @@ class MicrocalDataSet:  # noqa: PLR0904
             return self.calibration[calname]
 
         LOG.info("Calibrating chan %d to create %s", self.channum, calname)
-        cal = EnergyCalibration(curvname=curvetype)
-        cal.set_use_approximation(approximate)
-
         # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
-        auto_cal = EnergyCalibrationAutocal(cal,
-                                            getattr(self, attr)[self.cuts.good(**category)],
-                                            line_names)
+        auto_cal = EnergyCalibrationAutocal(
+            getattr(self, attr)[self.cuts.good(**category)],
+            line_names)
         auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
                                   fit_range_ev=fit_range_ev,
                                   binsize_ev=bin_size_ev,
@@ -1879,6 +1876,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                 "chan %d failed calibration because on of the fitter was a FailedFitter", self.channum)
             raise Exception()
 
+        cal = auto_cal.cal_factory.make_calibration(curvename=curvetype, approximate=approximate)
         self.calibration[calname] = cal
         hdf5_cal_group = self.hdf5_group.require_group('calibration')
         cal.save_to_hdf5(hdf5_cal_group, calname)

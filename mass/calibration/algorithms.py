@@ -17,7 +17,6 @@ from matplotlib.ticker import MaxNLocator
 from ..common import isstr
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration
-from .energy_calibration import EnergyCalibration
 
 
 def line_names_and_energies(line_names):

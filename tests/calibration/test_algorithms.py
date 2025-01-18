@@ -65,7 +65,7 @@ def test_build_fit_ranges():
 
 def test_build_fit_ranges_ph():
     known_energies = np.array([1000, 2000, 2050, 3000])
-    factory = mass.EnergyCalibrationMaker.init(0.1*known_energies, known_energies)
+    factory = mass.EnergyCalibrationMaker.init(0.1 * known_energies, known_energies)
     cal1 = factory.make_calibration(approximate=False)
 
     # this call asks for fit ranges at each known energy, and asks to avoid the line at 3050,
