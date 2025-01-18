@@ -32,8 +32,7 @@ class Test_SmoothingSpline:
         # At time of issue #74, this crashed on next line for Joe, but not for Galen.
         mass.mathstat.interpolate.SmoothingSplineLog(ph, e, de, dph)
 
-        names = len(e) * ["dummy"]
-        cal = mass.EnergyCalibrationMaker(e**0.8, e, dph, de, names)
+        cal = mass.EnergyCalibrationMaker.init(e**0.8, e, dph, de)
         # At time of issue #74, this crashed on next line for Galen, but not for Joe.
         cal.drop_one_errors()
 

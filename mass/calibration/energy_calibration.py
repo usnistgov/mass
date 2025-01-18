@@ -8,7 +8,7 @@ import numpy as np
 from scipy.optimize import brentq
 import pylab as plt
 import numpy.typing as npt
-# from typing import Optional
+from typing import Optional
 from collections.abc import Callable
 import dataclasses
 from dataclasses import dataclass
@@ -80,6 +80,30 @@ class EnergyCalibrationMaker:
     dph: np.ndarray[np.float64]
     de: np.ndarray[np.float64]
     names: list[str]
+
+    @classmethod
+    def init(cls,
+             ph: Optional[npt.ArrayLike] = None,
+             energy: Optional[npt.ArrayLike] = None,
+             dph: Optional[npt.ArrayLike] = None,
+             de: Optional[npt.ArrayLike] = None,
+             names: Optional[list] = None,
+             ):
+        if ph is None:
+            ph = np.array([], dtype=float)
+        if energy is None:
+            energy = np.array([], dtype=float)
+        if dph is None:
+            dph = 1e-3 * ph
+        if de is None:
+            de = 1e-3 * energy
+        if names is None:
+            names = ["dummy"] * len(dph)
+        ph = np.asarray(ph)
+        energy = np.asarray(energy)
+        dph = np.asarray(dph)
+        de = np.asarray(de)
+        return cls(ph, energy, dph, de, names)
 
     def __post_init__(self):
         """Check for inputs of unequal length. Check for monotone anchor points.

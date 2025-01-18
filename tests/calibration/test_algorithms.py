@@ -41,9 +41,7 @@ def test_find_local_maxima():
 
 def test_build_fit_ranges():
     known_energies = np.array([1000, 2000, 2050, 3000])
-    z = np.zeros_like(known_energies)
-    names = ["dummy"] * len(z)
-    factory = mass.EnergyCalibrationMaker(0.1*known_energies, known_energies, z, z, names)
+    factory = mass.EnergyCalibrationMaker.init(0.1 * known_energies, known_energies)
     cal1 = factory.make_calibration(approximate=False)
 
     # this call asks for fit ranges at each known energy, and asks to avoid the line at 3050,
@@ -67,9 +65,7 @@ def test_build_fit_ranges():
 
 def test_build_fit_ranges_ph():
     known_energies = np.array([1000, 2000, 2050, 3000])
-    z = np.zeros_like(known_energies)
-    names = ["dummy"] * len(z)
-    factory = mass.EnergyCalibrationMaker(0.1*known_energies, known_energies, z, z, names)
+    factory = mass.EnergyCalibrationMaker.init(0.1*known_energies, known_energies)
     cal1 = factory.make_calibration(approximate=False)
 
     # this call asks for fit ranges at each known energy, and asks to avoid the line at 3050,

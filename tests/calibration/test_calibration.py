@@ -20,10 +20,7 @@ def basic_nonlinearity(e: np.ndarray) -> np.ndarray:
 def basic_factory(npoints=10):
     energy = np.linspace(3000, 6000, npoints)
     ph = basic_nonlinearity(energy)
-    dph = ph * 1e-3
-    de = energy * 1e-3
-    names = ["dummy"] * npoints
-    return EnergyCalibrationMaker(ph, energy, dph, de, names)
+    return EnergyCalibrationMaker.init(ph, energy)
 
 
 def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation2, npoints=10):
@@ -253,8 +250,7 @@ class TestJoeStyleEnergyCalibration:
                         0.22199391, 0.54440676, 0.26877157, 2.36176241, 1.74482802])
         de = np.array([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,
                        0.01, 0.01, 0.01, 0.01])
-        names = ["dummy"] * len(ph)
-        factory = mass.EnergyCalibrationMaker(ph, e, dph, de, names)
+        factory = mass.EnergyCalibrationMaker.init(ph, e, dph, de)
         cal = factory.make_calibration(curvename="gain", approximate=True)
         assert (np.abs(cal(ph) - e) < 0.9 * dph).all()
 
