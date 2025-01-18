@@ -539,17 +539,17 @@ class Channel(CorG):  # noqa: PLR0904
     def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName=None, states=None,
                              linePositionsFunc=None, cutRecipeName=None, overwriteRecipe=False):
         """
-        linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
+        linePositionsFunc - if None, then use self.calibrationRough.ph as the peak locations
         otherwise try to call it with self as an argument...
         Here is an example of how you could use all but one peak from calibrationRough:
-        `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f._ph`
+        `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f.ph`
         """
         # may need to generalize this to allow using a specific state for phase correction as
         # a specfic line... with something like calibrationPlan
         if correctedName is None:
             correctedName = uncorrectedName + "PC"
         if linePositionsFunc is None:
-            linePositions = self.recipes["energyRough"].f._ph
+            linePositions = self.recipes["energyRough"].f.ph
         else:
             linePositions = linePositionsFunc(self)
         indicator, uncorrected = self.getAttr(
