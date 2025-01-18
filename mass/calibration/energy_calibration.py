@@ -211,17 +211,18 @@ class EnergyCalibrationMaker:
             e_error = 0.01  # Assume 0.01 eV error if none given
 
         update_index = None
-        if name and name in self.names:  # Update an existing point by name
-            if not replace:
-                raise ValueError(
-                    f"Calibration point '{name}' is already known and overwrite is False")
-            update_index = self.names.index(name)
+        if self.npts > 0:
+            if name and name in self.names:  # Update an existing point by name
+                if not replace:
+                    raise ValueError(
+                        f"Calibration point '{name}' is already known and overwrite is False")
+                update_index = self.names.index(name)
 
-        elif np.abs(energy - self.energy).min() <= e_error:  # Update existing point
-            if not replace:
-                raise ValueError(
-                    f"Calibration point at energy {energy:.2f} eV is already known and overwrite is False")
-            update_index = np.abs(energy - self.energy).argmin()
+            elif np.abs(energy - self.energy).min() <= e_error:  # Update existing point
+                if not replace:
+                    raise ValueError(
+                        f"Calibration point at energy {energy:.2f} eV is already known and overwrite is False")
+                update_index = np.abs(energy - self.energy).argmin()
 
         if update_index is None:   # Add a new calibration anchor point
             new_ph = np.hstack((self.ph, ph))
@@ -274,7 +275,7 @@ class EnergyCalibrationMaker:
         x.append(anchors.max() * np.linspace(1, 2, 101)[1:])
         return np.hstack(x)
 
-    def make_calibration(self, curvename="loglog", approximate=False, powerlaw=1.15):
+    def make_calibration(self, curvename="loglog", approximate=False, powerlaw=1.15, allow_attributes=False):
         if approximate and self.npts < 3:
             raise ValueError(f"approximating curves require 3 or more cal anchor points, have {self.npts}")
         if curvename not in self.ALLOWED_CURVENAMES:
@@ -386,7 +387,11 @@ class EnergyCalibrationMaker:
         else:
             uncertainty_spline = np.zeros_like
 
-        return EnergyCalibration(
+        ECalContructor = EnergyCalibration
+        if allow_attributes:
+            ECalContructor = EnergyCalibrationWithAttributes
+
+        return ECalContructor(
             self.ph, self.energy, self.dph, self.de, self.names,
             curvename=curvename,
             approximating=approximate,
@@ -792,3 +797,10 @@ class OldEnergyCalibration:  # noqa: PLR0904
 
         result = [brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
         return np.array(result)
+
+
+# Now a class like EnergyCalibration, but it can have attributes added for later use.
+# This is maybe not a great interface by some measures, but the OFF analysis system assumes
+# arbitrary attributes can be attached to a calibration, so here it is:
+class EnergyCalibrationWithAttributes(EnergyCalibration):
+    pass
