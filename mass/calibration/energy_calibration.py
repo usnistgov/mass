@@ -91,18 +91,22 @@ class EnergyCalibrationMaker:
              ):
         if ph is None:
             ph = np.array([], dtype=float)
+        else:
+            ph = np.asarray(ph)
         if energy is None:
             energy = np.array([], dtype=float)
+        else:
+            energy = np.asarray(energy)
         if dph is None:
             dph = 1e-3 * ph
+        else:
+            dph = np.asarray(dph)
         if de is None:
             de = 1e-3 * energy
+        else:
+            de = np.asarray(de)
         if names is None:
             names = ["dummy"] * len(dph)
-        ph = np.asarray(ph)
-        energy = np.asarray(energy)
-        dph = np.asarray(dph)
-        de = np.asarray(de)
         return cls(ph, energy, dph, de, names)
 
     def __post_init__(self):

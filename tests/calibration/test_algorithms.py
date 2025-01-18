@@ -6,7 +6,7 @@ from pytest import approx
 import numpy as np
 import mass
 from mass.calibration.algorithms import find_opt_assignment, find_local_maxima, build_fit_ranges, \
-    build_fit_ranges_ph, multifit, EnergyCalibration, EnergyCalibrationAutocal
+    build_fit_ranges_ph, multifit, EnergyCalibrationAutocal
 import itertools
 
 rng = np.random.default_rng(2)
@@ -130,12 +130,10 @@ def test_autocal():
     e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
     ph = 2 * e**0.9
 
-    cal = EnergyCalibration()
-    auto_cal = EnergyCalibrationAutocal(cal, ph, line_names)
+    auto_cal = EnergyCalibrationAutocal(ph, line_names)
     auto_cal.autocal()
     auto_cal.diagnose()
-    cal.diagnose()
-    assert hasattr(cal, "autocal")
+
     # test fitters are correct type, and ordered by line energy
     e0 = 0
     for r in auto_cal.results:
