@@ -5,7 +5,6 @@ Created on May 16, 2011
 Completely redesigned January 2025
 """
 import numpy as np
-from scipy.optimize import brentq
 import pylab as plt
 import numpy.typing as npt
 from typing import Optional
@@ -740,63 +739,6 @@ class EnergyCalibration:
         if showtext:
             for xval, name, yval in zip(x, self.names, y):
                 axis.text(xval, yval - slope * xval, name + '  ', ha='right')
-
-
-################################################################################################
-
-class OldEnergyCalibration:  # noqa: PLR0904
-    """Object to store information relevant to one detector's absolute energy
-    calibration and to offer conversions between pulse height and energy.
-
-    The behavior is governed by the constructor arguments `loglog`, `approximate`,
-    and `zerozero` and by the number of data points. The construction-time arguments
-    can be changed by calling EnergyCalibration.set_use_approximation() and
-    EnergyCalibration.set_curvetype().
-
-    curvetype -- Either a code number in the range [0,len(self.CURVETYPE)) or a
-        string from the tuple self.CURVETYPE.
-
-    approximate -- Whether to construct a smoothing spline (minimal curvature
-        subject to a condition that chi-squared not be too large). If not,
-        curve will be an exact spline in E vs PH, in log(E) vs log(PH), or
-        as appropriate to the curvetype.
-
-    The forward conversion from PH to E uses the callable __call__ method or its synonym,
-    the method ph2energy.
-
-    The inverse conversion method energy2ph calls Brent's method of root-finding.
-    It's probably quite slow compared to a self.ph2energy for an array of equal length.
-    """
-
-    def energy2ph_exact(self, energy):
-        """Convert energy (or array of energies) `energy` to pulse height in arbs.
-
-        Inverts the _ph2e function by Brent's method for root finding. Can be fragile! Use
-        method `energy2ph` for less precise but more generally error-free computation.
-        Should return a scalar if passed a scalar, and a numpy array if passed a list or array.
-        """
-        if self._model_is_stale:
-            self._update_converters()
-
-        def energy_residual(ph, etarget):
-            return self._ph2e(ph) - etarget
-
-        if np.isscalar(energy):
-            return brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
-        elif len(energy) > 10 and not self._e2phwarned:
-            print("WARNING: EnergyCalibration.energy2ph can be slow for long inputs.")
-            self._e2phwarned = True
-
-        if len(energy) > 1024:
-            phs = np.array(energy)
-            # Newton methods with a fixed number of iterations.
-            for _ in range(5):
-                phs -= (self(phs) - energy) / self(phs, der=1)
-
-            return phs
-
-        result = [brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
-        return np.array(result)
 
 
 # Now a class like EnergyCalibration, but it can have attributes added for later use.
