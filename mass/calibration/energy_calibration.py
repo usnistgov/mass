@@ -395,11 +395,11 @@ class EnergyCalibrationMaker:
         else:
             uncertainty_spline = np.zeros_like
 
-        ECalContructor = EnergyCalibration
+        ECalConstructor = EnergyCalibration
         if allow_attributes:
-            ECalContructor = EnergyCalibrationWithAttributes
+            ECalConstructor = EnergyCalibrationWithAttributes
 
-        return ECalContructor(
+        return ECalConstructor(
             self.ph, self.energy, self.dph, self.de, self.names,
             curvename=curvename,
             approximating=approximate,
