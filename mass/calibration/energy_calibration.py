@@ -4,15 +4,12 @@ Objects to assist with calibration from pulse heights to absolute energies.
 Created on May 16, 2011
 Completely redesigned January 2025
 """
+from __future__ import annotations
 import numpy as np
 import pylab as plt
 import h5py
 import numpy.typing as npt
-from typing import Optional, Any
-try:
-    from typing import Self
-except ImportError:
-    Self = "Self"
+from typing import Any, Self
 from collections.abc import Callable
 import dataclasses
 from dataclasses import dataclass
@@ -87,11 +84,11 @@ class EnergyCalibrationMaker:
 
     @classmethod
     def init(cls,
-             ph: Optional[npt.ArrayLike] = None,
-             energy: Optional[npt.ArrayLike] = None,
-             dph: Optional[npt.ArrayLike] = None,
-             de: Optional[npt.ArrayLike] = None,
-             names: Optional[list[str]] = None,
+             ph: npt.ArrayLike | None = None,
+             energy: npt.ArrayLike | None = None,
+             dph: npt.ArrayLike | None = None,
+             de: npt.ArrayLike | None = None,
+             names: list[str] | None = None,
              ) -> Self:
         if ph is None:
             ph = np.array([], dtype=float)
@@ -177,7 +174,7 @@ class EnergyCalibrationMaker:
         return self._remove_cal_point_idx(idxs[0]).remove_cal_point_energy(energy, de)
 
     def add_cal_point(self, ph: float, energy: float | str, name: str = "",
-                      ph_error: Optional[float] = None, e_error: Optional[float] = None,
+                      ph_error: float | None = None, e_error: float | None = None,
                       replace: bool = True) -> Self:
         """Add a single energy calibration point.
 
@@ -282,7 +279,7 @@ class EnergyCalibrationMaker:
         return np.hstack(x)
 
     def make_calibration(self, curvename: str = "loglog", approximate: bool = False,
-                         powerlaw: float = 1.15, allow_attributes: bool = False) -> "EnergyCalibration":
+                         powerlaw: float = 1.15, allow_attributes: bool = False) -> EnergyCalibration:
         if approximate and self.npts < 3:
             raise ValueError(f"approximating curves require 3 or more cal anchor points, have {self.npts}")
         if curvename not in self.ALLOWED_CURVENAMES:
@@ -656,7 +653,7 @@ class EnergyCalibration:
         self.plot(**kwargs)
 
     def plot(self,  # noqa: PLR0917
-             axis: Optional[plt.Axes] = None,
+             axis: plt.Axes | None = None,
              color: str = "blue",
              markercolor: str = "red",
              plottype: str = "linear",
@@ -665,8 +662,8 @@ class EnergyCalibration:
              energy_x: bool = False,
              showtext: bool = True,
              showerrors: bool = True,
-             min_energy: Optional[float] = None,
-             max_energy: Optional[float] = None) -> None:
+             min_energy: float | None = None,
+             max_energy: float | None = None) -> None:
         # Plot smooth curve
         minph, maxph = self.ph.min() * .9, self.ph.max() * 1.1
         if min_energy is not None:
