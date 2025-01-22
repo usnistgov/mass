@@ -8,7 +8,11 @@ import numpy as np
 import pylab as plt
 import h5py
 import numpy.typing as npt
-from typing import Optional, Self, Any
+from typing import Optional, Any
+try:
+    from typing import Self
+except ImportError:
+    Self = "Self"
 from collections.abc import Callable
 import dataclasses
 from dataclasses import dataclass
