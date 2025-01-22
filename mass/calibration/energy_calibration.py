@@ -282,6 +282,27 @@ class EnergyCalibrationMaker:
         x.append(anchors.max() * np.linspace(1, 2, 101)[1:])
         return np.hstack(x)
 
+    def make_calibration_loglog(
+            self, approximate: bool = False, powerlaw: float = 1.15, allow_attributes: bool = False) -> EnergyCalibration:
+        return self.make_calibration("loglog", approximate=approximate, powerlaw=powerlaw, allow_attributes=allow_attributes)
+
+    def make_calibration_gain(
+            self, approximate: bool = False, allow_attributes: bool = False) -> EnergyCalibration:
+        return self.make_calibration("gain", approximate=approximate, allow_attributes=allow_attributes)
+
+    def make_calibration_invgain(
+            self, approximate: bool = False, allow_attributes: bool = False) -> EnergyCalibration:
+        return self.make_calibration("invgain", approximate=approximate, allow_attributes=allow_attributes)
+
+    def make_calibration_loggain(
+            self, approximate: bool = False, allow_attributes: bool = False) -> EnergyCalibration:
+        return self.make_calibration("loggain", approximate=approximate, allow_attributes=allow_attributes)
+
+    def make_calibration_linear(
+            self, approximate: bool = False, addzero: bool = False, allow_attributes: bool = False) -> EnergyCalibration:
+        curvename = "linear+0" if addzero else "linear"
+        return self.make_calibration(curvename, approximate=approximate, allow_attributes=allow_attributes)
+
     def make_calibration(self, curvename: str = "loglog", approximate: bool = False,
                          powerlaw: float = 1.15, allow_attributes: bool = False) -> EnergyCalibration:
         if approximate and self.npts < 3:
@@ -626,7 +647,7 @@ class EnergyCalibration:
         cal_group.attrs['approximate'] = self.approximating
 
     @staticmethod
-    def load_from_hdf5(hdf5_group: h5py.Group, name: str) -> "EnergyCalibration":
+    def load_from_hdf5(hdf5_group: h5py.Group, name: str) -> EnergyCalibration:
         cal_group = hdf5_group[name]
 
         # Fix a behavior of h5py for writing in py2, reading in py3.
