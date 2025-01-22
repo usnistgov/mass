@@ -331,8 +331,8 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
     	20181018_144520 chan3  Ho166m_80 fwhm=60 ± 1.9
     	20181018_144520 chan13 Ho166m_80 fwhm=62 ± 2.1
     energyNoDC:
-    	20181018_144520 chan3  Ho166m_80 fwhm=64 ± 2.3
-    	20181018_144520 chan13 Ho166m_80 fwhm=70 ± 2.6
+    	20181018_144520 chan3  Ho166m_80 fwhm=65 ± 1.9
+    	20181018_144520 chan13 Ho166m_80 fwhm=71 ± 2.2
 
 OFF vs Plain Comparision
 ------------------------
