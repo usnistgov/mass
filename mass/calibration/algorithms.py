@@ -17,7 +17,6 @@ from matplotlib.ticker import MaxNLocator
 from ..common import isstr
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration
-from .energy_calibration import EnergyCalibration
 
 
 def line_names_and_energies(line_names):
@@ -246,21 +245,13 @@ def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
 
 
 class EnergyCalibrationAutocal:
-    def __init__(self, calibration, ph=None, line_names=None):
+    def __init__(self, ph=None, line_names=None):
         """
         Args:
             line_names (list[str]): names of calibration lines. Names doesn't need to be
             ordered in their energies.
         """
-        if not isinstance(calibration, EnergyCalibration):
-            raise ValueError("EnergyCalibrationAutocal requires an EnergyCalibration calibration.")
-        self.calibration = calibration
-        # store a reference to EnergyCalibrationAutocal in self.calibration
-        # because we want to be able to run diagnose, and examine fits later, even though
-        # normally only self.calibration is stored later in mass
-        # this isn't the best API, but I was able to add it without changing any APIs so nothing breaks
-        self.calibration.autocal = self
-        self.calibration.diagnose = self.diagnose
+        self.cal_factory = mass.EnergyCalibrationMaker.init()
         self.results = None
         self.energy_resolutions = None
         self.line_names = line_names
@@ -294,9 +285,7 @@ class EnergyCalibrationAutocal:
         else:
             self.binsize_ev = [binsize_ev] * len(self.energies_opt)
 
-        approx_cal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
-        for ph, e in zip(self.ph_opt, self.energies_opt):
-            approx_cal.add_cal_point(ph, e)
+        approx_cal = mass.EnergyCalibrationMaker.init(self.ph_opt, self.energies_opt).make_calibration()
         self.fit_range_ev = fit_range_ev
 
         #  Default fit range width is 100 eV for each line.
@@ -312,22 +301,19 @@ class EnergyCalibrationAutocal:
         mresult = multifit(self.ph, self.line_names, self.fit_lo_hi,
                            self.binsize_ev, self.slopes_de_dph, hide_deprecation=self._hide_deprecation)
 
-        for ph, e, n in zip(mresult["peak_ph"], mresult["energies"], mresult['line_names']):
-            self.calibration.add_cal_point(ph, e, name=str(n))
-
+        self.cal_factory = mass.EnergyCalibrationMaker.init(
+            mresult["peak_ph"], mresult["energies"], names=mresult['line_names'])
         self.results = mresult["results"]
         self.energy_resolutions = mresult["eres"]
         self.line_names = mresult["line_names"]
 
-        return self.calibration
+        return self.cal_factory
 
     def autocal(self, smoothing_res_ph=20, fit_range_ev=200.0, binsize_ev=1.0,
                 nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
         self.guess_fit_params(smoothing_res_ph, fit_range_ev, binsize_ev, nextra, nincrement,
                               nextramax, maxacc)
-        self.fit_lines()
-
-        return self.calibration
+        return self.fit_lines()
 
     @property
     def anyfailed(self):
@@ -368,8 +354,8 @@ class EnergyCalibrationAutocal:
 
         ax = fig.add_axes([lm + w, bm, (1.0 - lm - w) - 0.06, h - 0.05])
 
-        for el, pht, energy in zip(self.line_names, self.calibration.cal_point_phs,
-                                   self.calibration.cal_point_energies):
+        for el, pht, energy in zip(self.line_names, self.cal_factory.ph,
+                                   self.cal_factory.energy):
             peak_name = 'Unknown'
             if isstr(el):
                 peak_name = el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
@@ -381,15 +367,16 @@ class EnergyCalibrationAutocal:
                     transform=ax.transData + mtrans.ScaledTranslation(5.0 / 72, -12.0 / 72,
                                                                       fig.dpi_scale_trans))
 
-        ax.scatter(self.calibration.cal_point_phs,
-                   self.calibration.cal_point_energies, s=36, c="#3333cc")
+        ax.scatter(self.cal_factory.ph,
+                   self.cal_factory.energy, s=36, c="#3333cc")
 
-        lb = np.amin(self.calibration.cal_point_phs)
-        ub = np.amax(self.calibration.cal_point_phs)
+        lb = np.amin(self.cal_factory.ph)
+        ub = np.amax(self.cal_factory.ph)
 
         width = ub - lb
         x = np.linspace(lb - width / 10, ub + width / 10, 101)
-        y = self.calibration(x)
+        cal = self.cal_factory.make_calibration()
+        y = cal(x)
         ax.plot(x, y, '--', color='orange', lw=2, zorder=-2)
 
         ax.yaxis.set_tick_params(labelleft=False, labelright=True)

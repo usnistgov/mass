@@ -4,6 +4,7 @@
 
 * Remove some dependencies in `pyproject.toml` that are no longer required.
 * Use `uv` to install requirements within GitHub Actions. Disable `flake8` linting test, which is broken somehow.
+* Refactor energy-calibration code to use modern Python and MASS practices, and less spaghetti (issue 317).
 
 **0.8.6** December 19, 2024
 
