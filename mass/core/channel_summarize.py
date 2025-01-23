@@ -22,7 +22,7 @@ ResultArrayType = NDArray[result_dtype]
 
 
 @njit
-def summarize_data_numba(
+def summarize_data_numba(  # noqa: PLR0914
     rawdata: NDArray[np.uint16],
     timebase: float,
     peak_samplenumber: int,
