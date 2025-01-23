@@ -15,7 +15,6 @@ if __name__ == "__main__":
         return Extension(name, sources=sources, include_dirs=[np.get_include()])
 
     cython_extensions = [
-        "mass.core.cython_channel",
         "mass.core.analysis_algorithms",
         "mass.mathstat.robust",
         "mass.mathstat.entropy",
