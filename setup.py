@@ -16,7 +16,6 @@ if __name__ == "__main__":
 
     cython_extensions = [
         "mass.core.analysis_algorithms",
-        "mass.mathstat.robust",
         "mass.mathstat.entropy",
     ]
 
