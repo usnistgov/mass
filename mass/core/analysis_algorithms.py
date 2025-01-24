@@ -8,24 +8,13 @@ Created on Jun 9, 2014
 
 @author: fowlerj
 """
-cimport cython
-cimport numpy as np
-
 import numpy as np
 import scipy as sp
-import matplotlib.pylab as plt
-import sklearn.cluster
-import mass.mathstat
-
-from libc.math cimport sqrt
-from mass.mathstat.entropy import laplace_entropy
-from mass.core.utilities import show_progress
 
 
 ########################################################################################
 # Pulse summary quantities
 
-@cython.embedsignature(True)
 def estimateRiseTime(pulse_data, timebase, nPretrig):
     """Computes the rise time of timeseries <pulse_data>, where the time steps are <timebase>.
     <pulse_data> can be a 2D array where each row is a different pulse record, in which case
@@ -71,29 +60,28 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
 
     npulses = pulse_data.shape[0]
     try:
-        rising_data = ((pulse_data[:, nPretrig:idx_last_pk+1] - baseline_value[:, np.newaxis]) /
+        rising_data = ((pulse_data[:, nPretrig:idx_last_pk + 1] - baseline_value[:, np.newaxis]) /
                        value_at_peak[:, np.newaxis])
         # Find the last and first indices at which the data are in (0.1, 0.9] times the
         # peak value. Then make sure last is at least 1 past first.
-        last_idx = (rising_data > MAXTHRESH).argmax(axis=1)-1
+        last_idx = (rising_data > MAXTHRESH).argmax(axis=1) - 1
         first_idx = (rising_data > MINTHRESH).argmax(axis=1)
-        last_idx[last_idx < first_idx] = first_idx[last_idx < first_idx]+1
-        last_idx[last_idx == rising_data.shape[1]] = rising_data.shape[1]-1
+        last_idx[last_idx < first_idx] = first_idx[last_idx < first_idx] + 1
+        last_idx[last_idx == rising_data.shape[1]] = rising_data.shape[1] - 1
 
         pulsenum = np.arange(npulses)
-        y_diff = np.asarray(rising_data[pulsenum, last_idx]-rising_data[pulsenum, first_idx],
+        y_diff = np.asarray(rising_data[pulsenum, last_idx] - rising_data[pulsenum, first_idx],
                             dtype=float)
         y_diff[y_diff < timebase] = timebase
-        time_diff = timebase*(last_idx-first_idx)
+        time_diff = timebase * (last_idx - first_idx)
         rise_time = time_diff / y_diff
         rise_time[y_diff <= 0] = -9.9e-6
         return rise_time
 
     except ValueError:
-        return -9.9e-6+np.zeros(npulses, dtype=float)
+        return -9.9e-6 + np.zeros(npulses, dtype=float)
 
 
-@cython.embedsignature(True)
 def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
     """Equivalent to compute_max_deriv(...)"""
     # If pulse_data is a 1D array, turn it into 2
@@ -104,7 +92,7 @@ def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kern
     if ndim == 1:
         pulse_data.shape = (1, pulse_data.shape[0])
     pulse_data = np.array(pulse_data[:, ignore_leading:], dtype=float)
-    NPulse, NSamp = pulse_data.shape
+    NPulse = pulse_data.shape[0]
 
     # The default filter:
     filter_coef = np.array([+.2, +.1, 0, -.1, -.2])
@@ -114,7 +102,7 @@ def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kern
         # of an M=3rd order polynomial to the five points [-1,+3] and
         # finding the slope of the polynomial at 0.
         # Note that we reverse the order of coefficients because convolution will re-reverse
-        filter_coef = np.array([-0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905])[::-1]
+        filter_coef = np.array([-0.45238, -0.02381, 0.28571, 0.30952, -0.11905])[::-1]
 
     elif kernel is not None:
         filter_coef = np.array(kernel).ravel()
@@ -131,9 +119,6 @@ def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kern
     return max_deriv
 
 
-@cython.embedsignature(True)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
     """Computes the maximum derivative in timeseries <pulse_data>.
     <pulse_data> can be a 2D array where each row is a different pulse record, in which case
@@ -157,13 +142,6 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
     (with 1 point before/3 points after the point in question and fitting polynomial
     of order 3).  Find the right general area by first doing a simple difference.
     """
-    cdef:
-        double f0, f1, f2, f3, f4
-        double t0, t1, t2, t3, t_max_deriv
-        Py_ssize_t i, j
-        const unsigned short[:, :] pulse_view
-        const unsigned short[:] pulses
-        double[:] max_deriv
 
     # If pulse_data is a 1D array, turn it into 2
     pulse_data = np.asarray(pulse_data)
@@ -184,7 +162,7 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
         # of an M=3rd order polynomial to the five points [-1,+3] and
         # finding the slope of the polynomial at 0.
         # Note that we reverse the order of coefficients because convolution will re-reverse
-        filter_coef = np.array([-0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905])[::-1]
+        filter_coef = np.array([-0.45238, -0.02381, 0.28571, 0.30952, -0.11905])[::-1]
 
     elif kernel is not None:
         filter_coef = np.array(kernel).ravel()
@@ -205,8 +183,7 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
                 t3 = f4 * pulses[j - 4] + f3 * pulses[j - 3] + \
                     f2 * pulses[j - 2] + f1 * pulses[j - 1] + f0 * pulses[j]
                 t4 = t3 if t3 < t1 else t1
-                if t4 > t_max_deriv:
-                    t_max_deriv = t4
+                t_max_deriv = max(t4, t_max_deriv)
 
                 t0, t1, t2 = t1, t2, t3
 
@@ -220,8 +197,7 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
             for j in range(5, NSamp):
                 t0 = f4 * pulses[j - 4] + f3 * pulses[j - 3] + \
                     f2 * pulses[j - 2] + f1 * pulses[j - 1] + f0 * pulses[j]
-                if t0 > t_max_deriv:
-                    t_max_deriv = t0
+                t_max_deriv = max(t0, t_max_deriv)
             max_deriv[i] = t_max_deriv
 
     return np.asarray(max_deriv, dtype=np.float32)
@@ -244,9 +220,9 @@ class HistogramSmoother:
         self.smooth_sigma = smooth_sigma
 
         # Choose a reasonable # of bins, at least 1024 and a power of 2
-        stepsize = 0.4*smooth_sigma
+        stepsize = 0.4 * smooth_sigma
         dlimits = self.limits[1] - self.limits[0]
-        nbins = int(dlimits/stepsize+0.5)
+        nbins = int(dlimits / stepsize + 0.5)
         pow2 = 1024
         while pow2 < nbins:
             pow2 *= 2
@@ -254,7 +230,7 @@ class HistogramSmoother:
         self.stepsize = dlimits / self.nbins
 
         # Compute the Fourier-space smoothing kernel
-        kernel = np.exp(-0.5*(np.arange(self.nbins)*self.stepsize/self.smooth_sigma)**2)
+        kernel = np.exp(-0.5 * (np.arange(self.nbins) * self.stepsize / self.smooth_sigma)**2)
         kernel[1:] += kernel[-1:0:-1]  # Handle the negative frequencies
         kernel /= kernel.sum()
         self.kernel_ft = np.fft.rfft(kernel)
@@ -268,7 +244,6 @@ class HistogramSmoother:
         return csmooth
 
 
-@cython.embedsignature(True)
 def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
     """Convert a vector of arbitrary <values> info a smoothed histogram by
     histogramming it and smoothing.
@@ -289,7 +264,6 @@ def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
     return HistogramSmoother(smooth_sigma, [limit, upper_limit])(values)
 
 
-@cython.embedsignature(True)
 def drift_correct(indicator, uncorrected, limit=None):
     """Compute a drift correction that minimizes the spectral entropy.
 
@@ -324,10 +298,10 @@ def drift_correct(indicator, uncorrected, limit=None):
     smoother = HistogramSmoother(0.5, [0, limit])
 
     def entropy(param, indicator, uncorrected, smoother):
-        corrected = uncorrected * (1+indicator*param)
+        corrected = uncorrected * (1 + indicator * param)
         hsmooth = smoother(corrected)
         w = hsmooth > 0
-        return -(np.log(hsmooth[w])*hsmooth[w]).sum()
+        return -(np.log(hsmooth[w]) * hsmooth[w]).sum()
 
     drift_corr_param = sp.optimize.brent(entropy, (indicator, uncorrected, smoother), brack=[0, .001])
 
@@ -337,7 +311,6 @@ def drift_correct(indicator, uncorrected, limit=None):
     return drift_corr_param, drift_correct_info
 
 
-@cython.embedsignature(True)
 def python_nearest_arrivals(reference_times, other_times):
     """Identical to nearest_arrivals(...)."""
     nearest_after_index = np.searchsorted(other_times, reference_times)
@@ -350,20 +323,17 @@ def python_nearest_arrivals(reference_times, other_times):
     nearest_before_index = np.copy(nearest_after_index)
     nearest_before_index[:first_index] = 1
     nearest_before_index -= 1
-    before_times = reference_times-other_times[nearest_before_index]
-    before_times[:first_index] = np.Inf
+    before_times = reference_times - other_times[nearest_before_index]
+    before_times[:first_index] = np.inf
 
-    nearest_after_index[last_index:] = other_times.size-1
-    after_times = other_times[nearest_after_index]-reference_times
-    after_times[last_index:] = np.Inf
+    nearest_after_index[last_index:] = other_times.size - 1
+    after_times = other_times[nearest_after_index] - reference_times
+    after_times[last_index:] = np.inf
 
     return before_times, after_times
 
 
-@cython.embedsignature(True)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigger_timestamps):
+def nearest_arrivals(pulse_timestamps, external_trigger_timestamps):
     """Find the external trigger time immediately before and after each pulse timestamp
 
     Args:
@@ -385,14 +355,7 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
     closest greater time contained in other_times or a inf number if there was
     no later time in external_trigger_timestamps.
     """
-    cdef:
-        Py_ssize_t num_pulses, num_triggers
-        Py_ssize_t i = 0, j = 0, t
-        long long[:] delay_from_last_trigger
-        long long[:] delay_until_next_trigger
-        long long a, b, pt
-        long long max_value
-
+    i = j = 0
     num_pulses = pulse_timestamps.shape[0]
     num_triggers = external_trigger_timestamps.shape[0]
 
@@ -417,8 +380,8 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
                 delay_until_next_trigger[i] = a - pt
                 i += 1
                 if i >= num_pulses:
-                    return np.asarray(delay_from_last_trigger, dtype=np.int64),\
-                           np.asarray(delay_until_next_trigger, dtype=np.int64)
+                    return np.asarray(delay_from_last_trigger, dtype=np.int64), \
+                        np.asarray(delay_until_next_trigger, dtype=np.int64)
             else:
                 break
 
@@ -453,7 +416,7 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
                 delay_until_next_trigger[i] = max_value
             else:
                 delay_from_last_trigger[i] = max_value
-                dealay_until_next_trigger = a - pt
+                delay_until_next_trigger = a - pt
     else:
         for i in range(num_pulses):
             delay_from_last_trigger[i] = max_value
@@ -476,7 +439,7 @@ def filter_signal_lowpass(sig, fs, fcut):
     """
     N = sig.shape[0]
     SIG = np.fft.fft(sig)
-    freqs = (fs/N) * np.concatenate((np.arange(0, N/2+1), np.arange(N/2-1, 0, -1)))
+    freqs = (fs / N) * np.concatenate((np.arange(0, N / 2 + 1), np.arange(N / 2 - 1, 0, -1)))
     filt = np.zeros_like(SIG)
     filt[freqs < fcut] = 1.0
     sig_filt = np.fft.ifft(SIG * filt)
@@ -516,41 +479,19 @@ def correct_flux_jumps(vals, g, flux_quant):
     # the pretrigger section contains a (sufficiently large) tail.
     if (np.amax(vals) - np.amin(vals)) >= flux_quant:
         corrected = vals % (flux_quant)
-        if (np.amax(corrected[g]) - np.amin(corrected[g])) > 0.75*flux_quant:
-            corrected = (vals + flux_quant/4) % (flux_quant)
-            corrected = corrected - flux_quant/4 + flux_quant
-        corrected = corrected - (corrected[0] - vals[0])
+        if (np.amax(corrected[g]) - np.amin(corrected[g])) > 0.75 * flux_quant:
+            corrected = (vals + flux_quant / 4) % (flux_quant)
+            corrected = corrected - flux_quant / 4 + flux_quant
+        corrected -= (corrected[0] - vals[0])
         return corrected
     else:
         return vals
 
 
-@cython.embedsignature(True)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def filter_data_5lag_cython(
-    const unsigned short[:,:] rawdata,
-    double[:] filter_values,
-    int pulses_per_seg=0):
+def filter_data_5lag_cython(rawdata, filter_values):
     """Filter the complete data file one chunk at a time."""
-    cdef:
-        Py_ssize_t i, j, k
-        int n_segments, pulse_size_bytes, bigblock
-        int nPulses, nSamples, filter_length
-        double conv0, conv1, conv2, conv3, conv4
-        float[:] filt_phase_scratch_array, filt_value_scratch_array
-        unsigned short sample
-        double f0, f1, f2, f3, f4
-        double p0, p1, p2
-
     nPulses = rawdata.shape[0]
     nSamples = rawdata.shape[1]
-    filter_length = nSamples - 4
-    if pulses_per_seg <= 0:
-        pulse_size_bytes = 16+2*nSamples
-        bigblock = 2**22
-        pulses_per_seg = max(bigblock // pulse_size_bytes, 1)
-    n_segments = 1+(nPulses-1) // pulses_per_seg
 
     filt_phase = np.zeros(nPulses, dtype=np.float64)
     filt_value = np.zeros(nPulses, dtype=np.float64)
@@ -576,16 +517,16 @@ def filter_data_5lag_cython(
             conv4 += sample * f0
             f0, f1, f2, f3 = f1, f2, f3, f4
 
-        conv4 += pulse[nSamples-4] * f0 + pulse[nSamples-3] * f1 +\
-            pulse[nSamples-2] * f2 + pulse[nSamples-1] * f3
-        conv3 += pulse[nSamples-4] * f1 + pulse[nSamples-3] * f2 + pulse[nSamples-2] * f3
-        conv2 += pulse[nSamples-4] * f2 + pulse[nSamples-3] * f3
-        conv1 += pulse[nSamples-4] * f3
+        conv4 += pulse[nSamples - 4] * f0 + pulse[nSamples - 3] * f1 +\
+            pulse[nSamples - 2] * f2 + pulse[nSamples - 1] * f3
+        conv3 += pulse[nSamples - 4] * f1 + pulse[nSamples - 3] * f2 + pulse[nSamples - 2] * f3
+        conv2 += pulse[nSamples - 4] * f2 + pulse[nSamples - 3] * f3
+        conv1 += pulse[nSamples - 4] * f3
 
-        p0 = conv0*(-6.0/70) + conv1*(24.0/70) + conv2*(34.0/70) + conv3*(24.0/70) + conv4*(-6.0/70)
-        p1 = conv0*(-14.0/70) + conv1*(-7.0/70) + conv3*(7.0/70) + conv4*(14.0/70)
-        p2 = conv0*(10.0/70) + conv1*(-5.0/70) + conv2*(-10.0/70) + conv3*(-5.0/70) + conv4*(10.0/70)
+        p0 = conv0 * (-6.0 / 70) + conv1 * (24.0 / 70) + conv2 * (34.0 / 70) + conv3 * (24.0 / 70) + conv4 * (-6.0 / 70)
+        p1 = conv0 * (-14.0 / 70) + conv1 * (-7.0 / 70) + conv3 * (7.0 / 70) + conv4 * (14.0 / 70)
+        p2 = conv0 * (10.0 / 70) + conv1 * (-5.0 / 70) + conv2 * (-10.0 / 70) + conv3 * (-5.0 / 70) + conv4 * (10.0 / 70)
 
-        filt_phase[i] = -0.5*p1 / p2
-        filt_value[i] = p0 - 0.25*p1**2 / p2
+        filt_phase[i] = -0.5 * p1 / p2
+        filt_value[i] = p0 - 0.25 * p1**2 / p2
     return filt_value, filt_phase
