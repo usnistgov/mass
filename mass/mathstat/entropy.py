@@ -1,4 +1,4 @@
-"""
+r"""
 entropy.py
 
 Estimates of the distribution entropy computed using kernel-density estimates
@@ -30,7 +30,7 @@ DTYPE = np.float64
 
 
 def laplace_entropy(x_in, w: float = 1.0, approx_mode: str = "size") -> float:
-    """Compute the entropy of data set `x` where the
+    r"""Compute the entropy of data set `x` where the
     kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
 
     Args:
@@ -181,7 +181,7 @@ def _merge_orderedlists_arrays(out,
 
 
 def laplace_KL_divergence(x, y, w: float = 1.0, approx_mode: str = "size") -> float:
-    """Compute the Kullback-Leibler divergence of data set `y` from data set `x`.
+    r"""Compute the Kullback-Leibler divergence of data set `y` from data set `x`.
 
     Use kernel-density estimation, where the kernel is the Laplace kernel
     k(x) \propto exp(-abs(x-x0)/w).
@@ -197,7 +197,7 @@ def laplace_KL_divergence(x, y, w: float = 1.0, approx_mode: str = "size") -> fl
 
 
 def laplace_cross_entropy(x, y, w: float = 1.0, approx_mode: str = "size") -> float:
-    """`laplace_cross_entropy(x, y, w: float = 1.0, approx_mode="size")`
+    r"""`laplace_cross_entropy(x, y, w: float = 1.0, approx_mode="size")`
 
     Compute the cross-entropy of data set `x` from data set `y`, where the
     kernel for x is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
