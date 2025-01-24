@@ -415,7 +415,6 @@ def filter_signal_lowpass(sig, fs, fcut):
     return sig_filt
 
 
-@njit
 def correct_flux_jumps(vals, g, flux_quant):
     '''Remove 'flux' jumps' from pretrigger mean.
 
