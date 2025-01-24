@@ -1616,56 +1616,6 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.hdf5_group.file.flush()
 
     @_add_group_loop()
-    def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
-                          forceNew=False, category={}):
-        """Apply the phase correction that worked for calibronium-like data as of June 2014.
-
-        For more notes, do help(mass.core.analysis_algorithms.FilterTimeCorrection)
-
-        Args:
-            typical_resolution (number): should be an estimated energy resolution in UNITS OF
-                self.p_pulse_rms. This helps the peak-finding (clustering) algorithm decide
-                which pulses go together into a single peak.  Be careful to use a semi-reasonable
-                quantity here.
-            maximum_num_records (int): don't use more than this many records to learn
-                the correction (default 50000).
-            plot (bool): whether to make a relevant plot
-            forceNew (bool): whether to recompute if it already exists (default False).
-            category (dict): if not None, then a dict giving a category name and the
-                required category label.
-        """
-        doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(
-            self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
-        if not (forceNew or doesnt_exist):
-            LOG.info("channel %d skipping phase_correct2014", self.channum)
-            return
-
-        data, g = self.first_n_good_pulses(maximum_num_records, category)
-        LOG.info("channel %d doing phase_correct2014 with %d good pulses",
-                 self.channum, data.shape[0])
-        prompt = self.p_promptness[:]
-        prms = self.p_pulse_rms[:]
-
-        if self.filter is not None:
-            dataFilter = self.filter.values
-        else:
-            dataFilter = self.hdf5_group['filters/values'][:]
-        tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-            data, prompt[g], prms[g], dataFilter,
-            self.nPresamples, typicalResolution=typical_resolution)
-
-        self.p_filt_value_phc[:] = self.p_filt_value_dc[:]
-        self.p_filt_value_phc[:] -= tc(prompt, prms)
-        if plot:
-            fnum = plt.gcf().number
-            plt.figure(5)
-            plt.clf()
-            g = self.cuts.good()
-            plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
-            plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
-            plt.figure(fnum)
-
-    @_add_group_loop()
     def phase_correct(self, attr="p_filt_value_dc", forceNew=False, category={}, ph_peaks=None,
                       method2017=True, kernel_width=None, save_to_hdf5=True):
         """Apply the 2017 or 2015 phase correction method.
