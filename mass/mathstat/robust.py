@@ -27,16 +27,15 @@ the most robust though less efficient.  If Qscale doesn't work, then short_range
 second choice.
 
 Created on Feb 9, 2012
+Rewritten with Numba Jan 23, 2025
 
 @author: fowlerj
 """
 
 import numpy as np
+from numba import njit
 
-cimport cython
 
-
-@cython.embedsignature(True)
 def bisquare_weighted_mean(x, k, center=None, tol=None):
     """The bisquare weighted mean of the data <x> with a k-value of <k>.
 
@@ -62,12 +61,12 @@ def bisquare_weighted_mean(x, k, center=None, tol=None):
     if center is None:
         center = np.median(x)
     if tol is None:
-        tol = 1e-5*median_abs_dev(x, normalize=True)
+        tol = 1e-5 * median_abs_dev(x, normalize=True)
 
     for _iteration in range(100):
-        weights = (1-((x-center) / k)**2.0)**2.0
-        weights[np.abs(x-center) > k] = 0.0
-        newcenter = (weights*x).sum()/weights.sum()
+        weights = (1 - ((x - center) / k)**2.0)**2.0
+        weights[np.abs(x - center) > k] = 0.0
+        newcenter = (weights * x).sum() / weights.sum()
         if abs(newcenter - center) < tol:
             return newcenter
         center = newcenter
@@ -75,7 +74,6 @@ def bisquare_weighted_mean(x, k, center=None, tol=None):
                        "Consider using higher <tol> or better <center>, or change to trimean(x).")
 
 
-@cython.embedsignature(True)
 def huber_weighted_mean(x, k, center=None, tol=None):
     """Huber's weighted mean of the data <x> with a k-value of <k>.
 
@@ -101,12 +99,12 @@ def huber_weighted_mean(x, k, center=None, tol=None):
     if center is None:
         center = np.median(x)
     if tol is None:
-        tol = 1e-5*median_abs_dev(x, normalize=True)
+        tol = 1e-5 * median_abs_dev(x, normalize=True)
 
     for _iteration in range(100):
-        weights = np.asarray((1.0*k)/np.abs(x-center))
+        weights = np.asarray((1.0 * k) / np.abs(x - center))
         weights[weights > 1.0] = 1.0
-        newcenter = (weights*x).sum()/weights.sum()
+        newcenter = (weights * x).sum() / weights.sum()
         if abs(newcenter - center) < tol:
             return newcenter
         center = newcenter
@@ -114,7 +112,6 @@ def huber_weighted_mean(x, k, center=None, tol=None):
                        "Consider using higher <tol> or better <center>, or change to trimean(x).")
 
 
-@cython.embedsignature(True)
 def trimean(x):
     """Return Tukey's trimean for a data set <x>, a measure of its central tendency
     ("location" or "center").
@@ -123,11 +120,10 @@ def trimean(x):
     the trimean is (q1+q3)/4 + q2/2.
     """
     q1, q2, q3 = [np.percentile(x, per) for per in (25, 50, 75)]
-    trimean = 0.25*(q1+q3) + 0.5*q2
+    trimean = 0.25 * (q1 + q3) + 0.5 * q2
     return trimean
 
 
-@cython.embedsignature(True)
 def median_abs_dev(x, normalize=False):
     """Median absolute deviation (from the median) of data vector.
 
@@ -137,13 +133,12 @@ def median_abs_dev(x, normalize=False):
             the statistic consistent with the standard deviation for an asymptotically large
             sample of Gaussian deviates (default False).
     """
-    mad = np.median(np.abs(np.asarray(x)-np.median(x)))
+    mad = np.median(np.abs(np.asarray(x) - np.median(x)))
     if normalize:
-        return mad/0.674480  # Half of the normal distribution has abs(x-mu) < 0.674480*sigma
+        return mad / 0.674480  # Half of the normal distribution has abs(x-mu) < 0.674480*sigma
     return mad
 
 
-@cython.embedsignature(True)
 def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     """Returns the Shortest Half (shorth) Range, a robust estimator of dispersion.
 
@@ -178,9 +173,9 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     just how useless they are.
     """
 
-    n = len(x)              # Number of data values
-    nhalves = int((n+1)/2)  # Number of minimal intervals containing at least half the data
-    nobs = 1 + int(n/2)     # Number of data values in each minimal interval
+    n = len(x)                  # Number of data values
+    nhalves = int((n + 1) / 2)  # Number of minimal intervals containing at least half the data
+    nobs = 1 + int(n / 2)       # Number of data values in each minimal interval
 
     if not sort_inplace:
         x = np.array(x)
@@ -188,26 +183,31 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
         raise ValueError("sort_inplace cannot be True unless the data set x is a np.ndarray.")
     x.sort()
 
-    range_each_half = x[n-nhalves:n]-x[0:nhalves]
+    range_each_half = x[n - nhalves:n] - x[0:nhalves]
     idxa = range_each_half.argmin()
-    a, b = x[idxa], x[idxa+nobs-1]
-    shorth_range = b-a
+    a, b = x[idxa], x[idxa + nobs - 1]
+    shorth_range = b - a
 
     if normalize:
-        shorth_range = shorth_range/(2*.674480)  # Asymptotic expectation for normal data: sigma*2*0.674480
+        shorth_range /= 2 * 0.674480
+        # Asymptotic expectation for normal data: sigma*2*0.674480
+        # The value 2*0.674480 is twice the inverse cumulative normal distribution at 0.75. That is,
+        # the middle 50% of a normal distribution are within ±0.674480*sigma of the mean.
 
-        # The small-n corrections depend on n mod 4.  See [citation]
+        # The small-n corrections depend on n mod 4.  See Rousseeuw & Lerow 1988.
+        # These are not at all clear from the text of the paper (see table on p. 115
+        # if you want to try to decode them).
         if n % 4 == 0:
-            shorth_range *= (n+1.0)/n
+            shorth_range *= (n + 1.0) / n
         elif n % 4 == 1:
-            shorth_range *= (n+1.0)/(n-1.0)
+            shorth_range *= (n + 1.0) / (n - 1.0)
         elif n % 4 == 2:
-            shorth_range *= (n+1.0)/n
+            shorth_range *= (n + 1.0) / n
         else:
-            shorth_range *= (n+1.0)/(n-1.0)
+            shorth_range *= (n + 1.0) / (n - 1.0)
 
     if location:
-        return shorth_range, x[idxa:idxa+nobs].mean(), 0.5*(a+b)
+        return shorth_range, x[idxa:idxa + nobs].mean(), 0.5 * (a + b)
     return shorth_range
 
 
@@ -215,11 +215,12 @@ shorth_information = """The shorth ("shortest half") is a useful concept from ro
 leading to simple robust estimators for both the dispersion and the location of a unimodal
 distribution.
 
-....
+Reference:
+Rousseeuw, P., & Leroy, A. M. (1988). "A robust scale estimator based on the shortest half."
+_Statistica Neerlandica_, 42(2), 103–116. https://doi.org/10.1111/j.1467-9574.1988.tb01224.x
 """
 
 
-@cython.embedsignature(True)
 def high_median(x, weights=None, return_index=False):
     """Compute the weighted high median of data set x with weights <weights>.
 
@@ -247,7 +248,6 @@ def high_median(x, weights=None, return_index=False):
     return x[ri]
 
 
-@cython.embedsignature(True)
 def Qscale(x, sort_inplace=False):
     """Compute the robust estimator of scale Q of Rousseeuw and Croux using only O(n log n)
     memory and computations.
@@ -282,22 +282,22 @@ def Qscale(x, sort_inplace=False):
         x = np.array(x)
     elif not isinstance(x, np.ndarray):
         raise ValueError("sort_inplace cannot be True unless the data set x is a np.ndarray.")
+
     x.sort()
     n = len(x)
     if n < 2:
         raise ValueError("Data set <x> must contain at least 2 values!")
     h = n // 2 + 1
-    target_k = h * (h-1) // 2 - 1  # -1 so that order count can start at 0 instead of conventional 1,2,3...
+    target_k = h * (h - 1) // 2 - 1  # -1 so that order count can start at 0 instead of conventional 1,2,3...
 
     # Compute the n-dependent prefactor to make Q consistent with sigma of a Gaussian.
     prefactor = 2.2219
     if n <= 9:
         prefactor *= [0, 0, 0.399, 0.994, 0.512, 0.844, 0.611, 0.857, 0.669, 0.872][n]
+    elif n % 2 == 1:
+        prefactor *= n / (n + 1.4)
     else:
-        if n % 2 == 1:
-            prefactor *= n / (n + 1.4)
-        else:
-            prefactor *= n / (n + 3.8)
+        prefactor *= n / (n + 3.8)
 
     # Now down to business finding the 25%ile of |xi - xj| for i<j (or equivalently, for i != j)
     # Imagine the upper triangle of the matrix Aij = xj - xi (upper means j>i).
@@ -314,12 +314,12 @@ def Qscale(x, sort_inplace=False):
     q, npasses = _Qscale_subroutine(x, n, target_k)
 
     if npasses > n:
-        raise RuntimeError("Qscale tried %d distances, which is too many" % npasses)
+        raise RuntimeError(f"Qscale tried {npasses} distances, which is too many")
     return q * prefactor
 
 
-@cython.boundscheck(False)
-def _high_median(long long[:] sort_idx, double[:] weights, int n):
+@njit
+def _high_median(sort_idx, weights, n):
     """Compute the weighted high median of data set with weights <weights>.
 
     Instead of sending the data set x, send the order statistics <sort_idx> over
@@ -330,28 +330,21 @@ def _high_median(long long[:] sort_idx, double[:] weights, int n):
 
     If return_index is True, then the chosen index is returned also as (highmed, index).
     """
-    cdef double total_weight, half_weight
-    cdef int i
-
-    cdef int imin, imax, itrial
-    cdef double left_weight, right_weight
-    cdef double trial_left_weight, trial_right_weight
-
     total_weight = 0.0
     for i in range(n):
         total_weight += weights[i]
-    half_weight = 0.5*total_weight
+    half_weight = 0.5 * total_weight
 
     imin, imax = 0, n  # The possible range of j will always be the half-open interval [imin,imax)
     left_weight = right_weight = 0  # Total weight in (...,imin) and in [imax,...)
-    itrial = n//2
+    itrial = n // 2
 
-    while imax-imin > 1:
+    while imax - imin > 1:
         trial_left_weight = 0
         trial_right_weight = 0
         for i in range(imin, itrial):
             trial_left_weight += weights[sort_idx[i]]
-        for i in range(itrial+1, imax):
+        for i in range(itrial + 1, imax):
             trial_right_weight += weights[sort_idx[i]]
 
         if left_weight + trial_left_weight > half_weight:  # j < itrial
@@ -362,79 +355,69 @@ def _high_median(long long[:] sort_idx, double[:] weights, int n):
             imin = itrial
         else:  # j == itrial
             break
-        itrial = (imin+imax)//2
+        itrial = (imin + imax) // 2
 
     return sort_idx[itrial]
 
 
-@cython.boundscheck(False)
-def _choose_trial_val(long long[:] left, long long[:] right, double[:] x, int n):
+@njit
+def _choose_trial_val(left, right, x: float, n: int):
     """Choose a trial val as the weighted median of the medians of the remaining candidates in
     each row, where the weights are the number of candidates remaining in each row."""
 
-    cdef Py_ssize_t i
-    cdef int chosen_row, chosen_col, ctr_index
+    # cdef Py_ssize_t i
+    # cdef int chosen_row, chosen_col, ctr_index
 
-    cdef float trial_val
-    cdef double[:] weights
-    cdef double[:] row_median
+    # cdef float trial_val
+    # cdef double[:] weights
+    # cdef double[:] row_median
 
     weights = np.zeros(n - 1, dtype=np.float64)
     row_median = np.zeros(n - 1, dtype=np.float64)
 
-    for i in range(n-1):
-        weights[i] = right[i]+1-left[i]
+    for i in range(n - 1):
+        weights[i] = right[i] + 1 - left[i]
         if left[i] > right[i]:
             weights[i] = 0
-        ctr_index = (left[i]+right[i])//2
+        ctr_index = (left[i] + right[i]) // 2
         if ctr_index >= n:
-            ctr_index = n-1
-        row_median[i] = x[ctr_index]-x[i]
+            ctr_index = n - 1
+        row_median[i] = x[ctr_index] - x[i]
 
-    cdef long long[:] row_sort_idx
     row_sort_idx = np.argsort(row_median)
 
-    chosen_row = _high_median(row_sort_idx, weights, n-1)
+    chosen_row = _high_median(row_sort_idx, weights, n - 1)
     trial_val = row_median[chosen_row]
-    chosen_col = (left[chosen_row]+right[chosen_row])//2
+    chosen_col = (left[chosen_row] + right[chosen_row]) // 2
 
     if chosen_col >= n:
-        chosen_col = n-1
+        chosen_col = n - 1
 
     return trial_val, chosen_row, chosen_col
 
 
-@cython.embedsignature(True)
-@cython.boundscheck(False)  # turn off bounds-checking for entire function
-def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
-    cdef unsigned int trial_q_row = 0, trial_q_col = 0
-    cdef Py_ssize_t i, counter
-    cdef double trial_distance = 0.0
-    cdef long long candidates_below_trial_dist
+@njit
+def _Qscale_subroutine(x: np.ndarray, n: int, target_k: int):
+    trial_q_row = 0
+    trial_q_col = 0
 
     # Keep track of which candidates on each ROW are still in the running.
     # These limits are of length (n-1) because the lowest row has no upper-triangle elements.
     # These mean that element A_ij = xj-xi is in the running if and only if  left(i) <= j <= right(i).
-    cdef long long[:] trial_column
-    cdef long long[:] left
-    cdef long long[:] right
-    cdef double[:] per_row_value
-    cdef long ia, ib, imiddle
+    trial_column = np.zeros(n - 1, dtype=np.int64)
+    left = np.zeros(n - 1, dtype=np.int64)
+    right = np.zeros(n - 1, dtype=np.int64)
 
-    trial_column = np.zeros(n-1, dtype=np.int64)
-    left = np.zeros(n-1, dtype=np.int64)
-    right = np.zeros(n-1, dtype=np.int64)
+    for i in range(n - 1):
+        right[i] = n - 1
 
-    for i in range(n-1):
-        right[i] = n-1
-
-    per_row_value = np.zeros(n-1, dtype=np.float64)
+    per_row_value = np.zeros(n - 1, dtype=np.float64)
 
     # In this loop, we close in on the Q that we seek by doing a bisection search of each row,
     # with left and right representing the smallest and largest column #s still in the running.
-    for counter in range(n+10):
+    for counter in range(n + 10):
         trial_distance, trial_q_row, trial_q_col = _choose_trial_val(left, right, x, n)
-        for i in range(n-1):
+        for i in range(n - 1):
             per_row_value[i] = trial_distance + x[i]
 
         # In each row i, find the highest index trial_column such that x[tc]-x[i] < trial_distance
@@ -452,19 +435,19 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
             # Test for if this is the row containing the trial Q-value.  If so, column is known.
             # Use this to avoid comparing exact equality of floats on the trial Q's (row,col).
             if i == trial_q_row:
-                trial_column[i] = trial_q_col-1
+                trial_column[i] = trial_q_col - 1
                 continue
 
             ia = left[i]
             ib = right[i]
             if ia > ib or x[ia] >= trial_val:
-                trial_column[i] = ia-1
+                trial_column[i] = ia - 1
                 continue
             if x[ib] <= trial_val:
                 trial_column[i] = ib
                 continue
-            while ib-ia > 1:
-                imiddle = (ib+ia) // 2
+            while ib - ia > 1:
+                imiddle = (ib + ia) // 2
                 if x[imiddle] < trial_val:
                     ia = imiddle
                 elif x[imiddle] > trial_val:
@@ -475,17 +458,17 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
                     break
             trial_column[i] = ia
 
-        candidates_below_trial_dist = np.sum(trial_column) - ((n-2)*(n-1))/2
+        candidates_below_trial_dist = np.sum(trial_column) - ((n - 2) * (n - 1)) / 2
 
         if candidates_below_trial_dist == target_k:
             return trial_distance, counter
         elif candidates_below_trial_dist > target_k:
-            for i in range(n-1):
+            for i in range(n - 1):
                 right[i] = trial_column[i]
                 if right[i] >= n:
-                    right[i] = n-1
+                    right[i] = n - 1
         else:
-            for i in range(n-1):
+            for i in range(n - 1):
                 left[i] = trial_column[i] + 1
             left[trial_q_row] += 1
 

@@ -19,6 +19,7 @@ dependencies = [
     "indexedproperty",
     "lmfit>=0.9.11",
     "matplotlib>1.5",
+    "numba",
     "numpy>=1.14",
     "packaging",
     "progress",

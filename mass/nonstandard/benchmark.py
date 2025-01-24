@@ -8,34 +8,28 @@ Just curious how to use Numba, and also how our Cython vs Python versions of
 Save this just as a starting point for future explorations.
 """
 
-# from numba import njit
-import numpy as np
+from numba import njit
+# import numpy as np
 import mass
 
 
-def python_summarize(data, use_cython):
+def python_summarize(data):
     for _ in range(1):
-        data.summarize_data(forceNew=True, use_cython=use_cython)
+        data.summarize_data(forceNew=True)
     ds = data.datasets[0]
     print(ds.p_pretrig_mean[:5], ds.p_pretrig_mean[-5:])
 
 
-def test_python(benchmark):
+def test_numba(benchmark):
     data = mass.TESGroup("tests/off/data_for_test/20181018_144520/20181018_144520_chan*.ljh")
     data.set_all_chan_good()
-    resultPy = benchmark(python_summarize, data, False)
-
-
-def test_cython(benchmark):
-    data = mass.TESGroup("tests/off/data_for_test/20181018_144520/20181018_144520_chan*.ljh")
-    data.set_all_chan_good()
-    resultCy = benchmark(python_summarize, data, True)
+    benchmark(python_summarize, data)
 
 
 def NOT_A_test_python2(benchmark):
     data = mass.TESGroup("tests/off/data_for_test/20181018_144520/20181018_144520_chan*.ljh")
     data.set_all_chan_good()
-    resultPy = benchmark(summarize_v1, data)
+    benchmark(summarize_v1, data)
 
 
 def summarize_v1(data):
@@ -48,7 +42,7 @@ def summarize_v1(data):
         ds.p_timestamp[:] = ds.times[:]
         ds.p_subframecount[:] = ds.subframecount[:]
         for idx in range(ds.nPulses):
-            ptm, ptr = analyze_pretrig(ds.data[idx,ds.cut_pre:ds.nPresamples-ds.pretrigger_ignore_samples])
+            ptm, ptr = analyze_pretrig(ds.data[idx, ds.cut_pre:ds.nPresamples-ds.pretrigger_ignore_samples])
             ds.p_pretrig_mean[idx] = ptm
             ds.p_pretrig_rms[idx] = ptr
 

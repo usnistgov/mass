@@ -520,14 +520,12 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        cut_pre=0, cut_post=0,
-                       include_badchan=False, forceNew=False, use_cython=True, doPretrigFit=False):
+                       include_badchan=False, forceNew=False, doPretrigFit=False):
         """Summarize the data with per-pulse summary quantities for each channel.
 
         peak_time_microsec will be determined automatically if None, and will be
         stored in channels as ds.peak_samplenumber.
 
-        Args:
-            use_cython uses a cython (aka faster) implementation of summarize.
         """
         nchan = float(len(self.channel.keys())) if include_badchan else float(
             self.num_good_channels)
@@ -538,7 +536,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                                   pretrigger_ignore_microsec=pretrigger_ignore_microsec,
                                   cut_pre=cut_pre,
                                   cut_post=cut_post,
-                                  forceNew=forceNew, use_cython=use_cython,
+                                  forceNew=forceNew,
                                   doPretrigFit=doPretrigFit)
                 yield (i + 1.0) / nchan
                 self.hdf5_file.flush()

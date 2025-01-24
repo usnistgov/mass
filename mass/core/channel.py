@@ -25,6 +25,7 @@ import mass.mathstat.robust
 import mass.core.analysis_algorithms
 from . import phase_correct
 from .pulse_model import PulseModel
+from .channel_summarize import summarize_data_numba
 
 from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile
@@ -904,8 +905,7 @@ class MicrocalDataSet:  # noqa: PLR0904
     @show_progress("channel.summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        cut_pre=0, cut_post=0,
-                       forceNew=False, use_cython=True,
-                       doPretrigFit=False):
+                       forceNew=False, doPretrigFit=False):
         """Summarize the complete data set one chunk at a time.
 
         Store results in the HDF5 datasets p_pretrig_mean and similar.
@@ -922,7 +922,6 @@ class MicrocalDataSet:  # noqa: PLR0904
         cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
         cut_post: Cut this many samples from the end of the a record when calculating summary values
         forceNew: whether to re-compute summaries if they exist (default False)
-        use_cython: whether to use cython for summarizing the data (default True).
         doPretrigFit: whether to do a linear fit of the pretrigger data
         """
         for name in ("number_of_rows", "row_number", "number_of_columns", "column_number",
@@ -951,104 +950,34 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.cut_pre = cut_pre
         self.cut_post = cut_post
 
-        if use_cython:
-            if self.peak_samplenumber is None:
-                self._compute_peak_samplenumber()
-            self.p_timestamp[:] = self.times[:]
-            self.p_subframecount[:] = self.subframecount[:]
+        if self.peak_samplenumber is None:
+            self._compute_peak_samplenumber()
+        self.p_timestamp[:] = self.times[:]
+        self.p_subframecount[:] = self.subframecount[:]
 
-            sumdata = mass.core.cython_channel.summarize_data_cython
-            for segnum in range(self.pulse_records.n_segments):
-                first = segnum * self.pulse_records.pulses_per_seg
-                end = min(first + self.pulse_records.pulses_per_seg, self.nPulses)
-                idx_slice = slice(first, end)
-                results = sumdata(self.data[idx_slice], self.timebase, self.peak_samplenumber,
-                                  self.pretrigger_ignore_samples, self.nPresamples,
-                                  0, end - first)
-                self.p_pretrig_mean[idx_slice] = results["pretrig_mean"][:]
-                self.p_pretrig_rms[idx_slice] = results["pretrig_rms"][:]
-                self.p_pulse_average[idx_slice] = results["pulse_average"][:]
-                self.p_pulse_rms[idx_slice] = results["pulse_rms"][:]
-                self.p_promptness[idx_slice] = results["promptness"][:]
-                self.p_postpeak_deriv[idx_slice] = results["postpeak_deriv"][:]
-                self.p_peak_index[idx_slice] = results["peak_index"][:]
-                self.p_peak_value[idx_slice] = results["peak_value"][:]
-                self.p_min_value[idx_slice] = results["min_value"][:]
-                self.p_rise_time[idx_slice] = results["rise_times"][:]
-                self.p_shift1[idx_slice] = results["shift1"][:]
+        for segnum in range(self.pulse_records.n_segments):
+            first = segnum * self.pulse_records.pulses_per_seg
+            end = min(first + self.pulse_records.pulses_per_seg, self.nPulses)
+            idx_slice = slice(first, end)
+            results = summarize_data_numba(
+                self.data[idx_slice], self.timebase, self.peak_samplenumber,
+                self.pretrigger_ignore_samples, self.nPresamples)
+            self.p_pretrig_mean[idx_slice] = results["pretrig_mean"][:]
+            self.p_pretrig_rms[idx_slice] = results["pretrig_rms"][:]
+            self.p_pulse_average[idx_slice] = results["pulse_average"][:]
+            self.p_pulse_rms[idx_slice] = results["pulse_rms"][:]
+            self.p_promptness[idx_slice] = results["promptness"][:]
+            self.p_postpeak_deriv[idx_slice] = results["postpeak_deriv"][:]
+            self.p_peak_index[idx_slice] = results["peak_index"][:]
+            self.p_peak_value[idx_slice] = results["peak_value"][:]
+            self.p_min_value[idx_slice] = results["min_value"][:]
+            self.p_rise_time[idx_slice] = results["rise_times"][:]
+            self.p_shift1[idx_slice] = results["shift1"][:]
 
-                yield (segnum + 1.0) / self.pulse_records.n_segments
-        else:
-            for segnum in range(self.pulse_records.n_segments):
-                first = segnum * self.pulse_records.pulses_per_seg
-                end = first + self.pulse_records.pulses_per_seg
-                end = min(end, self.nPulses)
-                idx_slice = slice(first, end)
-                MicrocalDataSet._summarize_data_segment(self, idx_slice, doPretrigFit=doPretrigFit)
-                yield (segnum + 1.0) / self.pulse_records.n_segments
+            yield (segnum + 1.0) / self.pulse_records.n_segments
 
         self.hdf5_group.file.flush()
         self.__parse_expt_states()
-
-    def _summarize_data_segment(self, idx_slice, doPretrigFit=False):
-        """Summarize one segment of the data file, loading it into cache."""
-        if len(self.p_timestamp) <= 0:
-            self.__setup_vectors(npulses=self.nPulses)
-
-        # Don't look for retriggers before this # of samples. Use the most common
-        # value of the peak index in the currently-loaded segment.
-        if self.peak_samplenumber is None:
-            self._compute_peak_samplenumber()
-
-        self.p_timestamp[idx_slice] = self.times[idx_slice]
-        self.p_subframecount[idx_slice] = self.subframecount[idx_slice]
-
-        # Fit line to pretrigger and save the derivative and offset
-        pretrig_data = self.data[idx_slice, self.cut_pre:self.nPresamples - self.pretrigger_ignore_samples]
-        posttrig_data = self.data[idx_slice, self.nPresamples:self.nSamples - self.cut_post]
-        all_data = self.data[idx_slice, self.cut_pre:self.nSamples - self.cut_post]
-        if doPretrigFit:
-            presampleNumbers = np.arange(self.cut_pre, self.nPresamples
-                                         - self.pretrigger_ignore_samples)
-            ydata = pretrig_data.T
-            self.p_pretrig_deriv[idx_slice], self.p_pretrig_offset[idx_slice] = \
-                np.polyfit(presampleNumbers, ydata, deg=1)
-        else:
-            self.p_pretrig_deriv[idx_slice] = 0.0
-            self.p_pretrig_offset[idx_slice] = 0.0
-
-        self.p_pretrig_mean[idx_slice] = pretrig_data.mean(axis=1)
-        self.p_pretrig_rms[idx_slice] = pretrig_data.std(axis=1)
-        self.p_peak_index[idx_slice] = posttrig_data.argmax(axis=1) + self.nPresamples
-        self.p_peak_value[idx_slice] = posttrig_data.max(axis=1)
-        self.p_min_value[idx_slice] = all_data.min(axis=1)
-        self.p_pulse_average[idx_slice] = posttrig_data.mean(axis=1)
-
-        # Remove the pretrigger mean from the peak value and the pulse average figures.
-        ptm = self.p_pretrig_mean[idx_slice]
-        self.p_pulse_average[idx_slice] -= ptm
-        self.p_peak_value[idx_slice] -= np.asarray(ptm, dtype=self.p_peak_value.dtype)
-        self.p_pulse_rms[idx_slice] = np.sqrt(
-            (posttrig_data**2.0).mean(axis=1)
-            - ptm * (ptm + 2 * self.p_pulse_average[idx_slice]))
-
-        shift1 = (self.data[idx_slice, self.nPresamples - 1] - ptm
-                  > 4.3 * self.p_pretrig_rms[idx_slice])
-        self.p_shift1[idx_slice] = shift1
-
-        halfidx = (self.nPresamples + 2 + self.peak_samplenumber) // 2
-        pkval = self.p_peak_value[idx_slice]
-        prompt = (self.data[idx_slice, self.nPresamples + 2:halfidx].mean(axis=1)
-                  - ptm) / pkval
-        prompt[shift1] = (self.data[idx_slice, self.nPresamples + 1:halfidx - 1][shift1, :].mean(axis=1)
-                          - ptm[shift1]) / pkval[shift1]
-        self.p_promptness[idx_slice] = prompt
-
-        self.p_rise_time[idx_slice] = mass.core.analysis_algorithms.estimateRiseTime(
-            all_data, timebase=self.timebase, nPretrig=self.nPresamples - self.cut_pre)
-
-        self.p_postpeak_deriv[idx_slice] = mass.core.analysis_algorithms.compute_max_deriv(
-            all_data, ignore_leading=self.peak_samplenumber - self.cut_pre)
 
     def __parse_expt_states(self):
         """
@@ -1685,56 +1614,6 @@ class MicrocalDataSet:  # noqa: PLR0904
         gain = 1 + (self.p_pretrig_mean[:] - ptm_offset) * self.p_filt_value_dc.attrs["slope"]
         self.p_filt_value_dc[:] = uncorrected * gain
         self.hdf5_group.file.flush()
-
-    @_add_group_loop()
-    def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
-                          forceNew=False, category={}):
-        """Apply the phase correction that worked for calibronium-like data as of June 2014.
-
-        For more notes, do help(mass.core.analysis_algorithms.FilterTimeCorrection)
-
-        Args:
-            typical_resolution (number): should be an estimated energy resolution in UNITS OF
-                self.p_pulse_rms. This helps the peak-finding (clustering) algorithm decide
-                which pulses go together into a single peak.  Be careful to use a semi-reasonable
-                quantity here.
-            maximum_num_records (int): don't use more than this many records to learn
-                the correction (default 50000).
-            plot (bool): whether to make a relevant plot
-            forceNew (bool): whether to recompute if it already exists (default False).
-            category (dict): if not None, then a dict giving a category name and the
-                required category label.
-        """
-        doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(
-            self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
-        if not (forceNew or doesnt_exist):
-            LOG.info("channel %d skipping phase_correct2014", self.channum)
-            return
-
-        data, g = self.first_n_good_pulses(maximum_num_records, category)
-        LOG.info("channel %d doing phase_correct2014 with %d good pulses",
-                 self.channum, data.shape[0])
-        prompt = self.p_promptness[:]
-        prms = self.p_pulse_rms[:]
-
-        if self.filter is not None:
-            dataFilter = self.filter.values
-        else:
-            dataFilter = self.hdf5_group['filters/values'][:]
-        tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-            data, prompt[g], prms[g], dataFilter,
-            self.nPresamples, typicalResolution=typical_resolution)
-
-        self.p_filt_value_phc[:] = self.p_filt_value_dc[:]
-        self.p_filt_value_phc[:] -= tc(prompt, prms)
-        if plot:
-            fnum = plt.gcf().number
-            plt.figure(5)
-            plt.clf()
-            g = self.cuts.good()
-            plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
-            plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
-            plt.figure(fnum)
 
     @_add_group_loop()
     def phase_correct(self, attr="p_filt_value_dc", forceNew=False, category={}, ph_peaks=None,

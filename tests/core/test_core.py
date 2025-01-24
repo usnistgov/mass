@@ -204,27 +204,9 @@ class TestTESGroup:
 
         # Summarize with Cython
         ds.p_pretrig_mean[:] = 0.0
-        ds.summarize_data(forceNew=True, use_cython=True)
+        ds.summarize_data(forceNew=True)
         assert np.all(ds.p_pretrig_mean[:] > 0)
         assert np.all(ds.p_pulse_rms[:] > 0)
-        results_cython = {k: ds.__dict__[k][:] for k in ds.__dict__ if k.startswith("p_")}
-
-        # Summarize with pure Python
-        ds.p_pretrig_mean[:] = 0.0
-        ds.summarize_data(forceNew=True, use_cython=False)
-        assert np.all(ds.p_pretrig_mean[:] > 0)
-        assert np.all(ds.p_pulse_rms[:] > 0)
-        results_python = {k: ds.__dict__[k][:] for k in ds.__dict__ if k.startswith("p_")}
-
-        # Be sure the Cython and Python results are pretty close
-        for k, cyresult in results_cython.items():
-            # print(f"\n{k}:")
-            # print(results_cython[k][:20])
-            # print(results_python[k][:20])
-            if np.any(np.isnan(results_python[k])):
-                continue
-            # print((results_cython[k] / results_python[k])[:20])
-            assert cyresult == pytest.approx(results_python[k], rel=0.003)
 
     def test_experiment_state(self, tmp_path_factory):
         # First test with the default experimentStateFile
