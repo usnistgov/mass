@@ -1,4 +1,4 @@
-r"""
+"""
 entropy.py
 
 Estimates of the distribution entropy computed using kernel-density estimates
@@ -21,25 +21,16 @@ are not symmetric with respect to reversal of `x` and `y`.
 
 import numpy as np
 import scipy as sp
-
-from libc.math cimport exp, atan, log, sqrt, abs
-cimport numpy as np
-cimport cython
+from numba import njit
 
 # We now need to fix a datatype for our arrays. I've used the variable
 # DTYPE for this, which is assigned to the usual NumPy runtime
 # type info object.
 DTYPE = np.float64
-BYTPE = bool
-# "ctypedef" assigns a corresponding compile-time type to DTYPE_t. For
-# every type in the numpy module there's a corresponding compile-time
-# type with a _t-suffix.
-ctypedef np.float64_t DTYPE_t
 
 
-@cython.embedsignature(True)
-cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -9999:
-    r"""Compute the entropy of data set `x` where the
+def laplace_entropy(x_in, w: float = 1.0, approx_mode: str = "size") -> float:
+    """Compute the entropy of data set `x` where the
     kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
 
     Args:
@@ -55,12 +46,12 @@ cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -99
                that, and using Simpson's rule on the PDF samples that result.
     ``size``   Uses "approx" if len(x)>200000, or "exact" otherwise.
     """
-    cdef int N = len(x_in)
+    N = len(x_in)
     if N == 0:
         raise ValueError("laplace_entropy(x) needs at least 1 element in `x`.")
     if w <= 0.0:
         raise ValueError("laplace_entropy(x, w) needs `w>0`.")
-    cdef np.ndarray[DTYPE_t, ndim=1] x = np.asarray(x_in, dtype=DTYPE)
+    x = np.asarray(x_in, dtype=DTYPE)
 
     if approx_mode == "size":
         if N <= 200000:
@@ -73,69 +64,67 @@ cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -99
         return laplace_entropy_approx(x, w)
 
 
-cdef double laplace_entropy_array(np.ndarray[DTYPE_t, ndim=1] x, double w=1.0):
-    cdef int i
-    cdef int N = len(x)
-    cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim=1] y = np.sort(x)/w
+@njit
+def laplace_entropy_array(x, w: float = 1.0) -> float:
+    N = len(x)
+    c = np.zeros(N, dtype=DTYPE)
+    d = np.zeros(N, dtype=DTYPE)
+    y = np.sort(x) / w
 
-    cdef np.ndarray[DTYPE_t, ndim=1] e = np.zeros(N, dtype=DTYPE)
-    cdef double stepsize = 1.0/(2*w*N)
+    e = np.zeros(N, dtype=DTYPE)
+    stepsize = 1.0 / (2 * w * N)
     c[0] = stepsize
     for i in range(1, N):
-        e[i-1] = exp(y[i-1]-y[i])
-        c[i] = e[i-1]*c[i-1] + stepsize
-    d[N-1] = stepsize
-    for i in range(N-2, -1, -1):
-        d[i] = e[i]*d[i+1] + stepsize
+        e[i - 1] = np.exp(y[i - 1] - y[i])
+        c[i] = e[i - 1] * c[i - 1] + stepsize
+    d[N - 1] = stepsize
+    for i in range(N - 2, -1, -1):
+        d[i] = e[i] * d[i + 1] + stepsize
 
-    cdef double H, dp, r, r1, e2, A, B
-    H = w*d[0]*(1-log(d[0])) + w*c[N-1]*(1-log(c[N-1]))
-    for i in range(N-1):
-        dp = d[i+1]*e[i]
-        r = sqrt(c[i]/dp)
-        r1 = c[i]/d[i+1]
-        e2 = sqrt(e[i])
-        H += 4*w*sqrt(c[i]*dp)*atan((e2-1.0/e2)*r1**0.5/(r1+1.0))
-        H += w*(dp-c[i])*(log(c[i]+dp)-1)
-        A, B = d[i+1], c[i]*e[i]
-        H -= w*(A-B)*(log(A+B)-1)
+    H = w * d[0] * (1 - np.log(d[0])) + w * c[N - 1] * (1 - np.log(c[N - 1]))
+    for i in range(N - 1):
+        dp = d[i + 1] * e[i]
+        r = np.sqrt(c[i] / dp)
+        r1 = c[i] / d[i + 1]
+        e2 = np.sqrt(e[i])
+        H += 4 * w * np.sqrt(c[i] * dp) * np.atan((e2 - 1.0 / e2) * r1**0.5 / (r1 + 1.0))
+        H += w * (dp - c[i]) * (np.log(c[i] + dp) - 1)
+        A, B = d[i + 1], c[i] * e[i]
+        H -= w * (A - B) * (np.log(A + B) - 1)
     return H
 
 
-cdef laplace_entropy_approx(x, w=1.0):
+def laplace_entropy_approx(x, w: float = 1.0) -> float:
     """Approximate the entropy with a binned histogram and the Laplace-distribution
     kernel-density estimator of the probability distribtion."""
-    cdef double EXTEND_DATA = 5*w
-    cdef double BINS_PER_W = 20
-    cdef double KERNEL_WIDTH_IN_WS = 15.0
+    EXTEND_DATA = 5 * w
+    BINS_PER_W = 20
+    KERNEL_WIDTH_IN_WS = 15.0
 
-    cdef double xmin = x.min()-EXTEND_DATA
-    cdef double xmax = x.max()+EXTEND_DATA
-    cdef int nbins = int(0.5+(xmax-xmin)*BINS_PER_W/w)
+    xmin = x.min() - EXTEND_DATA
+    xmax = x.max() + EXTEND_DATA
+    nbins = int(0.5 + (xmax - xmin) * BINS_PER_W / w)
     c, b = np.histogram(x, nbins, [xmin, xmax])
-    cdef double db = b[1]-b[0]
-    cdef int nx = int(0.5+KERNEL_WIDTH_IN_WS*w/db)
+    db = b[1] - b[0]
+    nx = int(0.5 + KERNEL_WIDTH_IN_WS * w / db)
 
-    cdef np.ndarray[DTYPE_t, ndim=1] kernel = np.zeros(2*nx+1)
-    cdef double kx
-    for i in range(2*nx+1):
-        kx = (i-nx)*db
-        kernel[i] = exp(-abs(kx/w))
+    kernel = np.zeros(2 * nx + 1)
+    for i in range(2 * nx + 1):
+        kx = (i - nx) * db
+        kernel[i] = np.exp(-np.abs(kx / w))
 
     # kde = unnormalized kernel-density estimator.
     kde = sp.signal.fftconvolve(c, kernel, mode="full")[nx:-nx]
-    kde[kde < kernel.min()] = kernel.min()
+    minkern = kernel.min()
+    kde[kde < minkern] = minkern
 
     # p = normalized probability distribution.
-    cdef double norm = 1.0/sp.integrate.simpson(kde, dx=db)
-    p = kde*norm
-    return -sp.integrate.simpson(p*np.log(p), dx=db)
+    norm = 1.0 / sp.integrate.simpson(kde, dx=db)
+    p = kde * norm
+    return -sp.integrate.simpson(p * np.log(p), dx=db)
 
 
-@cython.embedsignature(True)
-cpdef _merge_orderedlists(x1_in, x2_in):
+def _merge_orderedlists(x1_in, x2_in):
     """Given two lists that are assumed to be sorted (in ascending order),
     return `(x, wasfirst)` where `x` is an array that contains all the values
     from `x1` and `x2` in sorted order, and where `wasfirst` is a boolean array
@@ -147,29 +136,28 @@ cpdef _merge_orderedlists(x1_in, x2_in):
 
     x1 = np.asarray(x1_in, dtype=DTYPE)
     x2 = np.asarray(x2_in, dtype=DTYPE)
-    cdef int N1 = len(x1)
-    cdef int N2 = len(x2)
+    N1 = len(x1)
+    N2 = len(x2)
     if N2 == 0:
         if N1 == 0:
             raise ValueError("_merge_orderedlists(x,y) requires at least one list of positive length.")
         return x1, np.ones(N1, dtype=bool)
     elif N1 == 0:
-        return x2, np.ones(N2, dtype=bool)
+        return x2, np.zeros(N2, dtype=bool)
 
-    out = np.zeros(N1+N2, dtype=DTYPE)
-    wasfirst = np.zeros(N1+N2, dtype=bool)
+    out = np.zeros(N1 + N2, dtype=DTYPE)
+    wasfirst = np.zeros(N1 + N2, dtype=bool)
     _merge_orderedlists_arrays(out, wasfirst, x1, x2)
     return out, wasfirst
 
 
-@cython.embedsignature(True)
-cdef _merge_orderedlists_arrays(np.ndarray[DTYPE_t, ndim=1] out,
-                                np.ndarray wasfirst,
-                                np.ndarray[DTYPE_t, ndim=1] x1,
-                                np.ndarray[DTYPE_t, ndim=1] x2):
-    cdef int i, j, k
-    cdef int N1 = len(x1)
-    cdef int N2 = len(x2)
+@njit
+def _merge_orderedlists_arrays(out,
+                               wasfirst,
+                               x1,
+                               x2):
+    N1 = len(x1)
+    N2 = len(x2)
     i = j = k = 0
     while True:
         if x1[i] < x2[j]:
@@ -192,9 +180,8 @@ cdef _merge_orderedlists_arrays(np.ndarray[DTYPE_t, ndim=1] out,
                 return
 
 
-@cython.embedsignature(True)
-cpdef double laplace_KL_divergence(x, y, double w=1.0, approx_mode="size") except? -9999:
-    r"""Compute the Kullback-Leibler divergence of data set `y` from data set `x`.
+def laplace_KL_divergence(x, y, w: float = 1.0, approx_mode: str = "size") -> float:
+    """Compute the Kullback-Leibler divergence of data set `y` from data set `x`.
 
     Use kernel-density estimation, where the kernel is the Laplace kernel
     k(x) \propto exp(-abs(x-x0)/w).
@@ -209,9 +196,8 @@ cpdef double laplace_KL_divergence(x, y, double w=1.0, approx_mode="size") excep
         laplace_entropy(x, w, approx_mode=approx_mode)
 
 
-@cython.embedsignature(True)
-cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") except? -9999:
-    r"""`laplace_cross_entropy(x, y, w=1.0, approx_mode="size")`
+def laplace_cross_entropy(x, y, w: float = 1.0, approx_mode: str = "size") -> float:
+    """`laplace_cross_entropy(x, y, w: float = 1.0, approx_mode="size")`
 
     Compute the cross-entropy of data set `x` from data set `y`, where the
     kernel for x is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
@@ -238,87 +224,83 @@ cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") excep
     """
     if w <= 0.0:
         raise ValueError("laplace_cross_entropy(x, y, w) needs `w>0`.")
-    cdef int Nx = len(x)
-    cdef int Ny = len(y)
+    Nx = len(x)
+    Ny = len(y)
     if Nx == 0 or Ny == 0:
         raise ValueError("laplace_cross_entropy(x, y) needs at least 1 element apiece in `x` and `y`.")
 
     if approx_mode == "size":
-        if Nx+Ny <= 200000:
+        if Nx + Ny <= 200000:
             approx_mode = "exact"
         else:
             approx_mode = "approx"
     if approx_mode.startswith("exact"):
-        xsorted = np.asarray(np.sort(x)/w, dtype=DTYPE)
-        ysorted = np.asarray(np.sort(y)/w, dtype=DTYPE)
-        return laplace_cross_entropy_arrays(xsorted, ysorted)+log(w)
+        xsorted = np.asarray(np.sort(x) / w, dtype=DTYPE)
+        ysorted = np.asarray(np.sort(y) / w, dtype=DTYPE)
+        return laplace_cross_entropy_arrays(xsorted, ysorted) + np.log(w)
     else:
         return laplace_cross_entropy_approx(np.asarray(x, dtype=DTYPE),
                                             np.asarray(y, dtype=DTYPE), w)
 
 
-cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x,
-                                         np.ndarray[DTYPE_t, ndim=1] y):
+def laplace_cross_entropy_arrays(x, y) -> float:
 
     # List of all places where q(u) increases or decreases because of a y-point.
-    cdef double Qstepwidth = 2*sqrt(6)
-    ynodes, qstep_is_up = _merge_orderedlists(y-0.5*Qstepwidth, y+0.5*Qstepwidth)
+    Qstepwidth = 2 * np.sqrt(6)
+    ynodes, qstep_is_up = _merge_orderedlists(y - 0.5 * Qstepwidth, y + 0.5 * Qstepwidth)
 
     # List of all places where p(u) or q(u) changes because of an x- a y-point.
     nodes, isx = _merge_orderedlists(x, ynodes)
 
-    cdef int Nx = len(x)
-    cdef int Ny = len(y)
-    cdef int N = Nx+Ny*2
-    cdef int i
-    cdef double factor
+    Nx = len(x)
+    Ny = len(y)
+    N = Nx + Ny * 2
 
     # Pretend q(u) is never lower than this value, and spread this probability across
     # the range 10 less than the lowest to 10 more than the highest node.
-    cdef double Qmin_sum = 1.0/sqrt(Ny+3)
-    cdef double Qmin = Qmin_sum / (nodes[-1]+10 - (nodes[0]-10))
-    cdef double Qstep = (1.0-Qmin_sum) / (Ny * Qstepwidth)
+    Qmin_sum = 1.0 / np.sqrt(Ny + 3)
+    Qmin = Qmin_sum / (nodes[-1] + 10 - (nodes[0] - 10))
+    Qstep = (1.0 - Qmin_sum) / (Ny * Qstepwidth)
 
     # Initialize the vectors decayfactor, c, and d.
-    cdef np.ndarray[DTYPE_t, ndim=1] decayfactor = np.zeros(N, dtype=DTYPE)
+    decayfactor = np.zeros(N, dtype=DTYPE)
     for i in range(1, N):
-        decayfactor[i] = exp(nodes[i-1]-nodes[i])
+        decayfactor[i] = np.exp(nodes[i - 1] - nodes[i])
 
     # c requires a left-right pass over all nodes.
-    cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=DTYPE)
-    cdef double stepX = 1.0/(2*Nx)
-    cdef int j = 0
+    c = np.zeros(N, dtype=DTYPE)
+    stepX = 1.0 / (2 * Nx)
+    j = 0
     if isx[0]:
         c[0] = stepX
     else:
         j = 1
     for i in range(1, N):
         factor = decayfactor[i]
-        c[i] = factor*c[i-1]
+        c[i] = factor * c[i - 1]
         if isx[i]:
             c[i] += stepX
 
     # d requires a right-left pass over all nodes.
-    cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=DTYPE)
-    if isx[N-1]:
-        d[N-1] = stepX
-    for i in range(N-2, -1, -1):
-        factor = decayfactor[i+1]
-        d[i] = factor*d[i+1]
+    d = np.zeros(N, dtype=DTYPE)
+    if isx[N - 1]:
+        d[N - 1] = stepX
+    for i in range(N - 2, -1, -1):
+        factor = decayfactor[i + 1]
+        d[i] = factor * d[i + 1]
         if isx[i]:
             d[i] += stepX
 
     # Now a left-right pass over all nodes to compute the H integral.
-    cdef int net_up_qsteps = 0
+    net_up_qsteps = 0
     if not isx[0]:
         net_up_qsteps = 1
 
-    cdef double H = -d[0] * log(Qmin)  # H due to the open first interval [-inf, nodes[0]]
-    cdef double q
+    H = -d[0] * np.log(Qmin)  # H due to the open first interval [-inf, nodes[0]]
     for i in range(1, N):
         factor = decayfactor[i]
-        q = Qmin + Qstep*net_up_qsteps
-        H -= (c[i-1]+d[i])*(1-factor)*log(q)
+        q = Qmin + Qstep * net_up_qsteps
+        H -= (c[i - 1] + d[i]) * (1 - factor) * np.log(q)
 
         if not isx[i]:
             if qstep_is_up[j]:
@@ -326,43 +308,41 @@ cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x,
             else:
                 net_up_qsteps -= 1
             j += 1
-    H -= c[-1] * log(Qmin)  # H due to the open last interval [nodes[-1], +inf]
+    H -= c[-1] * np.log(Qmin)  # H due to the open last interval [nodes[-1], +inf]
     return H
 
 
-cdef laplace_cross_entropy_approx(np.ndarray[DTYPE_t, ndim=1] x,
-                                  np.ndarray[DTYPE_t, ndim=1] y, double w=1.0):
+def laplace_cross_entropy_approx(x, y, w: float = 1.0) -> float:
     """Approximate the cross-entropy with a binned histogram and the
     Laplace-distribution kernel-density estimator of the probability distribtion.
     """
-    cdef double EXTEND_DATA = 5*w
-    cdef double BINS_PER_W = 20
-    cdef double KERNEL_WIDTH_IN_WS = 15.0
+    EXTEND_DATA = 5 * w
+    BINS_PER_W = 20
+    KERNEL_WIDTH_IN_WS = 15.0
 
-    cdef double xmin = min(x.min(), y.min())-EXTEND_DATA
-    cdef double xmax = max(x.max(), y.max())+EXTEND_DATA
-    cdef int nbins = int(0.5+(xmax-xmin)*BINS_PER_W/w)
+    xmin = min(x.min(), y.min()) - EXTEND_DATA
+    xmax = max(x.max(), y.max()) + EXTEND_DATA
+    nbins = int(0.5 + (xmax - xmin) * BINS_PER_W / w)
     cx, b = np.histogram(x, nbins, [xmin, xmax])
     cy, b = np.histogram(y, nbins, [xmin, xmax])
-    cdef double db = b[1]-b[0]
-    cdef int nx = int(0.5+KERNEL_WIDTH_IN_WS*w/db)
+    db = b[1] - b[0]
+    nx = int(0.5 + KERNEL_WIDTH_IN_WS * w / db)
 
-    cdef np.ndarray[DTYPE_t, ndim=1] kernel = np.zeros(2*nx+1)
-    cdef double kx
-    for i in range(2*nx+1):
-        kx = (i-nx)*db
-        kernel[i] = exp(-abs(kx/w))
+    kernel = np.zeros(2 * nx + 1)
+    for i in range(2 * nx + 1):
+        kx = (i - nx) * db
+        kernel[i] = np.exp(-abs(kx / w))
 
     # kde = unnormalized kernel-density estimator.
     kde = sp.signal.fftconvolve(cx, kernel, mode="full")[nx:-nx]
     kde[kde < kernel.min()] = kernel.min()
 
     # p = normalized probability distribution.
-    cdef double norm = 1.0/sp.integrate.simpson(kde, dx=db)
-    p = kde*norm
+    norm = 1.0 / sp.integrate.simpson(kde, dx=db)
+    p = kde * norm
 
     kde = sp.signal.fftconvolve(cy, kernel, mode="full")[nx:-nx]
     kde[kde < kernel.min()] = kernel.min()
-    norm = 1.0/sp.integrate.simpson(kde, dx=db)
-    q = kde*norm
-    return -sp.integrate.simpson(p*np.log(q), dx=db)
+    norm = 1.0 / sp.integrate.simpson(kde, dx=db)
+    q = kde * norm
+    return -sp.integrate.simpson(p * np.log(q), dx=db)
