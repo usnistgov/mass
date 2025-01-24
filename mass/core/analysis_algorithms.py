@@ -10,11 +10,13 @@ Created on Jun 9, 2014
 """
 import numpy as np
 import scipy as sp
+from numba import njit
 
 
 ########################################################################################
 # Pulse summary quantities
 
+@njit
 def estimateRiseTime(pulse_data, timebase, nPretrig):
     """Computes the rise time of timeseries <pulse_data>, where the time steps are <timebase>.
     <pulse_data> can be a 2D array where each row is a different pulse record, in which case
@@ -80,43 +82,6 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
 
     except ValueError:
         return -9.9e-6 + np.zeros(npulses, dtype=float)
-
-
-def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
-    """Equivalent to compute_max_deriv(...)"""
-    # If pulse_data is a 1D array, turn it into 2
-    pulse_data = np.asarray(pulse_data)
-    ndim = len(pulse_data.shape)
-    if ndim > 2 or ndim < 1:
-        raise ValueError("input pulse_data should be a 1d or 2d array.")
-    if ndim == 1:
-        pulse_data.shape = (1, pulse_data.shape[0])
-    pulse_data = np.array(pulse_data[:, ignore_leading:], dtype=float)
-    NPulse = pulse_data.shape[0]
-
-    # The default filter:
-    filter_coef = np.array([+.2, +.1, 0, -.1, -.2])
-    if kernel == "SG":
-        # This filter is the Savitzky-Golay filter of n_L=1, n_R=3 and M=3, to use the
-        # language of Numerical Recipes 3rd edition.  It amounts to least-squares fitting
-        # of an M=3rd order polynomial to the five points [-1,+3] and
-        # finding the slope of the polynomial at 0.
-        # Note that we reverse the order of coefficients because convolution will re-reverse
-        filter_coef = np.array([-0.45238, -0.02381, 0.28571, 0.30952, -0.11905])[::-1]
-
-    elif kernel is not None:
-        filter_coef = np.array(kernel).ravel()
-
-    # Use np.convolve, not scipy.signal.fftconvolve for small kernels.  A test showed that
-    # np.convolve was 10x faster in typical use.
-    max_deriv = np.zeros(NPulse, dtype=float)
-    for i, data in enumerate(pulse_data):
-        conv = np.convolve(data, filter_coef, mode='valid')
-        if spike_reject:
-            conv = np.fmin(conv[2:], conv[:-2])
-        max_deriv[i] = np.max(conv)
-
-    return max_deriv
 
 
 def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
@@ -244,6 +209,7 @@ class HistogramSmoother:
         return csmooth
 
 
+@njit
 def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
     """Convert a vector of arbitrary <values> info a smoothed histogram by
     histogramming it and smoothing.
@@ -311,6 +277,7 @@ def drift_correct(indicator, uncorrected, limit=None):
     return drift_corr_param, drift_correct_info
 
 
+@njit
 def python_nearest_arrivals(reference_times, other_times):
     """Identical to nearest_arrivals(...)."""
     nearest_after_index = np.searchsorted(other_times, reference_times)
@@ -333,6 +300,7 @@ def python_nearest_arrivals(reference_times, other_times):
     return before_times, after_times
 
 
+@njit
 def nearest_arrivals(pulse_timestamps, external_trigger_timestamps):
     """Find the external trigger time immediately before and after each pulse timestamp
 
@@ -426,6 +394,7 @@ def nearest_arrivals(pulse_timestamps, external_trigger_timestamps):
             np.asarray(delay_until_next_trigger, dtype=np.int64))
 
 
+@njit
 def filter_signal_lowpass(sig, fs, fcut):
     """Tophat lowpass filter using an FFT
 
@@ -446,6 +415,7 @@ def filter_signal_lowpass(sig, fs, fcut):
     return sig_filt
 
 
+@njit
 def correct_flux_jumps(vals, g, flux_quant):
     '''Remove 'flux' jumps' from pretrigger mean.
 
@@ -488,6 +458,7 @@ def correct_flux_jumps(vals, g, flux_quant):
         return vals
 
 
+@njit
 def filter_data_5lag_cython(rawdata, filter_values):
     """Filter the complete data file one chunk at a time."""
     nPulses = rawdata.shape[0]
