@@ -71,11 +71,10 @@ def laplace_entropy_array(x, w: float = 1.0) -> float:
     d = np.zeros(N, dtype=DTYPE)
     y = np.sort(x) / w
 
-    e = np.zeros(N, dtype=DTYPE)
+    e = np.exp(-np.diff(y))
     stepsize = 1.0 / (2 * w * N)
     c[0] = stepsize
     for i in range(1, N):
-        e[i - 1] = np.exp(y[i - 1] - y[i])
         c[i] = e[i - 1] * c[i - 1] + stepsize
     d[N - 1] = stepsize
     for i in range(N - 2, -1, -1):
@@ -84,7 +83,6 @@ def laplace_entropy_array(x, w: float = 1.0) -> float:
     H = w * d[0] * (1 - np.log(d[0])) + w * c[N - 1] * (1 - np.log(c[N - 1]))
     for i in range(N - 1):
         dp = d[i + 1] * e[i]
-        r = np.sqrt(c[i] / dp)
         r1 = c[i] / d[i + 1]
         e2 = np.sqrt(e[i])
         H += 4 * w * np.sqrt(c[i] * dp) * np.atan((e2 - 1.0 / e2) * r1**0.5 / (r1 + 1.0))
