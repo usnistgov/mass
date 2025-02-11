@@ -599,10 +599,10 @@ class FilterMaker:
         noise_psd = np.asarray(self.noise_psd)
 
         shorten = 2  # to use in 5-lag style
-        avg_signal = avg_signal[shorten:-shorten]
+        truncated_avg_signal = avg_signal[shorten:-shorten]
         n = len(noise_psd)
         window = 1.0
-        sig_ft = np.fft.rfft(avg_signal * window)
+        sig_ft = np.fft.rfft(truncated_avg_signal * window)
 
         if len(sig_ft) != n - shorten:
             raise ValueError(f"signal real DFT and noise PSD are not the same length ({len(sig_ft)} and {n})")
@@ -638,7 +638,7 @@ class FilterMaker:
             ac = np.array(self.noise_autocorr)[:len(filt_fourier)]
             variance_fourier = bracketR(filt_fourier, ac) / self.peak**2
         vdv = peak / (8 * np.log(2) * variance_fourier)**0.5
-        return Filter5Lag(filt_fourier, peak, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
+        return Filter5Lag(filt_fourier, peak, variance_fourier, vdv, None, None, truncated_avg_signal, None, 1 + 2 * shorten,
                           fmax, f_3db, cut_pre, cut_post)
 
     def compute_ats(self, fmax: Optional[float] = None, f_3db: Optional[float] = None,
