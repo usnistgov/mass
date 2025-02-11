@@ -613,7 +613,7 @@ class FilterMaker:
             noise_autocorr = np.fft.irfft(noise_psd)
             noise_autocorr = np.hstack((noise_autocorr[:n - shorten - 1],
                                         noise_autocorr[-n + shorten:]))
-            noise_psd = np.fft.rfft(noise_autocorr)
+            noise_psd = np.abs(np.fft.rfft(noise_autocorr))
         sig_ft_weighted = sig_ft / noise_psd
 
         # Band-limit
@@ -634,6 +634,7 @@ class FilterMaker:
             noise_ft_squared = (len(noise_psd) - 1) / self.sample_time_sec * noise_psd
             kappa = (np.abs(sig_ft * self.peak)**2 / noise_ft_squared)[1:].sum()
             variance_fourier = 1. / kappa
+            print(kappa, noise_ft_squared)
         else:
             ac = np.array(self.noise_autocorr)[:len(filt_fourier)]
             variance_fourier = bracketR(filt_fourier, ac) / self.peak**2
