@@ -632,12 +632,12 @@ class FilterMaker:
         # How we compute the uncertainty depends on whether there's a noise autocorrelation result
         if self.noise_autocorr is None:
             noise_ft_squared = (len(noise_psd) - 1) / self.sample_time_sec * noise_psd
-            kappa = (np.abs(sig_ft * self.peak)**2 / noise_ft_squared)[1:].sum()
+            kappa = (np.abs(sig_ft)**2 / noise_ft_squared)[1:].sum()
             variance_fourier = 1. / kappa
             print(kappa, noise_ft_squared)
         else:
             ac = np.array(self.noise_autocorr)[:len(filt_fourier)]
-            variance_fourier = bracketR(filt_fourier, ac) / self.peak**2
+            variance_fourier = bracketR(filt_fourier, ac)
         vdv = peak / (8 * np.log(2) * variance_fourier)**0.5
         return Filter5Lag(filt_fourier, peak, variance_fourier, vdv, None, None, truncated_avg_signal, None, 1 + 2 * shorten,
                           fmax, f_3db, cut_pre, cut_post)
