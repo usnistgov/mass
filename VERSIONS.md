@@ -1,6 +1,10 @@
 ## Note on version numbers of Mass
 
-**0.8.7** January 9, 2025-
+**0.8.7** February 11, 2025-
+
+* Make Fourier-domain optimal filters work (issue 320).
+
+**0.8.7** January 24, 2025
 
 * Remove some dependencies in `pyproject.toml` that are no longer required.
 * Use `uv` to install requirements within GitHub Actions. Disable `flake8` linting test, which is broken somehow.

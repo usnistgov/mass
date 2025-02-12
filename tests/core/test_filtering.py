@@ -207,7 +207,7 @@ def test_dc_insensitive():
     nPresamples = 50
     nPost = nSamples - nPresamples
 
-    # Some fake data
+    # Some fake data, fake noise, and a fake noise spectrum
     pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost - 1, 0, nPost))
     deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
 
@@ -215,11 +215,20 @@ def test_dc_insensitive():
     fake_noise[0] = 10.0
     dt = 6.72e-6
 
-    maker = mass.FilterMaker(pulse_like, nPresamples, fake_noise, dt_model=deriv_like,
-                             sample_time_sec=dt, peak=np.max(pulse_like))
+    nPSD = 1 + (nSamples // 2)
+    fPSD = np.linspace(0, 0.5, nPSD)
+    PSD = 1 + 10 / (1 + (fPSD / 0.1)**2)
+
+    maker_no_psd = mass.FilterMaker(
+        pulse_like, nPresamples, fake_noise, dt_model=deriv_like,
+        sample_time_sec=dt, peak=np.max(pulse_like))
     with pytest.raises(ValueError):
-        maker.compute_fourier()
-    for computer in (maker.compute_ats, maker.compute_5lag):
+        maker_no_psd.compute_fourier()  # impossible with no PSD
+
+    maker = mass.FilterMaker(
+        pulse_like, nPresamples, fake_noise, dt_model=deriv_like, noise_psd=PSD,
+        sample_time_sec=dt, peak=np.max(pulse_like))
+    for computer in (maker.compute_ats, maker.compute_5lag, maker.compute_fourier):
         filter_to_test = computer(f_3db=None, fmax=None)
         std = np.median(np.abs(filter_to_test.values))
         mean = filter_to_test.values.mean()

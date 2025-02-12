@@ -590,36 +590,40 @@ class FilterMaker:
         # Make sure we have either a noise PSD or an autocorrelation or a whitener
         if self.noise_psd is None:
             raise ValueError("FilterMaker must have noise_psd to generate a Fourier filter")
-        if cut_pre > 0 or cut_post > 0:
-            raise NotImplementedError("Haven't implemented sample non-weighting for Fourier filters")
         if cut_pre < 0 or cut_post < 0:
             raise ValueError(f"(cut_pre,cut_post)=({cut_pre},{cut_post}), but neither can be negative")
 
         avg_signal, peak, _ = self._normalize_signal(cut_pre, cut_post)
         noise_psd = np.asarray(self.noise_psd)
 
+        # Terminology: the `avg_signal` vector will be "shortened" by `shorten` _on each end.
+        # That's to permit 5-lag filtering (where we step the filter by ±2 lags either direction from 0 lag).
+        # The `avg_signal` was already "reduced" in length by (cut_pre, cut_post), for a total
+        # `reduction` of `2 * shorten + (cut_pre + cut_post)`.
         shorten = 2  # to use in 5-lag style
-        avg_signal = avg_signal[shorten:-shorten]
-        n = len(noise_psd)
-        window = 1.0
-        sig_ft = np.fft.rfft(avg_signal * window)
+        reduction = 2 * shorten + (cut_pre + cut_post)
 
-        if len(sig_ft) != n - shorten:
-            raise ValueError(f"signal real DFT and noise PSD are not the same length ({len(sig_ft)} and {n})")
+        truncated_avg_signal = avg_signal[shorten:-shorten]
+        len_reduced_psd = len(noise_psd) - (reduction + 1) // 2
+        window = 1.0
+        sig_ft = np.fft.rfft(truncated_avg_signal * window)
+
+        if len(sig_ft) != len_reduced_psd:
+            raise ValueError(f"signal real DFT and noise PSD are not the same length ({len(sig_ft)} and {len_reduced_psd})")
 
         # Careful with PSD: "shorten" it by converting into a real space autocorrelation,
         # truncating the middle, and going back to Fourier space
-        if shorten > 0:
+        if reduction > 0:
             noise_autocorr = np.fft.irfft(noise_psd)
-            noise_autocorr = np.hstack((noise_autocorr[:n - shorten - 1],
-                                        noise_autocorr[-n + shorten:]))
-            noise_psd = np.fft.rfft(noise_autocorr)
+            noise_autocorr = np.hstack((noise_autocorr[:len_reduced_psd - 1],
+                                        noise_autocorr[-len_reduced_psd:]))
+            noise_psd = np.abs(np.fft.rfft(noise_autocorr))
         sig_ft_weighted = sig_ft / noise_psd
 
         # Band-limit
         if fmax is not None or f_3db is not None:
-            freq = np.arange(0, n - shorten, dtype=float) * \
-                0.5 / ((n - 1) * self.sample_time_sec)
+            f_nyquist = 0.5 / self.sample_time_sec
+            freq = np.linspace(0, f_nyquist, len_reduced_psd, dtype=float)
             if fmax is not None:
                 sig_ft_weighted[freq > fmax] = 0.0
             if f_3db is not None:
@@ -632,13 +636,14 @@ class FilterMaker:
         # How we compute the uncertainty depends on whether there's a noise autocorrelation result
         if self.noise_autocorr is None:
             noise_ft_squared = (len(noise_psd) - 1) / self.sample_time_sec * noise_psd
-            kappa = (np.abs(sig_ft * self.peak)**2 / noise_ft_squared)[1:].sum()
+            kappa = (np.abs(sig_ft)**2 / noise_ft_squared)[1:].sum()
             variance_fourier = 1. / kappa
+            print(kappa, noise_ft_squared)
         else:
             ac = np.array(self.noise_autocorr)[:len(filt_fourier)]
-            variance_fourier = bracketR(filt_fourier, ac) / self.peak**2
+            variance_fourier = bracketR(filt_fourier, ac)
         vdv = peak / (8 * np.log(2) * variance_fourier)**0.5
-        return Filter5Lag(filt_fourier, peak, variance_fourier, vdv, None, None, avg_signal, None, 1 + 2 * shorten,
+        return Filter5Lag(filt_fourier, peak, variance_fourier, vdv, None, None, truncated_avg_signal, None, 1 + 2 * shorten,
                           fmax, f_3db, cut_pre, cut_post)
 
     def compute_ats(self, fmax: Optional[float] = None, f_3db: Optional[float] = None,
