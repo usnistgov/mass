@@ -1,8 +1,9 @@
 ## Note on version numbers of Mass
 
-**0.8.7** February 11, 2025-
+**0.8.8** February 11, 2025-
 
 * Make Fourier-domain optimal filters work (issue 320).
+* Add doctests for the new filtering API (issue 323).
 
 **0.8.7** January 24, 2025
 
