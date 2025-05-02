@@ -26,7 +26,7 @@ def xfail_on_windows(func):
         return func
 
 
-class TestOffTutorial:
+class TestOFFTutorial:  # noqa PLR0904
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     @pytest.mark.filterwarnings("ignore:divide by zero encountered")
@@ -330,65 +330,6 @@ class TestOffTutorial:
         inds = ds_local.getStatesIndicies("A")
         _ = ds_local.getAttr("filtValue", inds)
 
-    @staticmethod
-    def test_experiment_state_file_add_to_same_state_fake_esf():
-        # First, we create a dummy experiment state file, esf, with state labels A and B. Then, more records
-        # are added to state B. This test verifies that the slice defining state B gets properly updated.
-        # this test simulates an experiment state file instead of using an actual file.
-        esf = mass.off.ExperimentStateFile(_parse=False)
-        # reach into the internals to simulate the results of parse with repeated states
-        esf.allLabels = ["A", "B"]
-        esf.unixnanos = np.arange(len(esf.allLabels)) * 100
-        esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
-        unixnanos = [25, 75, 125, 175]  # four timestamps representing four records. two records per state.
-        d = esf.calcStatesDict(unixnanos)
-        slice_before_update = d["B"]  # state B will be updated with new records. We need to make sure the slice gets changed properly.
-        new_unixnanos = [225, 275]  # new records are collected
-        d_updated = esf.calcStatesDict(new_unixnanos, statesDict=d, i0_allLabels=len(esf.allLabels), i0_unixnanos=len(unixnanos))
-
-        slice_after_update = d_updated["B"]
-        assert slice_after_update.stop == slice_before_update.stop + len(new_unixnanos)
-
-    @staticmethod
-    def test_experiment_state_file_add_to_same_state(tmp_path):
-        # First, we create an experiment state file, esf, with state labels A and B. Then, more records
-        # are added to state B. This test verifies that the slice defining state B gets properly updated.
-        # This uses a temporary file f just like a regular experiment state file.
-        expstatefile = tmp_path / "esf_test.txt"
-        f = expstatefile.open(mode='w', encoding='utf-8')
-        f.write('#\n')  # header
-        f.write('0, A\n')    # state A starts at 0 unixnanos
-        f.write('100, B\n')  # state B starts at 100 unixnanos
-        f.flush()
-        os.fsync(f.fileno())
-        esf = mass.off.ExperimentStateFile(filename=f.name)
-
-        unixnanos = [25, 75, 125, 175]  # four timestamps representing four records. two records per state.
-        d = esf.calcStatesDict(unixnanos)
-        slice_before_update = d["B"]  # state B will be updated with new records. We need to make sure the slice gets changed properly.
-        new_unixnanos = [225, 275]  # new records are collected
-        d_updated = esf.calcStatesDict(new_unixnanos, statesDict=d, i0_allLabels=len(esf.allLabels), i0_unixnanos=len(unixnanos))
-        slice_after_update = d_updated["B"]
-        assert slice_after_update.stop == slice_before_update.stop + len(new_unixnanos)
-
-        # now, add state C with two records and look at the indices
-        f.write('300, C\n')
-        f.flush()
-        os.fsync(f.fileno())
-        old_states_len = len(esf.allLabels)
-        esf.parse()
-
-        d_empty_state = esf.calcStatesDict(
-            [301, 302], statesDict=d_updated,
-            i0_allLabels=old_states_len,
-            i0_unixnanos=len(unixnanos) + len(new_unixnanos))
-
-        assert d_empty_state['A'] == slice(0, 2, None)
-        assert d_empty_state['B'] == slice(2, 6, None)
-        assert d_empty_state['C'] == slice(6, 8, None)
-        f.close()
-        os.remove(f.name)
-
     def test_we_get_different_histograms_when_using_different_cuts_into_a_channelGroup_function(self):
         data = self.data
         # check that we actually get different histograms when using different cuts
@@ -408,10 +349,6 @@ class TestOffTutorial:
         assert np.allclose(ds.getAttr("filtValue", [slice(0, 10)]),
                            ds.getAttr("filtValue", slice(0, 10)))
 
-    @staticmethod
-    def test_HCI_loads():
-        assert "O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines)
-
     def test_getAttr_and_recipes_with_coefs(self):
         ds = self.ds
         ind = [slice(0, 5), slice(5, 10)]
@@ -427,26 +364,6 @@ class TestOffTutorial:
         ds.getAttr("coefs", NoCutInds())
         ds.getAttr("coefsSum", NoCutInds())
 
-    @staticmethod
-    def test_get_model():
-        m_127 = mass.get_model(127)
-        assert m_127.spect.peak_energy == 127
-        assert m_127.spect.shortname == "127eVquick_line"
-
-        m_au = mass.get_model("AuLAlpha")
-        assert m_au.spect.peak_energy == mass.STANDARD_FEATURES["AuLAlpha"]
-        assert m_au.spect.shortname == "AuLAlpha"
-
-        m_ti = mass.get_model("TiKAlpha")
-        assert m_ti.spect.shortname == "TiKAlpha"
-
-        ql = mass.SpectralLine.quick_monochromatic_line("test", 100, 0.001, 0)
-        m_ql = mass.get_model(ql.model())
-        assert m_ql.spect.shortname == "testquick_line"
-
-        with pytest.raises(mass.FailedToGetModelException):
-            mass.get_model("this is a str but not a standard feature")
-
     def test_duplicate_cuts(self):
         data = self.data
         "See issue 214: check that we can use `overwrite=True` to update a cut."
@@ -457,41 +374,6 @@ class TestOffTutorial:
             data.cutAdd("deliberateduplicate", lambda energy: energy < 740)
         # But it's not an error to reuse the same name WHEN you have `overwrite=True`.
         data.cutAdd("deliberateduplicate", lambda energy: energy < 750, overwrite=True)
-
-    @staticmethod
-    def test_recipes(tmp_path):
-        rb = util.RecipeBook(baseIngredients=["x", "y", "z"], propertyClass=None,
-                             coefs_dtype=None)
-
-        def funa(x, y):
-            return x + y
-
-        def funb(a, z):
-            return a + z
-
-        rb.add("a", funa)
-        rb.add("b", funb)
-        rb.add("c", lambda a, b: a + b)
-        with pytest.raises(AssertionError):
-            # should fail because f isn't in baseIngredients and hasn't been added
-            rb.add("e", lambda a, b, c, d, f: a)
-        with pytest.raises(AssertionError):
-            # should fail because ingredients is longer than argument list
-            rb.add("f", lambda a, b: a + b, ingredients=["a", "b", "c"])
-        args = {"x": 1, "y": 2, "z": 3}
-        assert rb.craft("a", args) == 3
-        assert rb.craft("b", args) == 6
-        assert rb.craft("c", args) == 9
-        assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
-        assert rb.craft(lambda a, b, c: a + b + c, args) == 18
-
-        save_path = tmp_path / "recipe_book.pkl"
-        rb.to_file(save_path)
-        rb2 = util.RecipeBook.from_file(save_path)
-
-        assert rb2.craft("a", args) == 3
-        assert rb2.craft("b", args) == 6
-        assert rb2.craft("c", args) == 9
 
     def test_linefit_has_tail_and_has_linear_background(self):
         ds = self.ds
@@ -514,12 +396,6 @@ class TestOffTutorial:
         result = ds.linefit("O H-Like 2p", states="CO2", has_linear_background=False)
         assert "background" not in result.params.keys()
         assert "bg_slope" not in result.params.keys()
-
-    @staticmethod
-    def test_median_absolute_deviation():
-        mad, _, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
-        assert mad == 1
-        assert median == 2
 
     def test_aliasState(self):
         ds = self.ds
@@ -600,3 +476,127 @@ class TestOffTutorial:
             data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")
         with h5py.File(filename, "r") as h5:
             h5["3"]["Ar"]["counts"]
+
+
+def test_experiment_state_file_add_to_same_state_fake_esf():
+    # First, we create a dummy experiment state file, esf, with state labels A and B. Then, more records
+    # are added to state B. This test verifies that the slice defining state B gets properly updated.
+    # this test simulates an experiment state file instead of using an actual file.
+    esf = mass.off.ExperimentStateFile(_parse=False)
+    # reach into the internals to simulate the results of parse with repeated states
+    esf.allLabels = ["A", "B"]
+    esf.unixnanos = np.arange(len(esf.allLabels)) * 100
+    esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
+    unixnanos = [25, 75, 125, 175]  # four timestamps representing four records. two records per state.
+    d = esf.calcStatesDict(unixnanos)
+    slice_before_update = d["B"]  # state B will be updated with new records. We need to make sure the slice gets changed properly.
+    new_unixnanos = [225, 275]  # new records are collected
+    d_updated = esf.calcStatesDict(new_unixnanos, statesDict=d, i0_allLabels=len(esf.allLabels), i0_unixnanos=len(unixnanos))
+
+    slice_after_update = d_updated["B"]
+    assert slice_after_update.stop == slice_before_update.stop + len(new_unixnanos)
+
+
+def test_experiment_state_file_add_to_same_state(tmp_path):
+    # First, we create an experiment state file, esf, with state labels A and B. Then, more records
+    # are added to state B. This test verifies that the slice defining state B gets properly updated.
+    # This uses a temporary file f just like a regular experiment state file.
+    expstatefile = tmp_path / "esf_test.txt"
+    f = expstatefile.open(mode='w', encoding='utf-8')
+    f.write('#\n')  # header
+    f.write('0, A\n')    # state A starts at 0 unixnanos
+    f.write('100, B\n')  # state B starts at 100 unixnanos
+    f.flush()
+    os.fsync(f.fileno())
+    esf = mass.off.ExperimentStateFile(filename=f.name)
+
+    unixnanos = [25, 75, 125, 175]  # four timestamps representing four records. two records per state.
+    d = esf.calcStatesDict(unixnanos)
+    slice_before_update = d["B"]  # state B will be updated with new records. We need to make sure the slice gets changed properly.
+    new_unixnanos = [225, 275]  # new records are collected
+    d_updated = esf.calcStatesDict(new_unixnanos, statesDict=d, i0_allLabels=len(esf.allLabels), i0_unixnanos=len(unixnanos))
+    slice_after_update = d_updated["B"]
+    assert slice_after_update.stop == slice_before_update.stop + len(new_unixnanos)
+
+    # now, add state C with two records and look at the indices
+    f.write('300, C\n')
+    f.flush()
+    os.fsync(f.fileno())
+    old_states_len = len(esf.allLabels)
+    esf.parse()
+
+    d_empty_state = esf.calcStatesDict(
+        [301, 302], statesDict=d_updated,
+        i0_allLabels=old_states_len,
+        i0_unixnanos=len(unixnanos) + len(new_unixnanos))
+
+    assert d_empty_state['A'] == slice(0, 2, None)
+    assert d_empty_state['B'] == slice(2, 6, None)
+    assert d_empty_state['C'] == slice(6, 8, None)
+    f.close()
+    os.remove(f.name)
+
+
+def test_median_absolute_deviation():
+    mad, _, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
+    assert mad == 1
+    assert median == 2
+
+
+def test_HCI_loads():
+    assert "O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines)
+
+
+def test_get_model():
+    m_127 = mass.get_model(127)
+    assert m_127.spect.peak_energy == 127
+    assert m_127.spect.shortname == "127eVquick_line"
+
+    m_au = mass.get_model("AuLAlpha")
+    assert m_au.spect.peak_energy == mass.STANDARD_FEATURES["AuLAlpha"]
+    assert m_au.spect.shortname == "AuLAlpha"
+
+    m_ti = mass.get_model("TiKAlpha")
+    assert m_ti.spect.shortname == "TiKAlpha"
+
+    ql = mass.SpectralLine.quick_monochromatic_line("test", 100, 0.001, 0)
+    m_ql = mass.get_model(ql.model())
+    assert m_ql.spect.shortname == "testquick_line"
+
+    with pytest.raises(mass.FailedToGetModelException):
+        mass.get_model("this is a str but not a standard feature")
+
+
+def test_recipes(tmp_path):
+    rb = util.RecipeBook(baseIngredients=["x", "y", "z"], propertyClass=None,
+                         coefs_dtype=None)
+
+    def funa(x, y):
+        return x + y
+
+    def funb(a, z):
+        return a + z
+
+    rb.add("a", funa)
+    rb.add("b", funb)
+    rb.add("c", lambda a, b: a + b)
+    with pytest.raises(AssertionError):
+        # should fail because f isn't in baseIngredients and hasn't been added
+        rb.add("e", lambda a, b, c, d, f: a)
+    with pytest.raises(AssertionError):
+        # should fail because ingredients is longer than argument list
+        rb.add("f", lambda a, b: a + b, ingredients=["a", "b", "c"])
+    args = {"x": 1, "y": 2, "z": 3}
+    assert rb.craft("a", args) == 3
+    assert rb.craft("b", args) == 6
+    assert rb.craft("c", args) == 9
+    assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
+    assert rb.craft(lambda a, b, c: a + b + c, args) == 18
+
+    save_path = tmp_path / "recipe_book.pkl"
+    rb.to_file(save_path)
+    rb2 = util.RecipeBook.from_file(save_path)
+
+    assert rb2.craft("a", args) == 3
+    assert rb2.craft("b", args) == 6
+    assert rb2.craft("c", args) == 9
