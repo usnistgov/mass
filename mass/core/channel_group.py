@@ -1155,26 +1155,6 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    def correct_flux_jumps(self, flux_quant, algorithm="orig"):
-        '''Remove 'flux' jumps' from pretrigger mean.
-
-        When using umux readout, if a pulse is recorded that has a very fast
-        rising edge (e.g. a cosmic ray), the readout system will "slip" an
-        integer number of flux quanta. This means that the baseline level
-        returned to after the pulse will different from the pretrigger value by
-        an integer number of flux quanta. This causes that pretrigger mean
-        summary quantity to jump around in a way that causes trouble for the
-        rest of MASS. This function attempts to correct these jumps.
-
-        Arguments:
-        flux_quant -- size of 1 flux quantum
-        '''
-        for ds in self:
-            try:
-                ds.correct_flux_jumps(flux_quant, algorithm=algorithm)
-            except Exception:
-                self.set_chan_bad(ds.channum, "failed to correct flux jumps")
-
     def sanitize_p_filt_phase(self):
         self.register_boolean_cut_fields("filt_phase")
         for ds in self:

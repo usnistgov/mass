@@ -1568,6 +1568,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.cuts.clear_cut()
         self.saved_auto_cuts = None
 
+    @_add_group_loop()
     def correct_flux_jumps(self, flux_quant, algorithm="Baker"):
         '''Remove 'flux' jumps' from pretrigger mean.
 
