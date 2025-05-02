@@ -1155,7 +1155,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    def correct_flux_jumps(self, flux_quant):
+    def correct_flux_jumps(self, flux_quant, algorithm="orig"):
         '''Remove 'flux' jumps' from pretrigger mean.
 
         When using umux readout, if a pulse is recorded that has a very fast
@@ -1171,7 +1171,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         '''
         for ds in self:
             try:
-                ds.correct_flux_jumps(flux_quant)
+                ds.correct_flux_jumps(flux_quant, algorithm=algorithm)
             except Exception:
                 self.set_chan_bad(ds.channum, "failed to correct flux jumps")
 

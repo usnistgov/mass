@@ -1568,7 +1568,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         self.cuts.clear_cut()
         self.saved_auto_cuts = None
 
-    def correct_flux_jumps(self, flux_quant):
+    def correct_flux_jumps(self, flux_quant, algorithm="orig"):
         '''Remove 'flux' jumps' from pretrigger mean.
 
         When using umux readout, if a pulse is recorded that has a very fast
@@ -1585,7 +1585,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         # remember original value, just in case we need it
         self.p_pretrig_mean_orig = self.p_pretrig_mean[:]
         corrected = mass.core.analysis_algorithms.correct_flux_jumps(
-            self.p_pretrig_mean[:], self.good(), flux_quant)
+            self.p_pretrig_mean[:], self.good(), flux_quant, algorithm=algorithm)
         self.p_pretrig_mean[:] = corrected
 
     @_add_group_loop()

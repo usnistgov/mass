@@ -415,7 +415,7 @@ def filter_signal_lowpass(sig, fs, fcut):
     return sig_filt
 
 
-def correct_flux_jumps(vals, g, flux_quant):
+def correct_flux_jumps(vals, g, flux_quant, algorithm):
     '''Remove 'flux' jumps' from pretrigger mean.
 
     When using umux readout, if a pulse is recorded that has a very fast rising
@@ -434,27 +434,72 @@ def correct_flux_jumps(vals, g, flux_quant):
     Returns:
     Array with values corrected
     '''
-    # The naive thing is to simply replace each value with its value mod
-    # the flux quantum. But of the baseline value turns out to fluctuate
-    # about an integer number of flux quanta, this will introduce new
-    # jumps. I don't know the best way to handle this in general. For now,
-    # if there are still jumps after the mod, I add 1/4 of a flux quanta
-    # before modding, then mod, then subtract the 1/4 flux quantum and then
-    # *add* a single flux quantum so that the values never go negative.
-    #
-    # To determine whether there are "still jumps after the mod" I look at the
-    # difference between the largest and smallest values for "good" pulses. If
-    # you don't exclude "bad" pulses, this check can be tricked in cases where
-    # the pretrigger section contains a (sufficiently large) tail.
-    if (np.amax(vals) - np.amin(vals)) >= flux_quant:
-        corrected = vals % (flux_quant)
-        if (np.amax(corrected[g]) - np.amin(corrected[g])) > 0.75 * flux_quant:
-            corrected = (vals + flux_quant / 4) % (flux_quant)
-            corrected = corrected - flux_quant / 4 + flux_quant
-        corrected -= (corrected[0] - vals[0])
-        return corrected
+    if algorithm == "orig":
+        # The naive thing is to simply replace each value with its value mod
+        # the flux quantum. But of the baseline value turns out to fluctuate
+        # about an integer number of flux quanta, this will introduce new
+        # jumps. I don't know the best way to handle this in general. For now,
+        # if there are still jumps after the mod, I add 1/4 of a flux quanta
+        # before modding, then mod, then subtract the 1/4 flux quantum and then
+        # *add* a single flux quantum so that the values never go negative.
+        #
+        # To determine whether there are "still jumps after the mod" I look at the
+        # difference between the largest and smallest values for "good" pulses. If
+        # you don't exclude "bad" pulses, this check can be tricked in cases where
+        # the pretrigger section contains a (sufficiently large) tail.
+        if (np.amax(vals) - np.amin(vals)) >= flux_quant:
+            corrected = vals % (flux_quant)
+            if (np.amax(corrected[g]) - np.amin(corrected[g])) > 0.75 * flux_quant:
+                corrected = (vals + flux_quant / 4) % (flux_quant)
+                corrected = corrected - flux_quant / 4 + flux_quant
+            corrected -= (corrected[0] - vals[0])
+            return corrected
+        else:
+            return vals
     else:
-        return vals
+        return unwrap_n(vals, flux_quant)
+
+
+def unwrap_n(data, period, n=3):
+    """Unwrap data that has been restricted to a given period.
+
+    The algorithm iterates through each data point and compares
+    it to the average of the previous n data points. It then
+    offsets the data point by the multiple of the period that
+    will minimize the difference.
+
+    For the first n data points, there are not enough preceding
+    points to average n of them, so the algorithm will average
+    fewer points.
+
+    This code was written by Thomas Baker; integrated into MASS by Dan
+    Becker.
+
+    Parameters
+    ----------
+    data : array of data values
+    period : the range over which the data loops
+    n : how many preceding points to average
+    """
+    # This is convoluted but is faster for large arrays.
+    udata = np.zeros(len(data))
+    udata[:] = np.copy(data)
+
+    if (n == 0):
+        return udata
+
+    # Iterate through each data point and offset it by
+    # an amount that will minimize the difference from the
+    # rolling average
+    for i in range(len(data) - 1):
+        # Interval to average over
+        start = 0 if i < n else i + 1 - n
+        end = i + 1
+        # Take the average of the previous n data points
+        avg = np.sum(udata[start:end]) / (end - start)
+        # Offset the data point
+        udata[i + 1] -= np.round((udata[i + 1] - avg) / period) * period
+    return udata
 
 
 @njit
