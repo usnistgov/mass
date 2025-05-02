@@ -415,7 +415,7 @@ def filter_signal_lowpass(sig, fs, fcut):
     return sig_filt
 
 
-def correct_flux_jumps(vals, g, flux_quant):
+def correct_flux_jumps_original(vals, g, flux_quant):
     '''Remove 'flux' jumps' from pretrigger mean.
 
     When using umux readout, if a pulse is recorded that has a very fast rising
@@ -455,6 +455,69 @@ def correct_flux_jumps(vals, g, flux_quant):
         return corrected
     else:
         return vals
+
+
+def correct_flux_jumps(vals, _mask_ignore, flux_quant):
+    '''Remove 'flux' jumps' from pretrigger mean.
+
+    When using umux readout, if a pulse is recorded that has a very fast rising
+    edge (e.g. a cosmic ray), the readout system will "slip" an integer number
+    of flux quanta. This means that the baseline level returned to after the
+    pulse will different from the pretrigger value by an integer number of flux
+    quanta. This causes that pretrigger mean summary quantity to jump around in
+    a way that causes trouble for the rest of MASS. This function attempts to
+    correct these jumps.
+
+    Arguments:
+    vals -- array of values to correct
+    g -- mask indentifying "good" pulses
+    flux_quant -- size of 1 flux quanta
+
+    Returns:
+    Array with values corrected
+    '''
+    return unwrap_n(vals, flux_quant)
+
+
+@njit
+def unwrap_n(data, period, n=3):
+    """Unwrap data that has been restricted to a given period.
+
+    The algorithm iterates through each data point and compares
+    it to the average of the previous n data points. It then
+    offsets the data point by the multiple of the period that
+    will minimize the difference from that n-point running average.
+
+    For the first n data points, there are not enough preceding
+    points to average n of them, so the algorithm will average
+    fewer points.
+
+    This code was written by Thomas Baker; integrated into MASS by Dan
+    Becker. Sped up 300x by @njit.
+
+    Parameters
+    ----------
+    data : array of data values
+    period : the range over which the data loops
+    n : how many preceding points to average
+    """
+    udata = data.copy()
+
+    if (n <= 0):
+        return udata
+
+    # Iterate through each data point and offset it by
+    # an amount that will minimize the difference from the
+    # rolling average
+    for i in range(1, len(data)):
+        # Interval to average over
+        end = i
+        start = max(0, end - n)
+        # Take the average of the previous n data points.
+        # Offset the data point by the most reasonable multiple of period (make this point closest to the running average).
+        avg = np.sum(udata[start:end]) / (end - start)
+        udata[i] -= np.round((udata[i] - avg) / period) * period
+    return udata
 
 
 @njit
