@@ -276,6 +276,9 @@ class TestTESGroup:
         LOG.info("Testing printing of a TESGroup")
         LOG.info(data2)
 
+    @pytest.mark.filterwarnings("ignore:divide by zero encountered")
+    @pytest.mark.filterwarnings("ignore:invalid value encountered")
+    @pytest.mark.filterwarnings("ignore:Polyfit may be poorly conditioned")
     def test_save_hdf5_calibration_storage(self, tmp_path):
         "calibrate a dataset, make sure it saves to hdf5"
         data = self.load_data(hdf5dir=tmp_path)

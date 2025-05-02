@@ -7,6 +7,8 @@ import pytest
 
 @pytest.mark.filterwarnings("ignore:Mean of empty slice")
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
+@pytest.mark.filterwarnings("ignore:divide by zero encountered")
+@pytest.mark.filterwarnings("ignore:Polyfit may be poorly conditioned")
 def test_off_5lag_with_saving_and_loading_recipes(tmp_path):
     d = os.path.dirname(os.path.realpath(__file__))
 
