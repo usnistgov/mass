@@ -5,6 +5,7 @@
 * Make Fourier-domain optimal filters work (issue 320).
 * Add doctests for the new filtering API (issue 323).
 * Add Thomas Baker's improved method for correcting jumps by 1 (or more) flux quanta (PR 325).
+* Remove 16 warnings that arise in testing (PR 326).
 
 **0.8.7** January 24, 2025
 
