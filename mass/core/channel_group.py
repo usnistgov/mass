@@ -621,8 +621,8 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         return self.external_trigger_subframe_count[:] / float(self.subframe_divisions) * self.timebase
 
     def calc_external_trigger_timing(self, forceNew=False):
-        ds = self.first_good_dataset
-        external_trigger_subframe_count = np.asarray(ds.external_trigger_subframe_count[:], dtype=np.int64)
+        external_trigger_subframe_count = np.asarray(
+            self.external_trigger_subframe_count[:], dtype=np.int64)
 
         for ds in self:
             try:
@@ -631,9 +631,9 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                    ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and (not forceNew):
                     continue
 
-                subframes_after_last, subframes_until_next = \
-                    mass.core.analysis_algorithms.nearest_arrivals(ds.p_subframecount[:],
-                                                                   external_trigger_subframe_count)
+                NA = mass.core.analysis_algorithms.python_nearest_arrivals
+                subframes_after_last, subframes_until_next = NA(ds.p_subframecount[:],
+                                                                external_trigger_subframe_count)
                 nearest = np.fmin(subframes_after_last, subframes_until_next)
                 for name, values in zip(("subframes_after_last_external_trigger",
                                          "subframes_until_next_external_trigger",
