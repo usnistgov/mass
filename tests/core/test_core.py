@@ -539,6 +539,28 @@ class TestTESGroup:
                 with pytest.raises(ValueError):
                     ds.good(state="A")
 
+    def test_expanded_LJH(self, tmp_path):
+        """Make 2 copies of a regression LJH files. Create a MASS TESGroup from one and copy for
+        the other. Then add 1 pulse worth of data to the copies. Make sure you can open one with
+        `overwrite_hdf5_file=True`, and that you get an error when you try to open the other."""
+        regression = "tests/regression_test/regress_chan1.ljh"
+        newfile1 = str(tmp_path / "regress1_chan1.ljh")
+        shutil.copy(regression, newfile1)
+        data = mass.TESGroup(newfile1)
+        nsamp = data.nSamples
+        del data
+        regressionh5_1 = str(tmp_path / "regress1_mass.hdf5")
+        regressionh5_2 = str(tmp_path / "regress2_mass.hdf5")
+        shutil.copy(regressionh5_1, regressionh5_2)
+        
+        extra_bytes = bytes((6+2*nsamp)*b"p")
+        with open(newfile1, "ab") as file:
+            file.write(extra_bytes)
+        newfile2 = str(tmp_path / "regress2_chan1.ljh")
+        shutil.copy(newfile1, newfile2)
+        with pytest.raises(ValueError):
+            data = mass.TESGroup(newfile1, overwrite_hdf5_file=False)
+        data = mass.TESGroup(newfile2, overwrite_hdf5_file=True)
 
 def test_noiseonly():
     """Check that you can set a channel bad in a noise-only TESGroup.

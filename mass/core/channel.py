@@ -648,7 +648,13 @@ class MicrocalDataSet:  # noqa: PLR0904
             if "npulses" not in self.hdf5_group.attrs:  # to allow TESGroupHDF5 with in read only mode
                 self.hdf5_group.attrs['npulses'] = self.nPulses
             else:
-                assert self.hdf5_group.attrs['npulses'] == self.nPulses
+                if self.hdf5_group.attrs['npulses'] != self.nPulses:
+                    msg = f"""Could not use the existing HDF5 file, which has {self.hdf5_group.attrs["npulses"]} pulses,
+while the data file has {self.nPulses} pulses in channel {self.channum}.
+
+Try creating with the argument mass.TESGroup(..., overwite_hdf5_file=True)
+"""
+                    raise ValueError(msg)
             if "channum" not in self.hdf5_group.attrs:  # to allow TESGroupHDF5 with in read only mode
                 self.hdf5_group.attrs['channum'] = self.channum
             else:
