@@ -1,15 +1,16 @@
-import numpy as np
 import os
+import numpy as np
 from os import path
 import glob
 import pytest
 
 import mass
 
-ljhdir = os.path.dirname(os.path.dirname((os.path.realpath(__file__))))+"/regression_test"
+ljhdir = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + "/regression_test"
+
 
 class TestExternalTrigger:
-    
+
     @classmethod
     def setup_class(cls):
         prefix = "regress"
@@ -25,6 +26,11 @@ class TestExternalTrigger:
         data = mass.TESGroup(pulse_files, noise_files)
         data.summarize_data(forceNew=True)
         cls.data = data
-    
+
     def test_external_trigger(self):
+        ds = self.data.channel[1]
+        assert np.all(ds.p_subframecount[:] > 0)
+        with pytest.raises(ValueError):
+            _ = ds.subframes_after_last_external_trigger[:]
         self.data.calc_external_trigger_timing()
+        assert np.all(ds.subframes_after_last_external_trigger[:] > 0)
