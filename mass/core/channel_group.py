@@ -631,7 +631,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                    ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and (not forceNew):
                     continue
 
-                NA = mass.core.analysis_algorithms.python_nearest_arrivals
+                NA = mass.core.analysis_algorithms.nearest_arrivals
                 subframes_after_last, subframes_until_next = NA(ds.p_subframecount[:],
                                                                 external_trigger_subframe_count)
                 nearest = np.fmin(subframes_after_last, subframes_until_next)

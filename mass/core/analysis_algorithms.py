@@ -278,7 +278,7 @@ def drift_correct(indicator, uncorrected, limit=None):
 
 
 @njit
-def python_nearest_arrivals(reference_times, other_times):
+def nearest_arrivals(reference_times, other_times):
     """Find the external trigger time immediately before and after each pulse timestamp
 
     Args:
