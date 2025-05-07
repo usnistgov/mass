@@ -36,11 +36,11 @@ def test_mmap_many_files():
 
     # LOWER the system's limit on number of open files, to make the test smaller
     soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    request_maxfiles = min(30, soft_limit)
+    request_maxfiles = min(60, soft_limit)
     resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
     try:
         maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-        NFilesToOpen = maxfiles // 3 + 2
+        NFilesToOpen = maxfiles // 3 + 10
 
         filename = os.path.join(d, "data_for_test/off_with_binary_projectors_and_basis.off")
         for _ in range(NFilesToOpen):
