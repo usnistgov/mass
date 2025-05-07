@@ -27,6 +27,11 @@ class TestExternalTrigger:
         data.summarize_data(forceNew=True)
         cls.data = data
 
+    @classmethod
+    def teardown_class(cls):
+        cls.data.hdf5_file.close()
+        cls.data.hdf5_noisefile.close()
+
     def test_external_trigger(self):
         ds = self.data.channel[1]
         assert np.all(ds.p_subframecount[:] > 0)
