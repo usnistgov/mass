@@ -1961,10 +1961,10 @@ Try creating with the argument mass.TESGroup(..., overwite_hdf5_file=True)
                 bad2 = self.cuts.bad(c2)
                 n_and = np.logical_and(bad1, bad2).sum()
                 n_or = np.logical_or(bad1, bad2).sum()
-                print(f"{n_and:6d} (and) %{n_or:6d} (or) pulses cut by [{c1.upper()} and/or {c2.upper()}]")
+                print(f"{n_and:6d} (and) {n_or:6d} (or) pulses cut by [{c1.upper()} and/or {c2.upper()}]")
         print()
         for cut_name in boolean_fields:
-            print("{self.cuts.bad(cut_name).sum():6d} pulses cut by {cut_name.upper()}")
+            print(f"{self.cuts.bad(cut_name).sum():6d} pulses cut by {cut_name.upper()}")
         print(f"{self.nPulses:6d} pulses total")
 
     @_add_group_loop()
