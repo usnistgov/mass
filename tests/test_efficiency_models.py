@@ -49,8 +49,10 @@ def test_filter():
     m = mass.materials.filterstack_models["Horton 2018"]
     e = np.linspace(4000, 9000, 6)
     qe = m(e, uncertain=True)
-    assert np.any(qe > 0.21), "Horton filter model QE < 21% everywhere"
-    assert np.all(qe < 0.25), "Horton filter model QE > 25% somewhere"
+    maxQE = qe.max()
+    assert maxQE > 0.21, r"Horton filter model QE < 21% everywhere"
+    assert maxQE < 0.25, r"Horton filter model QE > 25% somewhere"
+
     assert np.abs(qe[0].nominal_value / 0.07742066727279993 - 1) < .001
 
     def remove_whitespace(s):
