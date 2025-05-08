@@ -278,30 +278,7 @@ def drift_correct(indicator, uncorrected, limit=None):
 
 
 @njit
-def python_nearest_arrivals(reference_times, other_times):
-    """Identical to nearest_arrivals(...)."""
-    nearest_after_index = np.searchsorted(other_times, reference_times)
-    # because both sets of arrival times should be sorted, there are faster algorithms than searchsorted
-    # for example: https://github.com/kwgoodman/bottleneck/issues/47
-    # we could use one if performance becomes an issue
-    last_index = np.searchsorted(nearest_after_index, other_times.size, side="left")
-    first_index = np.searchsorted(nearest_after_index, 1)
-
-    nearest_before_index = np.copy(nearest_after_index)
-    nearest_before_index[:first_index] = 1
-    nearest_before_index -= 1
-    before_times = reference_times - other_times[nearest_before_index]
-    before_times[:first_index] = np.inf
-
-    nearest_after_index[last_index:] = other_times.size - 1
-    after_times = other_times[nearest_after_index] - reference_times
-    after_times[last_index:] = np.inf
-
-    return before_times, after_times
-
-
-@njit
-def nearest_arrivals(pulse_timestamps, external_trigger_timestamps):
+def nearest_arrivals(reference_times, other_times):
     """Find the external trigger time immediately before and after each pulse timestamp
 
     Args:
@@ -323,75 +300,24 @@ def nearest_arrivals(pulse_timestamps, external_trigger_timestamps):
     closest greater time contained in other_times or a inf number if there was
     no later time in external_trigger_timestamps.
     """
-    i = j = 0
-    num_pulses = pulse_timestamps.shape[0]
-    num_triggers = external_trigger_timestamps.shape[0]
+    nearest_after_index = np.searchsorted(other_times, reference_times)
+    # because both sets of arrival times should be sorted, there are faster algorithms than searchsorted
+    # for example: https://github.com/kwgoodman/bottleneck/issues/47
+    # we could use one if performance becomes an issue
+    last_index = np.searchsorted(nearest_after_index, other_times.size, side="left")
+    first_index = np.searchsorted(nearest_after_index, 1)
 
-    if num_pulses < 1:
-        return np.array([], dtype=np.int64)
+    nearest_before_index = np.copy(nearest_after_index)
+    nearest_before_index[:first_index] = 1
+    nearest_before_index -= 1
+    before_times = reference_times - other_times[nearest_before_index]
+    before_times[:first_index] = np.inf
 
-    delay_from_last_trigger = np.zeros_like(pulse_timestamps, dtype=np.int64)
-    delay_until_next_trigger = np.zeros_like(pulse_timestamps, dtype=np.int64)
+    nearest_after_index[last_index:] = other_times.size - 1
+    after_times = other_times[nearest_after_index] - reference_times
+    after_times[last_index:] = np.inf
 
-    max_value = np.iinfo(np.int64).max
-
-    if num_triggers > 1:
-        a = external_trigger_timestamps[0]
-        b = external_trigger_timestamps[1]
-        j = 1
-
-        # handle the case where pulses arrive before the fist external trigger
-        while True:
-            pt = pulse_timestamps[i]
-            if pt < a:
-                delay_from_last_trigger[i] = max_value
-                delay_until_next_trigger[i] = a - pt
-                i += 1
-                if i >= num_pulses:
-                    return np.asarray(delay_from_last_trigger, dtype=np.int64), \
-                        np.asarray(delay_until_next_trigger, dtype=np.int64)
-            else:
-                break
-
-        # At this point in the code a and b are values from
-        # external_trigger_timestamps that bracket pulse_timestamp[i]
-        while True:
-            pt = pulse_timestamps[i]
-            if pt < b:
-                delay_from_last_trigger[i] = pt - a
-                delay_until_next_trigger[i] = b - pt
-                i += 1
-                if i >= num_pulses:
-                    break
-            else:
-                j += 1
-                if j >= num_triggers:
-                    break
-                else:
-                    a, b = b, external_trigger_timestamps[j]
-
-        # handle the case where pulses arrive after the last external trigger
-        for t in range(i, num_pulses):
-            delay_from_last_trigger[t] = pulse_timestamps[t] - b
-            delay_until_next_trigger[t] = max_value
-    elif num_triggers > 0:
-        a = b = external_trigger_timestamps[0]
-
-        for i in range(num_pulses):
-            pt = pulse_timestamps[i]
-            if pt > a:
-                delay_from_last_trigger[i] = pt - a
-                delay_until_next_trigger[i] = max_value
-            else:
-                delay_from_last_trigger[i] = max_value
-                delay_until_next_trigger = a - pt
-    else:
-        for i in range(num_pulses):
-            delay_from_last_trigger[i] = max_value
-            delay_until_next_trigger[i] = max_value
-
-    return (np.asarray(delay_from_last_trigger, dtype=np.int64),
-            np.asarray(delay_until_next_trigger, dtype=np.int64))
+    return before_times, after_times
 
 
 @njit

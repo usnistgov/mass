@@ -6,6 +6,7 @@
 * Add doctests for the new filtering API (issue 323).
 * Add Thomas Baker's improved method for correcting jumps by 1 (or more) flux quanta (PR 325).
 * Remove 16 warnings that arise in testing (PR 326).
+* Fix external trigger processing (issue 327).
 * Better error message when opening MASS data that is longer than an existing HDF5 file (issue 329).
 
 **0.8.7** January 24, 2025

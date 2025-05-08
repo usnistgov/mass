@@ -4,6 +4,7 @@ from os import path
 
 import numpy as np
 import numpy.testing as nt
+import pytest
 
 import mass
 
@@ -65,6 +66,13 @@ class TestSummaries:
         nt.assert_equal(self.data.subframe_divisions, 64)
         ds = self.data.datasets[0]
         nt.assert_equal(ds.subframe_divisions, 64)
+
+        ds = self.data.channel[1]
+        assert np.all(ds.p_subframecount[:] > 0)
+        with pytest.raises(ValueError):
+            _ = ds.subframes_after_last_external_trigger[:]
+        self.data.calc_external_trigger_timing()
+        assert np.all(ds.subframes_after_last_external_trigger[:] > 0)
 
     def test_summaries(self):
         nt.assert_allclose(self.data.datasets[0].p_peak_index, self.d['p_peak_index'])
