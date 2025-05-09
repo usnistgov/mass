@@ -341,7 +341,7 @@ def filter_signal_lowpass(sig, fs, fcut):
     return sig_filt
 
 
-def correct_flux_jumps_original(vals, g, flux_quant):
+def correct_flux_jumps_original(vals, mask, flux_quant):
     '''Remove 'flux' jumps' from pretrigger mean.
 
     When using umux readout, if a pulse is recorded that has a very fast rising
@@ -354,7 +354,7 @@ def correct_flux_jumps_original(vals, g, flux_quant):
 
     Arguments:
     vals -- array of values to correct
-    g -- mask indentifying "good" pulses
+    mask -- mask indentifying "good" pulses
     flux_quant -- size of 1 flux quanta
 
     Returns:
@@ -374,7 +374,7 @@ def correct_flux_jumps_original(vals, g, flux_quant):
     # the pretrigger section contains a (sufficiently large) tail.
     if (np.amax(vals) - np.amin(vals)) >= flux_quant:
         corrected = vals % (flux_quant)
-        if (np.amax(corrected[g]) - np.amin(corrected[g])) > 0.75 * flux_quant:
+        if (np.amax(corrected[mask]) - np.amin(corrected[mask])) > 0.75 * flux_quant:
             corrected = (vals + flux_quant / 4) % (flux_quant)
             corrected = corrected - flux_quant / 4 + flux_quant
         corrected -= (corrected[0] - vals[0])
@@ -383,7 +383,7 @@ def correct_flux_jumps_original(vals, g, flux_quant):
         return vals
 
 
-def correct_flux_jumps(vals, _mask_ignore, flux_quant):
+def correct_flux_jumps(vals, mask, flux_quant):
     '''Remove 'flux' jumps' from pretrigger mean.
 
     When using umux readout, if a pulse is recorded that has a very fast rising
@@ -396,17 +396,17 @@ def correct_flux_jumps(vals, _mask_ignore, flux_quant):
 
     Arguments:
     vals -- array of values to correct
-    g -- mask indentifying "good" pulses
+    mask -- mask indentifying "good" pulses
     flux_quant -- size of 1 flux quanta
 
     Returns:
     Array with values corrected
     '''
-    return unwrap_n(vals, flux_quant)
+    return unwrap_n(vals, flux_quant, mask)
 
 
 @njit
-def unwrap_n(data, period, n=3):
+def unwrap_n(data, period, mask, n=3):
     """Unwrap data that has been restricted to a given period.
 
     The algorithm iterates through each data point and compares
@@ -426,23 +426,31 @@ def unwrap_n(data, period, n=3):
     data : array of data values
     period : the range over which the data loops
     n : how many preceding points to average
+    mask (optional) -- mask indentifying "good" pulses
     """
     udata = data.copy()
-
     if (n <= 0):
         return udata
 
     # Iterate through each data point and offset it by
     # an amount that will minimize the difference from the
     # rolling average
-    for i in range(1, len(data)):
-        # Interval to average over
-        end = i
-        start = max(0, end - n)
-        # Take the average of the previous n data points.
+    nprior = 0
+    firstgoodidx = np.argmax(mask)
+    priorvalues = np.full(n, udata[firstgoodidx])
+    for i in range(len(data)):
+        # Take the average of the previous n data points (only those with mask[i]==True).
         # Offset the data point by the most reasonable multiple of period (make this point closest to the running average).
-        avg = np.sum(udata[start:end]) / (end - start)
+        if mask[i]:
+            avg = np.mean(priorvalues)
+            if nprior == 0:
+                avg = float(priorvalues[0])
+            elif nprior < n:
+                avg = np.mean(priorvalues[:nprior])
         udata[i] -= np.round((udata[i] - avg) / period) * period
+        if mask[i]:
+            priorvalues[nprior % n] = udata[i]
+            nprior += 1
     return udata
 
 

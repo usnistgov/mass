@@ -8,6 +8,7 @@
 * Remove 16 warnings that arise in testing (PR 326).
 * Fix external trigger processing (issue 327).
 * Better error message when opening MASS data that is longer than an existing HDF5 file (issue 329).
+* Fix problem with new flux-jump algorithm (issue 331).
 
 **0.8.7** January 24, 2025
 
