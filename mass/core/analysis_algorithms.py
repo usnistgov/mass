@@ -402,11 +402,11 @@ def correct_flux_jumps(vals, mask, flux_quant):
     Returns:
     Array with values corrected
     '''
-    return unwrap_n(vals, flux_quant, mask=mask)
+    return unwrap_n(vals, flux_quant, mask)
 
 
 @njit
-def unwrap_n(data, period, mask=None, n=3):
+def unwrap_n(data, period, mask, n=3):
     """Unwrap data that has been restricted to a given period.
 
     The algorithm iterates through each data point and compares
@@ -435,8 +435,6 @@ def unwrap_n(data, period, mask=None, n=3):
     # Iterate through each data point and offset it by
     # an amount that will minimize the difference from the
     # rolling average
-    if mask is None:
-        mask = np.full(len(data), True)
     nprior = 0
     firstgoodidx = np.argmax(mask)
     priorvalues = np.full(n, udata[firstgoodidx])
