@@ -1,5 +1,6 @@
 import numpy as np
 from mass.core.analysis_algorithms import unwrap_n, correct_flux_jumps
+from mass.core.analysis_algorithms import correct_flux_jumps_original
 
 import logging
 LOG = logging.getLogger("mass")
@@ -102,14 +103,20 @@ class TestOriginalAlgorithm:
 
     @staticmethod
     def verify(orig_vals, corrected):
-        assert np.all(np.abs(orig_vals - corrected) < 1e-6)
+        assert np.max(np.abs(orig_vals - corrected)) < 1e-6
 
     def test_algorithm(self, N=100):
-        sz = 10000
+        sz = 2048
         g = np.full(sz, True, dtype=bool)
+        g[1000] = g[1010] = g[1100:1110] = False
+        
         for k in range(N):
             noise = np.abs(100 * rng.standard_normal(sz))
             vals_orig = self.make_trend_poly_plus_sine(sz, 2) + noise
             corrupted_vals = self.add_jumps(vals_orig.copy())
+            corrupted_vals[1100:1110] += 3000
+            # new_vals = correct_flux_jumps_original(corrupted_vals, g, 2**12)
+            # self.verify(vals_orig, new_vals)
+
             new_vals = correct_flux_jumps(corrupted_vals, g, 2**12)
             self.verify(vals_orig, new_vals)
