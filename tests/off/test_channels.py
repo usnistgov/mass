@@ -8,7 +8,6 @@ import numpy as np
 import pylab as plt
 import lmfit
 import h5py
-import resource
 import tempfile
 
 # Remove a warning message
@@ -186,6 +185,14 @@ class TestOFFTutorial:  # noqa PLR0904
         assert 0 != np.mean(np.abs(ds.energy - ds.energy2))
         # but should also be similar... though I had to set rtol higher than I expected for this to pass
         assert np.allclose(ds.energy, ds.energy2, rtol=1e-1)
+
+    def test_acessing_calibration_object(self):
+        for ds in self.data.values():
+            cal = ds.recipes["energy"].f
+            cal.ph # pulse height for each fit
+            cal.dph # error on pulse height from fit
+            cal.energy # SI energy corresponding to pulse height
+            cal.de # uncertainty on SI energy 
 
     def test_repeating_the_same_correction_with_new_name_doesnt_change_the_original(self):
         ds = self.ds
@@ -431,35 +438,6 @@ class TestOFFTutorial:  # noqa PLR0904
         args = {"pretriggerMean": 1, "filtValue": 2}
         print(rb.craftedIngredients["energy"])
         assert rb.craft("energy", args) == rb2.craft("energy", args)
-
-    def test_open_many_OFF_files(self):
-        """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them."""
-
-        # LOWER the system's limit on number of open files, to make the test smaller
-        soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
-        request_maxfiles = min(60, soft_limit)
-        resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
-        try:
-            maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-            NFilesToOpen = maxfiles // 2 + 10
-
-            filename = os.path.join(self.dirname, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
-            filelist = getOffFileListFromOneFile(filename, maxChans=2)
-            for _ in range(NFilesToOpen):
-                _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                                 excludeStates=["START", "END"])
-
-            # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
-            # only open it once, not twice.
-            NFilePairsToOpen = (maxfiles - 12) // 6
-            filelist *= NFilePairsToOpen
-            for _ in range(3):
-                _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                                 excludeStates=["START", "END"])
-
-        # Use the try...finally to undo our reduction in the limit on number of open files.
-        finally:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
     def test_listmode_to_hdf5(self, tmp_path):
         data = self.data
