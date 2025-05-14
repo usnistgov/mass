@@ -7,6 +7,8 @@ import pytest
 
 @pytest.mark.filterwarnings("ignore:Mean of empty slice")
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
+@pytest.mark.filterwarnings("ignore:divide by zero encountered")
+@pytest.mark.filterwarnings("ignore:Polyfit may be poorly conditioned")
 def test_off_5lag_with_saving_and_loading_recipes(tmp_path):
     d = os.path.dirname(os.path.realpath(__file__))
 
@@ -90,7 +92,7 @@ def test_off_5lag_with_saving_and_loading_recipes(tmp_path):
     assert all(data[3].filtValue5LagDCPC == data2[3].filtValue5LagDCPC)
     assert all(data[3].cutResidualStdDev == data2[3].cutResidualStdDev)
     assert data[3].recipes["energy"].f.uncalibratedName == data2[3].recipes["energy"].f.uncalibratedName
-    assert data[3].recipes["energy"].f._names == data2[3].recipes["energy"].f._names
+    assert data[3].recipes["energy"].f.names == data2[3].recipes["energy"].f.names
 
     data3 = mass.off.ChannelGroup(off_filenames)
     data3[3].learnCalibrationPlanFromEnergiesAndPeaks(

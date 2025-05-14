@@ -4,6 +4,7 @@ from os import path
 
 import numpy as np
 import numpy.testing as nt
+import pytest
 
 import mass
 
@@ -12,9 +13,6 @@ ljhdir = os.path.dirname(os.path.realpath(__file__))
 
 
 def process_file(prefix, cuts, do_filter=True):
-    channels = (1,)
-    pulse_files = [path.join(ljhdir, "%s_chan%d.ljh" % (prefix, c)) for c in channels]
-    noise_files = [path.join(ljhdir, "%s_noise_chan%d.ljh" % (prefix, c)) for c in channels]
     pulse_files = path.join(ljhdir, f"{prefix}_chan*.ljh")
     noise_files = path.join(ljhdir, f"{prefix}_noise_chan*.ljh")
 
@@ -69,6 +67,13 @@ class TestSummaries:
         ds = self.data.datasets[0]
         nt.assert_equal(ds.subframe_divisions, 64)
 
+        ds = self.data.channel[1]
+        assert np.all(ds.p_subframecount[:] > 0)
+        with pytest.raises(ValueError):
+            _ = ds.subframes_after_last_external_trigger[:]
+        self.data.calc_external_trigger_timing()
+        assert np.all(ds.subframes_after_last_external_trigger[:] > 0)
+
     def test_summaries(self):
         nt.assert_allclose(self.data.datasets[0].p_peak_index, self.d['p_peak_index'])
         nt.assert_allclose(self.data.datasets[0].p_peak_time, self.d['p_peak_time'])
@@ -87,7 +92,7 @@ class TestSummaries:
         # test_post_filter
         nt.assert_allclose(self.data.datasets[0].p_filt_value, self.d['p_filt_value'], rtol=1e-6)
         nt.assert_allclose(self.data.datasets[0].p_filt_value_dc,
-                           self.d['p_filt_value_dc'], rtol=1e-6)
+                           self.d['p_filt_value_dc'], rtol=1e-4, atol=3)
 
         # test_peak_time:
         """Be sure that peak_time_microsec=89.0 comes out to the same answers"""

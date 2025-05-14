@@ -12,9 +12,6 @@ ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "regres
 
 def process_file(prefix, cuts, do_filter=True):
     """Returns a TESGroup given the file prefix; preloads a set of cuts."""
-    channels = (1,)
-    pulse_files = [os.path.join(ljhdir, "%s_chan%d.ljh" % (prefix, c)) for c in channels]
-    noise_files = [os.path.join(ljhdir, "%s_noise_chan%d.ljh" % (prefix, c)) for c in channels]
     pulse_files = os.path.join(ljhdir, f"{prefix}_chan*.ljh")
     noise_files = os.path.join(ljhdir, f"{prefix}_noise_chan*.ljh")
 
@@ -38,7 +35,6 @@ def process_file(prefix, cuts, do_filter=True):
         data.summarize_filters(std_energy=600)
         data.filter_data()
         data.drift_correct(forceNew=True)
-
         data.filter_data(forceNew=True, use_cython=True)
 
     return data
@@ -77,13 +73,12 @@ class TestFilters:
     @staticmethod
     def verify_filters(data, filter_type):
         "Check that the filters contain what we expect"
-        expected = {"ats": 461.57, "5lag": 456.7}[filter_type]
+        expected_vdv = {"ats": 490, "5lag": 457}[filter_type]
+        expected_var = {"ats": 135.7, "5lag": 155.1}[filter_type]
         for ds in data:
             f = ds.filter
-            assert "noconst" in f.variances
-            assert "noconst" in f.predicted_v_over_dv
-            assert f.variances["noconst"] == pytest.approx(8.46e-7, abs=3e-8)
-            assert f.predicted_v_over_dv["noconst"] == pytest.approx(expected, abs=0.3)
+            assert f.variance == pytest.approx(expected_var, abs=0.2)
+            assert f.predicted_v_over_dv == pytest.approx(expected_vdv, abs=0.5)
 
     def test_vdv_5lag_filters(self):
         """Make sure old filters have a v/dv"""
@@ -114,10 +109,11 @@ class TestFilters:
         ds = data2.channel[1]
         filter2 = ds.filter
         assert filter_type == ds._filter_type
+        assert filter_type == filter2._filter_type
         assert type(filter1) is type(filter2)
         if filter_type == "ats":
             for ds in self.data:
-                assert ds.filter.filt_aterms is not None
+                assert ds.filter.dt_values is not None
         data2.hdf5_file.close()
         data2.hdf5_noisefile.close()
 
@@ -139,7 +135,7 @@ class TestFilters:
         c[:40] = False
         ds.cuts.cut("temporary", c)
         ds.compute_ats_filter(f_3db=5000)
-        f = ds.filter.filt_noconst
+        f = ds.filter.values
         assert not np.any(np.isnan(f))
 
         # Now un-do the temporary cut and re-build the filter
@@ -152,23 +148,25 @@ class TestFilters:
         """Test that zero-weighting samples from the beginning and end works."""
         ds = self.data.channel[1]
         ds.compute_ats_filter(f_3db=5000)
-        NP = 50
-        d = np.array(ds.data[:NP, 1:])  # NP pulses, cutting first sample
-        assert ds.filter.filt_noconst is not None
+        # Use a limited number of pulses, cutting first sample
+        NPulses = 50
+        d = np.array(ds.data[:NPulses, 1:])
+        assert ds.filter.values is not None
 
         # Test that filters actually have zero weight where they are supposed to.
         PREMAX, POSTMAX = 50, 200
         for pre in [0, PREMAX // 2, PREMAX]:
             for post in [0, POSTMAX // 2, POSTMAX]:
-                ds.filter.compute(f_3db=5000, cut_pre=pre, cut_post=post)
-                f = ds.filter.filt_noconst
-                resultsA = np.dot(d, f)
-
+                ds.compute_ats_filter(f_3db=5000, cut_pre=pre, cut_post=post, forceNew=True)
+                f = ds.filter.values
                 d2 = np.array(d)
                 if pre > 0:
-                    d2[:, :pre] = np.random.default_rng().standard_normal((NP, pre))
+                    assert np.all(f[:pre] == 0)
+                    d2[:, :pre] = np.random.default_rng().standard_normal((NPulses, pre))
                 if post > 0:
-                    d2[:, -post:] = np.random.default_rng().standard_normal((NP, post))
+                    assert np.all(f[-post:] == 0)
+                    d2[:, -post:] = np.random.default_rng().standard_normal((NPulses, post))
+                resultsA = np.dot(d, f)
                 resultsB = np.dot(d2, f)
                 assert np.allclose(resultsA, resultsB)
 
@@ -177,22 +175,28 @@ class TestFilters:
         N, n_pre = ds.nSamples, ds.nPresamples
         dt = ds.timebase
 
-        pulse = np.zeros((N, 1), dtype=float)
+        pulse = np.zeros((N, 2), dtype=float)
         pulse[:, 0] = ds.average_pulse[:]
+        pulse[1:, 1] = np.diff(ds.average_pulse)
         noise = np.exp(-np.arange(N) * .01)
-        filterL = mass.ArrivalTimeSafeFilter(pulse, n_pre, noise_autocorr=noise, sample_time=dt)
 
         for cut_pre in (0, n_pre // 10, n_pre // 4):
             for cut_post in (0, (N - n_pre) // 10, (N - n_pre) // 4):
                 thispulse = pulse[cut_pre:N - cut_post]
-                filterS = mass.ArrivalTimeSafeFilter(thispulse, n_pre - cut_pre,
-                                                     noise_autocorr=noise, sample_time=dt)
-                filterS.compute()
-                fS = filterS.filt_noconst
+                filterS = ATSF(thispulse, n_pre - cut_pre, noise, sample_time_sec=dt)
+                fS = filterS.values
 
-                filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
-                fL = filterL.filt_noconst[cut_pre:N - cut_post]
+                filterL = ATSF(pulse, n_pre, noise, sample_time_sec=dt,
+                               cut_pre=cut_pre, cut_post=cut_post)
+                fL = filterL.values[cut_pre:N - cut_post]
                 assert np.allclose(fS, fL)
+
+
+def ATSF(pulse, npre, noise, sample_time_sec, peak=0.0, f_3db=None, cut_pre=0, cut_post=0):
+    assert pulse.shape[1] == 2
+    maker = mass.FilterMaker(pulse[:, 0], npre, noise, dt_model=pulse[:, 1],
+                             sample_time_sec=sample_time_sec, peak=peak)
+    return maker.compute_ats(f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
 
 
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
@@ -203,34 +207,40 @@ def test_dc_insensitive():
     nPresamples = 50
     nPost = nSamples - nPresamples
 
-    # Some fake data
+    # Some fake data, fake noise, and a fake noise spectrum
     pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost - 1, 0, nPost))
     deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
-    model = np.column_stack((pulse_like, deriv_like))
 
     fake_noise = np.random.default_rng().standard_normal(nSamples)
     fake_noise[0] = 10.0
-    whitener = None
     dt = 6.72e-6
 
-    fnew = mass.ArrivalTimeSafeFilter(
-        model, nPresamples, fake_noise, whitener, dt, np.max(pulse_like))
-    fold = mass.Filter(pulse_like, nPresamples, noise_autocorr=fake_noise, sample_time=dt)
-    fnew.name = "AT Safe filter"
-    fold.name = "Classic filter"
-    for test_filter in (fold, fnew):
-        test_filter.compute(f_3db=None, fmax=None)
-        std = np.median(np.abs(test_filter.filt_noconst))
-        mean = test_filter.filt_noconst.mean()
-        assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/o lowpass"
+    nPSD = 1 + (nSamples // 2)
+    fPSD = np.linspace(0, 0.5, nPSD)
+    PSD = 1 + 10 / (1 + (fPSD / 0.1)**2)
 
-        test_filter.compute(f_3db=1e4, fmax=None)
-        mean = test_filter.filt_noconst.mean()
-        assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ f_3db"
+    maker_no_psd = mass.FilterMaker(
+        pulse_like, nPresamples, fake_noise, dt_model=deriv_like,
+        sample_time_sec=dt, peak=np.max(pulse_like))
+    with pytest.raises(ValueError):
+        maker_no_psd.compute_fourier()  # impossible with no PSD
 
-        test_filter.compute(f_3db=None, fmax=1e4)
-        mean = test_filter.filt_noconst.mean()
-        assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ fmax"
+    maker = mass.FilterMaker(
+        pulse_like, nPresamples, fake_noise, dt_model=deriv_like, noise_psd=PSD,
+        sample_time_sec=dt, peak=np.max(pulse_like))
+    for computer in (maker.compute_ats, maker.compute_5lag, maker.compute_fourier):
+        filter_to_test = computer(f_3db=None, fmax=None)
+        std = np.median(np.abs(filter_to_test.values))
+        mean = filter_to_test.values.mean()
+        assert mean < 1e-10 * std, f"{filter_to_test} failed DC test w/o lowpass"
+
+        filter_to_test = computer(f_3db=1e4, fmax=None)
+        mean = filter_to_test.values.mean()
+        assert mean < 1e-10 * std, f"{filter_to_test} failed DC test w/ f_3db"
+
+        filter_to_test = computer(f_3db=None, fmax=1e4)
+        mean = filter_to_test.values.mean()
+        assert mean < 1e-10 * std, f"{filter_to_test} failed DC test w/ fmax"
 
 
 def test_long_filter(tmp_path):
@@ -245,6 +255,8 @@ def test_long_filter(tmp_path):
             "timebase": 10e-6,
             "channum": 1,
             "timestamp_offset": 0,
+            "subframe_divisions": 1,
+            "subframe_offset": 0,
         }
         ds = mass.MicrocalDataSet(pulserec, hdf5_group=g)
         nc = np.zeros(20000, dtype=float)
@@ -258,13 +270,16 @@ def test_long_filter(tmp_path):
         model = np.vstack([ds.average_pulse, aterms]).T
         modelpeak = np.max(ds.average_pulse)
 
-        f = mass.core.optimal_filtering.ArrivalTimeSafeFilter(
-            model, ds.nPresamples, ds.noise_autocorr,
-            sample_time=ds.timebase, peak=modelpeak)
-        f.compute(f_3db=5000)
+        f = ATSF(model, ds.nPresamples, ds.noise_autocorr,
+                 sample_time_sec=ds.timebase, peak=modelpeak, f_3db=5000)
         ds.filter = f
-        ds._filter_type = "ats"
         ds._filter_to_hdf5()
+
+
+def test_no_concrete_baseFilter():
+    "Make sure that mass.Filter is an abstract base class, can't be instantiated directly."
+    with pytest.raises(TypeError):
+        _ = mass.Filter(np.zeros(100), 100.0, 100.0, 100.0)
 
 
 class TestWhitener:

@@ -539,17 +539,17 @@ class Channel(CorG):  # noqa: PLR0904
     def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName=None, states=None,
                              linePositionsFunc=None, cutRecipeName=None, overwriteRecipe=False):
         """
-        linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
+        linePositionsFunc - if None, then use self.calibrationRough.ph as the peak locations
         otherwise try to call it with self as an argument...
         Here is an example of how you could use all but one peak from calibrationRough:
-        `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f._ph`
+        `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f.ph`
         """
         # may need to generalize this to allow using a specific state for phase correction as
         # a specfic line... with something like calibrationPlan
         if correctedName is None:
             correctedName = uncorrectedName + "PC"
         if linePositionsFunc is None:
-            linePositions = self.recipes["energyRough"].f._ph
+            linePositions = self.recipes["energyRough"].f.ph
         else:
             linePositions = linePositionsFunc(self)
         indicator, uncorrected = self.getAttr(
@@ -625,9 +625,9 @@ class Channel(CorG):  # noqa: PLR0904
             line = mass.SpectralLine.quick_monochromatic_line(name, energy, 0.001, 0)
         self.calibrationPlan.addCalPoint(uncalibratedVal, states, line)
         calibrationRough = self.calibrationPlan.getRoughCalibration()
-        calibrationRough.uncalibratedName = self.calibrationPlanAttr
+        uncalibratedName = self.calibrationPlanAttr
         self.recipes.add("energyRough", calibrationRough,
-                         [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
+                         [uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         return self.calibrationPlan
 
     @add_group_loop
@@ -636,15 +636,15 @@ class Channel(CorG):  # noqa: PLR0904
                                has_tails=False, params_update=lmfit.Parameters(), cutRecipeName=None):
         if plan is None:
             plan = self.calibrationPlan
-        starting_cal = plan.getRoughCalibration()
+        calibration = plan.getRoughCalibration()
+        cal_factory = mass.EnergyCalibrationMaker.init()
         intermediate_calibrations = []
         for i in range(n_iter):
-            calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
             calibration.uncalibratedName = uncalibratedName
             results = []
             for (line, states) in zip(plan.lines, plan.states):
                 result = self.linefit(line, uncalibratedName, states, dlo=dlo, dhi=dhi,
-                                      plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
+                                      plot=False, binsize=binsize, calibration=calibration, require_errorbars=False,
                                       method=method, params_update=params_update, has_tails=has_tails,
                                       cutRecipeName=cutRecipeName)
 
@@ -657,19 +657,21 @@ class Channel(CorG):  # noqa: PLR0904
                     self.markBad(f"calibrateFollowingPlan: {line} fit without error bars, states={states}",
                                  extraInfo=result)
                     continue
-                ph = starting_cal.energy2ph(result.params["peak_ph"].value)
+                ph = calibration.energy2ph(result.params["peak_ph"].value)
                 ph_uncertainty = result.params["peak_ph"].stderr / \
-                    starting_cal.energy2dedph(result.params["peak_ph"].value)
-                calibration.add_cal_point(ph, line.peak_energy, line.shortname, ph_uncertainty)
+                    calibration.energy2dedph(result.params["peak_ph"].value)
+                cal_factory = cal_factory.add_cal_point(ph, line.peak_energy, name=line.shortname, ph_error=ph_uncertainty)
             calibration.results = results
             calibration.plan = plan
             is_last_iteration = i + 1 == n_iter
             if not is_last_iteration:
                 intermediate_calibrations.append(calibration)
-                starting_cal = calibration
+                calibration = cal_factory.make_calibration(curvetype, approximate, allow_attributes=True)
         calibration.intermediate_calibrations = intermediate_calibrations
+        calibration.uncalibratedName = uncalibratedName
+        calibration.drop_one_errors = cal_factory.drop_one_errors
         self.recipes.add(calibratedName, calibration,
-                         [calibration.uncalibratedName], overwrite=overwriteRecipe)
+                         [uncalibratedName], overwrite=overwriteRecipe)
         return results
 
     @add_group_loop
@@ -720,11 +722,11 @@ class Channel(CorG):  # noqa: PLR0904
                     self.calibrationArbsInRefChannelUnits.energy2ph(ph),
                     states2, line)
         calibrationRough = self.calibrationPlan.getRoughCalibration()
-        calibrationRough.uncalibratedName = self.calibrationPlanAttr
+        uncalibratedName = self.calibrationPlanAttr
         self.recipes.add("energyRough", calibrationRough,
-                         [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
+                         [uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
-            self.calibrationArbsInRefChannelUnits.uncalibratedName], overwrite=True)
+            uncalibratedName], overwrite=True)
         return self.aligner
 
     @add_group_loop
@@ -974,12 +976,12 @@ class AlignBToA:
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         plt.figure()
-        plt.plot(self.bin_centers, counts_a, label="a: channel %i" % self.ds_a.channum)
+        plt.plot(self.bin_centers, counts_a, label=f"a: channel {self.ds_a.channum}")
         for i, pi in enumerate(self.peak_inds_a):
             plt.plot(self.bin_centers[pi], counts_a[pi], "o",
                      color=self.cm(float(i) / len(self.peak_inds_a)))
 
-        plt.plot(self.bin_centers, counts_b, label="b: channel %i" % self.ds_b.channum)
+        plt.plot(self.bin_centers, counts_b, label=f"b: channel {self.ds_b.channum}")
         for i, pi in enumerate(self.peak_inds_b):
             plt.plot(self.bin_centers[pi], counts_b[pi], "o",
                      color=self.cm(float(i) / len(self.peak_inds_b)))
@@ -1001,11 +1003,11 @@ class AlignBToA:
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         # breakpoint()
         plt.figure()
-        plt.plot(self.bin_centers, counts_a, label="a: channel %i" % self.ds_a.channum)
+        plt.plot(self.bin_centers, counts_a, label=f"a: channel {self.ds_a.channum}")
         for i, pi in enumerate(self.peak_inds_a):
             plt.plot(self.bin_centers[pi], counts_a[pi], "o",
                      color=self.cm(float(i) / len(self.peak_inds_a)))
-        plt.plot(self.bin_centers, counts_b, label="b: channel %i" % self.ds_b.channum)
+        plt.plot(self.bin_centers, counts_b, label=f"b: channel {self.ds_b.channum}")
         for i, pi in enumerate(self.peak_inds_a):
             plt.plot(self.bin_centers[pi], counts_b[pi], "o",
                      color=self.cm(float(i) / len(self.peak_inds_a)))
@@ -1014,11 +1016,10 @@ class AlignBToA:
         plt.legend()
 
     def getCalBtoA(self):
-        cal_b_to_a = mass.EnergyCalibration(curvetype="gain")
-        for pi_a, pi_b in zip(self.peak_inds_a, self.peak_inds_b):
-            cal_b_to_a.add_cal_point(self.bin_centers[pi_b], self.bin_centers[pi_a])
-        cal_b_to_a.uncalibratedName = self.attr
-        self.cal_b_to_a = cal_b_to_a
+        x_in = self.bin_centers[self.peak_inds_b]
+        x_out = self.bin_centers[self.peak_inds_a]
+        factory = mass.EnergyCalibrationMaker.init(x_in, x_out)
+        self.cal_b_to_a = factory.make_calibration(curvename="gain")
         return self.cal_b_to_a
 
     def testForGoodnessBasedOnCalCurvature(self, threshold_frac=.1):
@@ -1027,7 +1028,7 @@ class AlignBToA:
         threshold_lo = 1 / threshold_hi
         # here we test the "curvature" of cal_b_to_a
         # by comparing the most extreme sloped segment to the median slope
-        derivatives = self.cal_b_to_a.energy2dedph(self.cal_b_to_a._energies)
+        derivatives = self.cal_b_to_a.energy2dedph(self.cal_b_to_a.energy)
         diff_frac_hi = np.amax(derivatives) / np.median(derivatives)
         diff_frac_lo = np.amin(derivatives) / np.median(derivatives)
         return diff_frac_hi < threshold_hi and diff_frac_lo > threshold_lo
@@ -1089,10 +1090,9 @@ class CalibrationPlan:
         return s
 
     def getRoughCalibration(self):
-        cal = mass.EnergyCalibration(curvetype="gain")
-        for (x, y, name) in zip(self.uncalibratedVals, self.energies, self.names):
-            cal.add_cal_point(x, y, name)
-        return cal
+        zero = np.zeros_like(self.energies)
+        factory = mass.EnergyCalibrationMaker(self.uncalibratedVals, self.energies, zero, zero, self.names)
+        return factory.make_calibration(curvename="gain", allow_attributes=True)
 
 
 def getOffFileListFromOneFile(filename, maxChans=None):

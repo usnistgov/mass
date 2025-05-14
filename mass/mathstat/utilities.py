@@ -184,7 +184,7 @@ def find_range_randomly(A, nl, q=1):
     Review* v53 #2 (2011) pp217-288. http://epubs.siam.org/doi/abs/10.1137/090771806
     """
     if q < 0:
-        msg = "The number of power iterations q=%d needs to be at least 0" % q
+        msg = f"The number of power iterations q={q} needs to be at least 0"
         raise ValueError(msg)
     A = np.asarray(A)
     _m, n = A.shape

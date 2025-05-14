@@ -204,27 +204,9 @@ class TestTESGroup:
 
         # Summarize with Cython
         ds.p_pretrig_mean[:] = 0.0
-        ds.summarize_data(forceNew=True, use_cython=True)
+        ds.summarize_data(forceNew=True)
         assert np.all(ds.p_pretrig_mean[:] > 0)
         assert np.all(ds.p_pulse_rms[:] > 0)
-        results_cython = {k: ds.__dict__[k][:] for k in ds.__dict__ if k.startswith("p_")}
-
-        # Summarize with pure Python
-        ds.p_pretrig_mean[:] = 0.0
-        ds.summarize_data(forceNew=True, use_cython=False)
-        assert np.all(ds.p_pretrig_mean[:] > 0)
-        assert np.all(ds.p_pulse_rms[:] > 0)
-        results_python = {k: ds.__dict__[k][:] for k in ds.__dict__ if k.startswith("p_")}
-
-        # Be sure the Cython and Python results are pretty close
-        for k in results_cython:
-            # print(f"\n{k}:")
-            # print(results_cython[k][:20])
-            # print(results_python[k][:20])
-            if np.any(np.isnan(results_python[k])):
-                continue
-            # print((results_cython[k] / results_python[k])[:20])
-            assert results_cython[k] == pytest.approx(results_python[k], rel=0.003)
 
     def test_experiment_state(self, tmp_path_factory):
         # First test with the default experimentStateFile
@@ -250,6 +232,14 @@ class TestTESGroup:
             ds.good(state="START")
         nfun = np.sum(ds.good(state="funstate"))
         assert nfun == 252
+
+        # Now test with an experimentStateFile that has a repeated state "PAUSE".
+        # This is a regression test on issue #309 (https://github.com/usnistgov/mass/issues/309)
+        # Until PR 308 (https://github.com/usnistgov/mass/pull/308), this was causing errors.
+        esf_rpt = "tests/regression_test/regress_experiment_state_repeats.txt"
+        data = self.load_data(experimentStateFile=esf_rpt, hdf5dir=tmp_path_factory.mktemp("3"))
+        ds = data.channel[1]
+        ds.summarize_data()
 
     def test_nonoise_data(self, tmp_path):
         """Test behavior of a TESGroup without noise data."""
@@ -286,6 +276,9 @@ class TestTESGroup:
         LOG.info("Testing printing of a TESGroup")
         LOG.info(data2)
 
+    @pytest.mark.filterwarnings("ignore:divide by zero encountered")
+    @pytest.mark.filterwarnings("ignore:invalid value encountered")
+    @pytest.mark.filterwarnings("ignore:Polyfit may be poorly conditioned")
     def test_save_hdf5_calibration_storage(self, tmp_path):
         "calibrate a dataset, make sure it saves to hdf5"
         data = self.load_data(hdf5dir=tmp_path)
@@ -392,8 +385,8 @@ class TestTESGroup:
             ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
             data.phase_correct(method2017=True, forceNew=True, save_to_hdf5=False)
             if ds.channum not in data.good_channels:
-                raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)" %
-                                 (NBINS - lowestbin, lowestbin))
+                raise ValueError(
+                    f"Failed issue156 test with {NBINS - lowestbin} valid bins (lowestbin={lowestbin})")
 
     @staticmethod
     def test_noncontinuous_noise():
@@ -418,9 +411,10 @@ class TestTESGroup:
         output_dir = tmp_path_factory.mktemp("off-1")
         max_channels = 100
         n_ignore_presamples = 0
-        _ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
+        _, off_filenames = mass.ljh2off.ljh2off_loop(
             ds.filename, hdf5_filename, output_dir, max_channels,
             n_ignore_presamples, require_experiment_state=False)
+        assert len(off_filenames) >= 1
         off = mass.off.off.OffFile(off_filenames[0])
         assert np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:])
 
@@ -436,14 +430,13 @@ class TestTESGroup:
 
         should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
         wrongness = np.abs(should_be_identity - np.identity(n_basis))
-        # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        print(f"Wrongness matrix (abs-max is {np.amax(wrongness)})")
         print(wrongness)
-        print(np.amax(wrongness))
-        assert np.amax(wrongness) < 0.16
+        assert np.amax(wrongness) < 1e-9
         pulse_model.plot()
 
-        output_dir = tmp_path_factory.mktemp("off-2")
         # test multi_ljh2off_loop with multiple ljhfiles
+        output_dir = tmp_path_factory.mktemp("off-2")
         basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
         N = len(off)
         prefix = os.path.split(basename)[1]
@@ -546,6 +539,38 @@ class TestTESGroup:
                 with pytest.raises(ValueError):
                     ds.good(state="A")
 
+    @staticmethod
+    def test_expanded_LJH(tmp_path):
+        """Make 2 copies of a regression LJH files. Create a MASS TESGroup from one and copy for
+        the other. Then add 1 pulse worth of data to the copies. Make sure you can open one with
+        `overwrite_hdf5_file=True`, and that you get an error when you try to open the other."""
+        regression = "tests/regression_test/regress_chan1.ljh"
+        newfile1 = str(tmp_path / "regress1_chan1.ljh")
+        shutil.copy(regression, newfile1)
+        data = mass.TESGroup(newfile1)
+        nsamp = data.nSamples
+        del data
+        regressionh5_1 = str(tmp_path / "regress1_mass.hdf5")
+        regressionh5_2 = str(tmp_path / "regress2_mass.hdf5")
+        shutil.copy(regressionh5_1, regressionh5_2)
+
+        extra_bytes = bytes((6 + 2 * nsamp) * b"p")
+        with open(newfile1, "ab") as file:
+            file.write(extra_bytes)
+        newfile2 = str(tmp_path / "regress2_chan1.ljh")
+        shutil.copy(newfile1, newfile2)
+        with pytest.raises(ValueError):
+            _ = mass.TESGroup(newfile1, overwrite_hdf5_file=False)
+        _ = mass.TESGroup(newfile2, overwrite_hdf5_file=True)
+
+
+def test_noiseonly():
+    """Check that you can set a channel bad in a noise-only TESGroup.
+    This tests for issue #301."""
+    noi_name = 'tests/regression_test/regress_noise_chan1.ljh'
+    data = mass.TESGroup(noi_name, noise_only=True)
+    data.set_chan_bad(1, "Just testing stuff")
+
 
 class TestTESHDF5Only:
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
@@ -585,3 +610,11 @@ class TestTESHDF5Only:
         data = mass.TESGroupHDF5(fname)
         for i, ds in enumerate(data):
             assert ds.channum == cnums[i]
+
+
+def test_ljh_norows():
+    """Make sure the LJH merge script works."""
+    src_name = os.path.join('tests', 'regression_test', 'partial_header_chan3.ljh')
+    data = mass.TESGroup(src_name)
+    ds = data.channel[3]
+    assert ds.subframe_divisions > 0

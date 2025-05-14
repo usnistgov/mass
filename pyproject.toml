@@ -6,9 +6,13 @@ authors = [
     {name = "Joe Fowler", email = "drjoefowler@gmail.com"},
     {name = "Galen O'Neil", email = "ggggggggg@github.com"},
 ]
+
+requires-python = ">=3.8"
+readme = "README.md"
+license = {text = "MIT"}
+
 dependencies = [
     "clickhouse-connect",
-    "cycler",
     "deprecation",
     "dill",
     "fastdtw",
@@ -16,23 +20,30 @@ dependencies = [
     "indexedproperty",
     "lmfit>=0.9.11",
     "matplotlib>1.5",
-    "numpy>=1.14",
+    "numba",
+    "numpy>=1.14, <2.2",
     "packaging",
-    "palettable",
-    "pandas",
     "progress",
-    "pytest",
     "scikit-learn",
     "scipy>=0.19, !=1.11.2",
-    # Bitbucket pipeline tests failed with scipy-1.11.2 but passed with .1 or .3. Weird, but remember it!
-    "statsmodels>0.8",
+    # Bitbucket pipeline tests failed with scipy-1.11.2 but passed with 1.11.1 and 1.11.3. Weird, but remember it!
     "ulid-py",
     "uncertainties",
     "xraydb",
 ]
-requires-python = ">=3.8"
-readme = "README.md"
-license = {text = "MIT"}
+
+[dependency-groups]
+# Use `uv sync --dev` to get the development packages
+dev = [
+    "pytest",
+    "ruff",
+    "flake8",
+]
+# Use `uv sync --group docs` to get the packages needed to create documentation
+docs = [
+    "sphinx",
+    "recommonmark",
+]
 
 [project.urls]
 Repository = "https://github.com/usnistgov/mass.git"
@@ -65,3 +76,6 @@ mass = [
 
 [tool.setuptools_scm]
 version_file = "mass/_version.py"
+
+[tool.mypy]
+disable_error_code = ["import-untyped"]

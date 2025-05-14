@@ -9,6 +9,7 @@ Mass
    :maxdepth: 2
    :caption: Contents:
 
+   filtering
    off_style
    gamma
    hci_lines_from_asd

@@ -251,8 +251,10 @@ class LJHFile(MicrocalFile):
         # Read the new (Feb 2024) subframe information. If missing, assume the old TDM values pertain
         # (so # of rows -> subframe divisions, and row # -> subframe offset), unless source is Abaco,
         # in which case use 64 subframe divisions and offset of 0.
-        default_divisions = self.number_of_rows
         default_offset = self.row_number
+        default_divisions = self.number_of_rows
+        if default_divisions is None or default_divisions <= 0:
+            default_divisions = 1
         if "Abaco" in self.source:
             # The external trigger file can override this, but assume 64 divisions at first.
             default_divisions = 64
@@ -296,8 +298,8 @@ class LJHFile(MicrocalFile):
             segmentsize = 2**24
         maxitems = segmentsize // self.pulse_size_bytes
         if maxitems < 1:
-            raise ValueError("segmentsize=%d is not permitted to be smaller than pulse record (%d bytes)" %
-                             (segmentsize, self.pulse_size_bytes))
+            raise ValueError(
+                f"segmentsize={segmentsize} is not permitted to be smaller than pulse record ({self.pulse_size_bytes} bytes)")
         self.segmentsize = maxitems * self.pulse_size_bytes
         self.pulses_per_seg = self.segmentsize // self.pulse_size_bytes
         self.n_segments = 1 + (self.binary_size - 1) // self.segmentsize

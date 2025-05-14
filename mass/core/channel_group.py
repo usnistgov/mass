@@ -199,6 +199,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'w')
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
+                self.hdf5_file = self.hdf5_noisefile
 
         # Load up experiment state file
         self.experimentStateFile = None
@@ -519,14 +520,12 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        cut_pre=0, cut_post=0,
-                       include_badchan=False, forceNew=False, use_cython=True, doPretrigFit=False):
+                       include_badchan=False, forceNew=False, doPretrigFit=False):
         """Summarize the data with per-pulse summary quantities for each channel.
 
         peak_time_microsec will be determined automatically if None, and will be
         stored in channels as ds.peak_samplenumber.
 
-        Args:
-            use_cython uses a cython (aka faster) implementation of summarize.
         """
         nchan = float(len(self.channel.keys())) if include_badchan else float(
             self.num_good_channels)
@@ -537,7 +536,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                                   pretrigger_ignore_microsec=pretrigger_ignore_microsec,
                                   cut_pre=cut_pre,
                                   cut_post=cut_post,
-                                  forceNew=forceNew, use_cython=use_cython,
+                                  forceNew=forceNew,
                                   doPretrigFit=doPretrigFit)
                 yield (i + 1.0) / nchan
                 self.hdf5_file.flush()
@@ -622,8 +621,8 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         return self.external_trigger_subframe_count[:] / float(self.subframe_divisions) * self.timebase
 
     def calc_external_trigger_timing(self, forceNew=False):
-        ds = self.first_good_dataset
-        external_trigger_subframe_count = np.asarray(ds.external_trigger_subframe_count[:], dtype=np.int64)
+        external_trigger_subframe_count = np.asarray(
+            self.external_trigger_subframe_count[:], dtype=np.int64)
 
         for ds in self:
             try:
@@ -632,9 +631,9 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                    ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and (not forceNew):
                     continue
 
-                subframes_after_last, subframes_until_next = \
-                    mass.core.analysis_algorithms.nearest_arrivals(ds.p_subframecount[:],
-                                                                   external_trigger_subframe_count)
+                NA = mass.core.analysis_algorithms.nearest_arrivals
+                subframes_after_last, subframes_until_next = NA(ds.p_subframecount[:],
+                                                                external_trigger_subframe_count)
                 nearest = np.fmin(subframes_after_last, subframes_until_next)
                 for name, values in zip(("subframes_after_last_external_trigger",
                                          "subframes_until_next_external_trigger",
@@ -969,8 +968,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    def plot_filters(self, axis=None, channels=None, cmap=None,
-                     filtname="filt_noconst", legend=True):
+    def plot_filters(self, axis=None, channels=None, cmap=None, legend=True):
         """Plot the optimal filters.
 
         Args:
@@ -995,7 +993,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             ds = self.channel[channum]
             if ds.filter is None:
                 continue
-            plt.plot(ds.filter.__dict__[filtname], label=f"Chan {ds.channum}",
+            plt.plot(ds.filter.values, label=f"Chan {ds.channum}",
                      color=cmap(float(ds_num) / len(channels)))
 
         plt.xlabel("Sample number")
@@ -1011,7 +1009,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         for i, ds in enumerate(self):
             try:
                 if ds.filter is not None:
-                    rms = ds.filter.variances[filter_name]**0.5
+                    rms = ds.filter.variance**0.5
                 else:
                     rms = ds.hdf5_group[f'filters/filt_{filter_name}'].attrs['variance']**0.5
                 v_dv = (1 / rms) / rms_fwhm
@@ -1089,7 +1087,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             assert ds.pulse_records.pulses_per_seg == self.pulses_per_seg
 
     def plot_noise(self, axis=None, channels=None, cmap=None, scale_factor=1.0,
-                   sqrt_psd=False, legend=True, include_badchan=False):
+                   sqrt_psd=False, legend=True, include_badchan=False, include_dc=False):
         """Plot the noise power spectra.
 
         Args:
@@ -1098,6 +1096,8 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             sqrt_psd:     Whether to show the sqrt(PSD) or (by default) the PSD itself.
             cmap:         A matplotlib color map.  Defaults to something.
             legend (bool): Whether to plot the legend (default True)
+            include_badchan (bool): Whether to plot the bad channels (default False)
+            include_dc (bool): Whether to plot the DC bin (default False)
         """
 
         if axis is None:
@@ -1122,18 +1122,30 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         for i, ds in enumerate(dsets):
             channum = ds.channum
             yvalue = ds.noise_psd[:] * scale_factor**2
+            fmax = 0.0
+            fmin = 1e20
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
                 axis.set_ylabel(f"PSD$^{1 / 2}$ ({units}/Hz$^{1 / 2}$)")
             try:
                 df = ds.noise_psd.attrs['delta_f']
-                freq = np.arange(1, 1 + len(yvalue)) * df
-                axis.plot(freq, yvalue, label=f'Chan {channum}',
-                          color=cmap(float(i) / nplot))
+                freq = np.arange(len(yvalue)) * df
+                if include_dc:
+                    freq[0] = freq[1] * 0.1
+                    axis.plot(freq, yvalue, label=f'Chan {channum}',
+                              color=cmap(float(i) / nplot))
+                    fmin = min(fmin, freq[0] * 0.8)
+                else:
+                    axis.plot(freq[1:], yvalue[1:], label=f'Chan {channum}',
+                              color=cmap(float(i) / nplot))
+                    fmin = min(fmin, freq[1] * 0.8)
+                fmax = max(fmax, freq[-1] * 1.2)
             except Exception:
                 LOG.warning("WARNING: Could not plot channel %4d.", channum)
                 continue
-        axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
+        if fmax == 0:
+            raise ValueError("No datasets plotted successfully")
+        axis.set_xlim((fmin, fmax))
         axis.set_ylabel(f"Power Spectral Density ({units}^2/Hz)")
         axis.set_xlabel("Frequency (Hz)")
         axis.loglog()
@@ -1142,26 +1154,6 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
             if nplot > 12:
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
-
-    def correct_flux_jumps(self, flux_quant):
-        '''Remove 'flux' jumps' from pretrigger mean.
-
-        When using umux readout, if a pulse is recorded that has a very fast
-        rising edge (e.g. a cosmic ray), the readout system will "slip" an
-        integer number of flux quanta. This means that the baseline level
-        returned to after the pulse will different from the pretrigger value by
-        an integer number of flux quanta. This causes that pretrigger mean
-        summary quantity to jump around in a way that causes trouble for the
-        rest of MASS. This function attempts to correct these jumps.
-
-        Arguments:
-        flux_quant -- size of 1 flux quantum
-        '''
-        for ds in self:
-            try:
-                ds.correct_flux_jumps(flux_quant)
-            except Exception:
-                self.set_chan_bad(ds.channum, "failed to correct flux jumps")
 
     def sanitize_p_filt_phase(self):
         self.register_boolean_cut_fields("filt_phase")
@@ -1270,7 +1262,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 plt.xlabel(x_attr, fontsize=8)
             plt.ylabel(y_attr, fontsize=8)
             ax.tick_params(axis='both', labelsize=8)
-            plt.title('MATTER Ch%d' % ch, fontsize=10)
+            plt.title(f'MATTER Chan {ch}', fontsize=10)
 
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)

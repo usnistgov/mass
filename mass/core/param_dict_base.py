@@ -100,13 +100,13 @@ class PrmDictBase:
             self.usage_set()
             return
 
-        for prm in kwargs:
+        for prm, kwval in kwargs.items():
             set = False
             for d in self._prm_list:
                 if len(d.keys()) == 0:
                     raise ValueError('self._prm_list is wrong (empty)')
                 try:
-                    if self.set_in_dict(prm, kwargs[prm], d):
+                    if self.set_in_dict(prm, kwval, d):
                         set = True
                         break
                 except TypeError as msg:
@@ -116,8 +116,8 @@ class PrmDictBase:
             if not set:   # maybe set prm as meta data?
                 if isinstance(self.user_prm, dict):
                     # not a registered parameter:
-                    self.user_prm[prm] = kwargs[prm]
-                    message(f'{prm}={kwargs[prm]} assigned in self.user_prm')
+                    self.user_prm[prm] = kwval
+                    message(f'{prm}={kwval} assigned in self.user_prm')
                 else:
                     raise NameError(f'parameter "{prm}" not registered')
         self._update()

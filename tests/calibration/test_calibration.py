@@ -10,28 +10,33 @@ import numpy as np
 import mass
 import h5py
 import os
+from mass import EnergyCalibrationMaker
+
+
+def basic_nonlinearity(e: np.ndarray) -> np.ndarray:
+    return e**0.8
+
+
+def basic_factory(npoints=10):
+    energy = np.linspace(3000, 6000, npoints)
+    ph = basic_nonlinearity(energy)
+    return EnergyCalibrationMaker.init(ph, energy)
 
 
 def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation2, npoints=10):
-    cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-    cal1.set_curvetype(curvetype1)
-    cal1.set_use_approximation(use_approximation1)
-    for energy in np.linspace(3000, 6000, npoints):
-        ph = energy**0.8
-        cal1.add_cal_point(ph, energy)
-    cal2 = cal1.copy()
-    cal2.set_curvetype(curvetype2)
-    cal2.set_use_approximation(use_approximation2)
+    factory = basic_factory()
+    cal1 = factory.make_calibration(curvetype1, use_approximation1)
+    cal2 = factory.make_calibration(curvetype2, use_approximation2)
 
     # Careful here: don't use a point in linspace(3000,6000,npoints),
     # or you'll get exact agreement when you don't expect/want it.
     refenergy = 5100.0
     ph1 = cal1.energy2ph(refenergy)
     ph2 = cal2.energy2ph(refenergy)
-    e1 = cal1.ph2energy(refenergy**0.8)
-    e2 = cal2.ph2energy(refenergy**0.8)
-    doe1 = cal1.drop_one_errors()
-    doe2 = cal2.drop_one_errors()
+    e1 = cal1.ph2energy(basic_nonlinearity(refenergy))
+    e2 = cal2.ph2energy(basic_nonlinearity(refenergy))
+    doe1 = factory.drop_one_errors(curvetype1, use_approximation1)
+    doe2 = factory.drop_one_errors(curvetype2, use_approximation2)
     return ph1, e1, doe1, ph2, e2, doe2, cal1, cal2
 
 
@@ -60,14 +65,11 @@ class TestJoeStyleEnergyCalibration:
     @staticmethod
     def test_copy_equality():
         """Test that any deep-copied calibration object is equivalent."""
-        for curvetype in ['loglog', 'linear', 'linear+0', 'gain', 'invgain', 'loggain']:
+        factory = basic_factory()
+        for curvetype in factory.ALLOWED_CURVENAMES:
             for use_approximation in [True, False]:
-                cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-                cal1.set_curvetype(curvetype)
-                cal1.set_use_approximation(use_approximation)
-                for energy in np.linspace(3000, 6000, 10):
-                    ph = energy**0.8
-                    cal1.add_cal_point(ph, energy)
+                print(curvetype, use_approximation, "DDDDDD")
+                cal1 = factory.make_calibration(curvetype, use_approximation)
                 cal2 = cal1.copy()
                 ph1, e1 = cal1.energy2ph(5000), cal1.ph2energy(5000)
                 ph2, e2 = cal2.energy2ph(5000), cal2.ph2energy(5000)
@@ -153,103 +155,83 @@ class TestJoeStyleEnergyCalibration:
     def test_gain_loglog_2pts():
         ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="gain", use_approximation1=True,
-            curvetype2="loglog", use_approximation2=False, npoints=2)
+            curvetype2="loglog", use_approximation2=False, npoints=3)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
     @staticmethod
-    def test_basic_energy():
-        cal1 = mass.energy_calibration.EnergyCalibration()
-        for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
+    def test_basic_conversions():
+        factory = basic_factory()
+        cal1 = factory.make_calibration()
         for energy in np.linspace(3500, 5500, 10):
-            ph = energy**0.8
+            ph = basic_nonlinearity(energy)
             assert ph == pytest.approx(cal1.energy2ph(energy), abs=0.1)
-
-    @staticmethod
-    def test_basic_ph():
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
-        for energy in np.linspace(3500, 5500, 10):
-            ph = energy**0.8
             assert energy == pytest.approx(cal1.ph2energy(ph), abs=0.1)
 
     @staticmethod
     def test_notlog_ph():
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        cal1.set_curvetype("linear+0")
-        cal1.set_use_approximation(True)
-        for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
+        factory = basic_factory()
+        cal1 = factory.make_calibration(curvename="linear+0", approximate=True)
         for energy in np.linspace(3500, 5500, 10):
-            ph = energy**0.8
+            ph = basic_nonlinearity(energy)
             assert energy == pytest.approx(cal1.ph2energy(ph), abs=10)
 
     @staticmethod
     def test_unordered_entries():
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        cal1.set_curvetype("gain")
-        cal1.set_use_approximation(True)
-        energies = np.array([6000, 3000, 4500, 4000, 5000, 5500], dtype=float)
-        for energy in energies:
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
+        energy = np.array([6000, 3000, 4500, 4000, 5000, 5500], dtype=float)
+        ph = basic_nonlinearity(energy)
+        dph = ph * 1e-3
+        de = energy * 1e-3
+        names = len(ph) * [""]
+        factory = EnergyCalibrationMaker(ph, energy, dph, de, names)
+        assert np.all(np.diff(factory.ph) > 0)
+        cal1 = factory.make_calibration("gain", True)
         cal1(np.array([2200, 4200, 4400], dtype=float))
 
     @staticmethod
     def test_nonmonotonic_fail():
         "Check that issue 216 is fixed: non-monotone {E,PH} pairs should cause exceptions."
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        cal1.set_curvetype("gain")
-        cal1.set_use_approximation(True)
-        energies = np.array([6000, 3000, 4500, 4000], dtype=float)
-        phvec = np.array([3000, 6000, 4500, 5000], dtype=float)
+        energy = np.array([6000, 3000, 4500, 4000], dtype=float)
+        ph = np.array([3000, 6000, 4500, 5000], dtype=float)
+        dph = ph * 1e-3
+        de = energy * 1e-3
+        names = len(ph) * [""]
         with pytest.raises(Exception):
-            for ph, energy in zip(phvec, energies):
-                cal1.add_cal_point(ph, energy)
+            factory = EnergyCalibrationMaker(ph, energy, dph, de, names)
+            factory.make_calibration(curvename="gain", approximate=True)
 
     @staticmethod
     def test_save_and_load_to_hdf5():
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.8
-            cal1.add_cal_point(ph, energy)
+        factory = basic_factory()
         fname = "to_be_deleted.hdf5"
-        for ctype in (0, "gain"):
-            cal1.set_curvetype(ctype)
+        for ctype in ("loglog", "gain"):
+            cal1 = factory.make_calibration(curvename=ctype)
             with h5py.File(fname, "w") as h5:
                 grp = h5.require_group("calibration")
                 cal1.save_to_hdf5(grp, "cal1")
-                cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(
-                    grp, "cal1")
+                cal2 = mass.EnergyCalibration.load_from_hdf5(grp, "cal1")
                 assert len(grp.keys()) == 1
-            assert all(cal1._ph == cal2._ph)
-            assert all(cal2._energies == cal2._energies)
-            assert all(cal1._dph == cal2._dph)
-            assert all(cal1._de == cal2._de)
-            assert cal1.nonlinearity == cal2.nonlinearity
-            assert cal1.CURVETYPE == cal2.CURVETYPE
-            assert cal1._use_approximation == cal2._use_approximation
+            assert all(cal1.ph == cal2.ph)
+            assert all(cal2.energy == cal2.energy)
+            assert all(cal1.dph == cal2.dph)
+            assert all(cal1.de == cal2.de)
+            assert cal1.curvename == cal2.curvename
+            assert cal1.approximating == cal2.approximating
             os.remove(fname)
 
     @staticmethod
     def test_negative_inputs():
-        """Negative or zero pulse-heights shouldn't produce NaN or Inf energies."""
-        cal = mass.calibration.energy_calibration.EnergyCalibration()
-        for energy in np.linspace(3000, 6000, 10):
-            ph = energy**0.9
-            cal.add_cal_point(ph, energy)
-        cal.set_use_approximation(True)
+        """Negative or zero pulse-heights shouldn't produce NaN or Inf energies, except in loglog cal."""
+        factory = basic_factory()
 
         ph = np.arange(-10, 10, dtype=float) * 1000.
-        for ct in cal.CURVETYPE:
-            cal.set_curvetype(ct)
+        for ct in EnergyCalibrationMaker.ALLOWED_CURVENAMES:
+            if ct == "loglog":
+                continue
+            cal = factory.make_calibration(ct, approximate=True)
             e = cal(ph)
+            print(ct, e)
             assert not any(np.isnan(e))
             assert not any(np.isinf(e))
 
@@ -268,21 +250,27 @@ class TestJoeStyleEnergyCalibration:
                         0.22199391, 0.54440676, 0.26877157, 2.36176241, 1.74482802])
         de = np.array([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,
                        0.01, 0.01, 0.01, 0.01])
-        cal1 = mass.EnergyCalibration(curvetype="gain", approximate=True, useGPR=False)
-        cal2 = mass.EnergyCalibration(curvetype="gain", approximate=True, useGPR=True)
-        for cal in (cal1, cal2):
-            for a, b, c, d in zip(ph, e, dph, de):
-                cal.add_cal_point(a, b, pht_error=c, e_error=d, name=f"{b:.3f} eV")
-            cal._update_converters()
-        assert (np.abs(cal1(ph) - e) < 1.2 * dph).all()
-        assert (np.abs(cal2(ph) - e) < 0.7 * dph).all()
-
-        # Be sure that the old-style (non-GPR) spline finds the right curvature
-        assert cal1._underlying_spline.actualchisq == pytest.approx(len(ph), abs=0.01)
+        factory = mass.EnergyCalibrationMaker.init(ph, e, dph, de)
+        cal = factory.make_calibration(curvename="gain", approximate=True)
+        assert (np.abs(cal(ph) - e) < 0.9 * dph).all()
 
         # Test for a problem in extrapolated gain that I had: gain was extrapolated with zero slope!
-        for cal in (cal1, cal2):
-            g1k = 10000 / cal(10000)
-            g4k = 40000 / cal(40000)
-            assert g1k > 3.2
-            assert g4k < 2.9
+        g1k = 10000 / cal(10000)
+        g4k = 40000 / cal(40000)
+        assert g1k > 3.2
+        assert g4k < 2.9
+
+    @staticmethod
+    def test_monotonic():
+        "Generate 2 cal curves: cal1 is monotonic; cal2 is not. Verify this."
+        names = ["CKAlpha", "NKAlpha", "OKAlpha", "FeLAlpha1", "NiLAlpha1", "CuLAlpha1"]
+        e = np.array([mass.STANDARD_FEATURES[n] for n in names])
+        ph1 = e * 10 / (1 + e / 2500)
+        ph2 = ph1.copy()
+        ph2[5] *= (ph2[5] / ph2[4])**(-0.85)
+        factory1 = mass.EnergyCalibrationMaker(ph1, e, ph1 * 1e-4, np.zeros_like(e), names)
+        factory2 = mass.EnergyCalibrationMaker(ph2, e, ph2 * 1e-4, np.zeros_like(e), names)
+        cal1 = factory1.make_calibration("gain")
+        cal2 = factory2.make_calibration("gain")
+        assert cal1.ismonotonic
+        assert not cal2.ismonotonic

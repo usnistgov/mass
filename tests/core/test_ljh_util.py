@@ -29,9 +29,9 @@ class TestFilenameHandling:
 
     @staticmethod
     def test_remove_unmatched_channums():
-        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
-        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
-        validns = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7)]
+        fnames1 = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7, 11, 13)]
+        fnames2 = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7, 9, 15)]
+        validns = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7)]
         remove_unpaired_channel_files(fnames1, fnames2)
         assert len(validns) == len(fnames1)
         assert len(validns) == len(fnames2)
@@ -41,9 +41,9 @@ class TestFilenameHandling:
 
     @staticmethod
     def test_remove_unmatched_channums_with_neveruse():
-        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
-        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
-        validns = ["dummy_chan%d.ljh" % d for d in (1, 3)]
+        fnames1 = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7, 11, 13)]
+        fnames2 = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7, 9, 15)]
+        validns = [f"dummy_chan{d}.ljh" for d in (1, 3)]
         remove_unpaired_channel_files(fnames1, fnames2, never_use=(5, 7))
         assert len(validns) == len(fnames1)
         assert len(validns) == len(fnames2)
@@ -53,9 +53,9 @@ class TestFilenameHandling:
 
     @staticmethod
     def test_remove_unmatched_channums_with_useonly():
-        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
-        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
-        validns = ["dummy_chan%d.ljh" % d for d in (1, 3)]
+        fnames1 = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7, 11, 13)]
+        fnames2 = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7, 9, 15)]
+        validns = [f"dummy_chan{d}.ljh" for d in (1, 3)]
         remove_unpaired_channel_files(fnames1, fnames2, use_only=(1, 3))
         assert len(validns) == len(fnames1)
         assert len(validns) == len(fnames2)
@@ -66,9 +66,9 @@ class TestFilenameHandling:
     @staticmethod
     def test_remove_unmatched_channums_with_neveruse_nosecondlist():
         "remove_unpaired_channel_files needs to work if 2nd list is empty"
-        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
+        fnames1 = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7, 11, 13)]
         fnames2 = []
-        validns = ["dummy_chan%d.ljh" % d for d in (1, 3, 11, 13)]
+        validns = [f"dummy_chan{d}.ljh" for d in (1, 3, 11, 13)]
         remove_unpaired_channel_files(fnames1, fnames2, never_use=(5, 7))
         assert len(validns) == len(fnames1)
         for v, f1 in zip(validns, fnames1):
@@ -77,9 +77,9 @@ class TestFilenameHandling:
     @staticmethod
     def test_remove_unmatched_channums_with_useonly_nosecondlist():
         "remove_unpaired_channel_files needs to work if 2nd list is empty"
-        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
+        fnames1 = [f"dummy_chan{d}.ljh" for d in (1, 3, 5, 7, 11, 13)]
         fnames2 = []
-        validns = ["dummy_chan%d.ljh" % d for d in (1, 3, 7)]
+        validns = [f"dummy_chan{d}.ljh" for d in (1, 3, 7)]
         remove_unpaired_channel_files(fnames1, fnames2, use_only=(1, 3, 7))
         assert len(validns) == len(fnames1)
         for v, f1 in zip(validns, fnames1):
@@ -88,11 +88,11 @@ class TestFilenameHandling:
     @staticmethod
     def test_sort_filenames_numerically():
         cnums = [1, 11, 13, 3, 5, 7, 9, 99]
-        fnames = ["d_chan%d.ljh" % d for d in cnums]
+        fnames = [f"d_chan{d}.ljh" for d in cnums]
         fnames.sort()
         sorted_names = ljh_sort_filenames_numerically(fnames)
         cnums.sort()
-        correct_order = ["d_chan%d.ljh" % d for d in cnums]
+        correct_order = [f"d_chan{d}.ljh" for d in cnums]
         assert len(sorted_names) == len(correct_order)
         for s, c in zip(sorted_names, correct_order):
             assert s == c

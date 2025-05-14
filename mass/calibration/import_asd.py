@@ -40,11 +40,11 @@ def write_asd_pickle(inputFilename, outputFilename):
 
     # Sort levels within an element/charge state by energy
     outputDict = {}
-    for iElement in energyLevelsDict.keys():
-        for iCharge in energyLevelsDict[iElement].keys():
-            energyOrder = np.argsort(np.array(list(energyLevelsDict[iElement][iCharge].values()))[:, 0])
-            orderedKeys = np.array(list(energyLevelsDict[iElement][iCharge].keys()))[energyOrder]
-            orderedValues = np.array(list(energyLevelsDict[iElement][iCharge].values()))[energyOrder]
+    for iElement, element in energyLevelsDict.values():
+        for iCharge, chargestate in element.values():
+            energyOrder = np.argsort(np.array(list(chargestate.values()))[:, 0])
+            orderedKeys = np.array(list(chargestate.keys()))[energyOrder]
+            orderedValues = np.array(list(chargestate.values()))[energyOrder]
             for i, iKey in enumerate(list(orderedKeys)):
                 if iElement not in outputDict.keys():
                     outputDict[iElement] = {}

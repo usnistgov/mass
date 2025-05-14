@@ -95,8 +95,7 @@ class PowerSpectrum:
         given.  window can be None (square window), a callable taking the
         length and returning a sequence, or a sequence."""
         if len(data) != self.m2:
-            raise ValueError("wrong size data segment.  len(data)=%d but require %d" %
-                             (len(data), self.m2))
+            raise ValueError(f"wrong size data segment.  len(data)={len(data)} but require {self.m2}")
         if np.isnan(data).any():
             raise ValueError("data contains NaN")
         if window is None:
@@ -135,7 +134,7 @@ class PowerSpectrum:
         if nbins is None:
             return self.specsum / self.nsegments
         if nbins > self.m:
-            raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
+            raise ValueError(f"Cannot rebin into more than m={self.m} bins")
 
         newbin = np.asarray(0.5 + np.arange(self.m + 1, dtype=float) / (self.m + 1) * nbins, dtype=int)
         result = np.zeros(nbins + 1, dtype=float)
@@ -152,7 +151,7 @@ class PowerSpectrum:
         if nbins is None:
             nbins = self.m
         if nbins > self.m:
-            raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
+            raise ValueError(f"Cannot rebin into more than m={self.m} bins")
         return np.arange(nbins + 1, dtype=float) / (2 * self.dt * nbins)
 
     def plot(self, axis=None, arb_to_unit_scale_and_label=(1, "arb"), sqrt_psd=True, **plotkwarg):

@@ -2,6 +2,43 @@
 
 * Experimental `bin/ljh2clickhouse` conversion tool.
 
+**0.8.8** February 11, 2025-
+
+* Make Fourier-domain optimal filters work (issue 320).
+* Add doctests for the new filtering API (issue 323).
+* Add Thomas Baker's improved method for correcting jumps by 1 (or more) flux quanta (PR 325).
+* Remove 16 warnings that arise in testing (PR 326).
+* Fix external trigger processing (issue 327).
+* Better error message when opening MASS data that is longer than an existing HDF5 file (issue 329).
+* Fix problem with new flux-jump algorithm (issue 331).
+
+**0.8.7** January 24, 2025
+
+* Remove some dependencies in `pyproject.toml` that are no longer required.
+* Use `uv` to install requirements within GitHub Actions. Disable `flake8` linting test, which is broken somehow.
+* Refactor energy-calibration code to use modern Python and MASS practices, and less spaghetti (issue 317).
+* Replace both Cython and pure-Python `summarize_data` modes with a Numba version (stolen from MOSS).
+* Remove all other Cython code, too. There is no more Cython in MASS.
+
+**0.8.6** December 19, 2024
+
+* Completely refactor filter code to use modern Python and MASS practices, and less spaghetti (issue 312).
+  Some user code that involves filters might be broken.
+* Move the _use_ of optimal filters out of the `MicrocalDataSet` object into the `Filter` (issue 314).
+
+**0.8.5** November 15, 2024
+
+* Fix problem where numpy 2.0 was failing a regression test. Not a true regression, so we broaden the acceptance criteria (issue 295).
+* Add installation instructions to README for https-based installation, in addition to ssh-based.
+* Fix Ruff errors.
+* Fix bug when no number of rows is stored (for µMUX data) (issue 298).
+* Allow setting channels bad when in noise-only mode (issue 301).
+* Make `plot_noise()` have the right x-axis (frequency) values (issue 303).
+* Add `EnergyCalibration.ismonotonic()` and test it (issue 305).
+* Fix errors when an experiment state appears 2+ times, as "PAUSE" often does (issue 309).
+* Start testing on Python 3.13 (was 3.12) and oldest valid version: 3.9.
+* Fix errors in the computation of V/dV and estimated variance for optimal filters (issue 307).
+
 **0.8.4** June 5, 2024
 
 * Fix test failures on Py 3.12: store HDF5 cache files in temp directories, so tests don't share them. (issue 272). Correctly use the modern `tempfile` library's API.
