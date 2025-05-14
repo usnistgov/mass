@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS pulses (
     COMMENT 'Each row is a single pulse record from one channel';
 
 CREATE TABLE IF NOT EXISTS channels (
-    `id`                 FixedString(26) PRIMARY KEY Comment 'A ULID for this channel',
+    `id`                 FixedString(26) Comment 'A ULID for this channel',
     `datarun_id`         FixedString(26)  Comment 'A ULID. Can be joined to dataruns.id',
     `channel_number`     UInt32,
     `channel_group`      LowCardinality(String) Default '',
@@ -30,11 +30,12 @@ CREATE TABLE IF NOT EXISTS channels (
     `first_record_time`  DateTime64(9),
 )
     ENGINE = MergeTree()
+    PRIMARY KEY (id)
     ORDER BY (id)
     COMMENT 'Each row is a single microcalorimeter sensor in one data run';
 
 CREATE TABLE IF NOT EXISTS dataruns (
-    `id`              FixedString(26) PRIMARY KEY Comment 'A ULID for this run',
+    `id`              FixedString(26) Comment 'A ULID for this run',
     `date_run_code`   String,
     `intention`       LowCardinality(String) DEFAULT 'unknown',
     `creator`         LowCardinality(String) DEFAULT 'unknown',
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS dataruns (
     `server_start`    DateTime64(6),
 )
     ENGINE = MergeTree()
+    PRIMARY KEY (id)
     COMMENT 'Each row is a data run, with multiple microcalorimeter sensors running in parallel';
 
 CREATE TABLE IF NOT EXISTS external_triggers (
