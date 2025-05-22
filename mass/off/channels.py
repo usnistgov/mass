@@ -636,15 +636,14 @@ class Channel(CorG):  # noqa: PLR0904
                                has_tails=False, params_update=lmfit.Parameters(), cutRecipeName=None):
         if plan is None:
             plan = self.calibrationPlan
-        calibration = plan.getRoughCalibration()
-        cal_factory = mass.EnergyCalibrationMaker.init()
+        pre_calibration = plan.getRoughCalibration()
         intermediate_calibrations = []
         for i in range(n_iter):
-            calibration.uncalibratedName = uncalibratedName
+            cal_factory = mass.EnergyCalibrationMaker.init()
             results = []
             for (line, states) in zip(plan.lines, plan.states):
                 result = self.linefit(line, uncalibratedName, states, dlo=dlo, dhi=dhi,
-                                      plot=False, binsize=binsize, calibration=calibration, require_errorbars=False,
+                                      plot=False, binsize=binsize, calibration=pre_calibration, require_errorbars=False,
                                       method=method, params_update=params_update, has_tails=has_tails,
                                       cutRecipeName=cutRecipeName)
 
@@ -657,20 +656,21 @@ class Channel(CorG):  # noqa: PLR0904
                     self.markBad(f"calibrateFollowingPlan: {line} fit without error bars, states={states}",
                                  extraInfo=result)
                     continue
-                ph = calibration.energy2ph(result.params["peak_ph"].value)
+                ph = pre_calibration.energy2ph(result.params["peak_ph"].value)
                 ph_uncertainty = result.params["peak_ph"].stderr / \
-                    calibration.energy2dedph(result.params["peak_ph"].value)
+                    pre_calibration.energy2dedph(result.params["peak_ph"].value)
                 cal_factory = cal_factory.add_cal_point(ph, line.peak_energy, name=line.shortname, ph_error=ph_uncertainty)
-            calibration.results = results
-            calibration.plan = plan
+            new_cal_extra_info = {"calibrationPlan": plan, 
+                                  "results": results,
+                                  "uncalibratedName": uncalibratedName,}
+            new_cal = cal_factory.make_calibration(curvetype, approximate, extra_info=new_cal_extra_info)
             is_last_iteration = i + 1 == n_iter
             if not is_last_iteration:
-                intermediate_calibrations.append(calibration)
-                calibration = cal_factory.make_calibration(curvetype, approximate, allow_attributes=True)
-        calibration.intermediate_calibrations = intermediate_calibrations
-        calibration.uncalibratedName = uncalibratedName
-        calibration.drop_one_errors = cal_factory.drop_one_errors
-        self.recipes.add(calibratedName, calibration,
+                intermediate_calibrations.append(new_cal)
+        new_cal_extra_info["intermediate_calibrations"] = intermediate_calibrations
+        new_cal_extra_info["drop_one_errors"] = cal_factory.drop_one_errors(curvetype, approximate) 
+        # drop_one_errors should ALSO be an API of the calibration, to avoid potential errors in failing to pass curvetype and approximate
+        self.recipes.add(calibratedName, cal_factory.make_calibration(curvetype, approximate, extra_info=new_cal_extra_info),
                          [uncalibratedName], overwrite=overwriteRecipe)
         return results
 
@@ -802,7 +802,7 @@ class Channel(CorG):  # noqa: PLR0904
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
         calibration = self.recipes["energy"].f
-        _energies, errors = calibration.drop_one_errors()
+        _energies, errors = calibration.extra_info["drop_one_errors"]
         maxAbsError = np.amax(np.abs(errors))
         medianAbsoluteValue = np.median(np.abs(errors))
         k = 1.4826  # https://en.wikipedia.org/wiki/Median_absolute_deviation
@@ -820,9 +820,9 @@ class Channel(CorG):  # noqa: PLR0904
 
     def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges=np.arange(0, 16000, 4)):
         calibration = self.recipes[calibratedName].f
-        uncalibratedName = calibration.uncalibratedName
-        results = calibration.results
-        n_intermediate = len(calibration.intermediate_calibrations)
+        uncalibratedName = calibration.extra_info["uncalibratedName"]
+        results = calibration.extra_info["results"]
+        n_intermediate = len(calibration.extra_info["intermediate_calibrations"])
         # fig can be a matplotlib.figure.Figure object or an index ("num") of the current figures (see plt.get_fignums())
         if fig is not None:
             plt.figure(fig)
@@ -1092,7 +1092,7 @@ class CalibrationPlan:
     def getRoughCalibration(self):
         zero = np.zeros_like(self.energies)
         factory = mass.EnergyCalibrationMaker(self.uncalibratedVals, self.energies, zero, zero, self.names)
-        return factory.make_calibration(curvename="gain", allow_attributes=True)
+        return factory.make_calibration(curvename="gain", approximate=False)
 
 
 def getOffFileListFromOneFile(filename, maxChans=None):

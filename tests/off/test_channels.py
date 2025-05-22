@@ -106,6 +106,11 @@ class TestOFFTutorial:  # noqa PLR0904
         ds.linefit("W Ni-7", attr="energy", states=["W 1", "W 2"])
         ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
 
+        # the calibration from the plan should not be equal to the rough calibration
+        rough_cal = ds.recipes["energyRough"].f
+        filtValueDC_cal = ds.recipes["energy"].f
+        assert not np.allclose(rough_cal.ph, filtValueDC_cal.ph) # this fails in mass 0.8.5 due to bug introduced with energy cal refactor
+
         ds.diagnoseCalibration()
 
         data.calibrateFollowingPlan(
