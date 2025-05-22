@@ -91,7 +91,7 @@ def test_off_5lag_with_saving_and_loading_recipes(tmp_path):
     assert all(data[3].pretriggerMeanCorrected == data2[3].pretriggerMeanCorrected)
     assert all(data[3].filtValue5LagDCPC == data2[3].filtValue5LagDCPC)
     assert all(data[3].cutResidualStdDev == data2[3].cutResidualStdDev)
-    assert data[3].recipes["energy"].f.uncalibratedName == data2[3].recipes["energy"].f.uncalibratedName
+    assert data[3].recipes["energy"].f.extra_info["uncalibratedName"] == data2[3].recipes["energy"].f.extra_info["uncalibratedName"]
     assert data[3].recipes["energy"].f.names == data2[3].recipes["energy"].f.names
 
     data3 = mass.off.ChannelGroup(off_filenames)
