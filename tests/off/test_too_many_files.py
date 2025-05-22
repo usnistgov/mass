@@ -1,6 +1,7 @@
 import resource
 from mass.off import util, ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, NoCutInds, OffFile
 import os
+d = os.path.dirname(os.path.realpath(__file__))
 
 def test_open_many_OFF_files():
     """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them.
