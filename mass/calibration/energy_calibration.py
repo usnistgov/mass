@@ -283,28 +283,28 @@ class EnergyCalibrationMaker:
         return np.hstack(x)
 
     def make_calibration_loglog(
-            self, approximate: bool = False, powerlaw: float = 1.15, allow_attributes: bool = False) -> EnergyCalibration:
-        return self.make_calibration("loglog", approximate=approximate, powerlaw=powerlaw, allow_attributes=allow_attributes)
+            self, approximate: bool = False, powerlaw: float = 1.15, extra_info = None) -> EnergyCalibration:
+        return self.make_calibration("loglog", approximate=approximate, powerlaw=powerlaw, extra_info=extra_info)
 
     def make_calibration_gain(
-            self, approximate: bool = False, allow_attributes: bool = False) -> EnergyCalibration:
-        return self.make_calibration("gain", approximate=approximate, allow_attributes=allow_attributes)
+            self, approximate: bool = False, extra_info = None) -> EnergyCalibration:
+        return self.make_calibration("gain", approximate=approximate, extra_info=extra_info)
 
     def make_calibration_invgain(
-            self, approximate: bool = False, allow_attributes: bool = False) -> EnergyCalibration:
-        return self.make_calibration("invgain", approximate=approximate, allow_attributes=allow_attributes)
+            self, approximate: bool = False, extra_info = None) -> EnergyCalibration:
+        return self.make_calibration("invgain", approximate=approximate, extra_info=extra_info)
 
     def make_calibration_loggain(
-            self, approximate: bool = False, allow_attributes: bool = False) -> EnergyCalibration:
-        return self.make_calibration("loggain", approximate=approximate, allow_attributes=allow_attributes)
+            self, approximate: bool = False, extra_info = None) -> EnergyCalibration:
+        return self.make_calibration("loggain", approximate=approximate, extra_info=extra_info)
 
     def make_calibration_linear(
-            self, approximate: bool = False, addzero: bool = False, allow_attributes: bool = False) -> EnergyCalibration:
+            self, approximate: bool = False, addzero: bool = False, extra_info = None) -> EnergyCalibration:
         curvename = "linear+0" if addzero else "linear"
-        return self.make_calibration(curvename, approximate=approximate, allow_attributes=allow_attributes)
+        return self.make_calibration(curvename, approximate=approximate, extra_info=extra_info)
 
     def make_calibration(self, curvename: str = "loglog", approximate: bool = False,
-                         powerlaw: float = 1.15, allow_attributes: bool = False) -> EnergyCalibration:
+                         powerlaw: float = 1.15, extra_info = None) -> EnergyCalibration:
         if approximate and self.npts < 3:
             raise ValueError(f"approximating curves require 3 or more cal anchor points, have {self.npts}")
         if curvename not in self.ALLOWED_CURVENAMES:
@@ -416,11 +416,7 @@ class EnergyCalibrationMaker:
         else:
             uncertainty_spline = np.zeros_like
 
-        ECalConstructor = EnergyCalibration
-        if allow_attributes:
-            ECalConstructor = EnergyCalibrationWithAttributes
-
-        return ECalConstructor(
+        return EnergyCalibration(
             self.ph, self.energy, self.dph, self.de, self.names,
             curvename=curvename,
             approximating=approximate,
@@ -429,6 +425,7 @@ class EnergyCalibrationMaker:
             ph2uncertainty=uncertainty_spline,
             input_transform=input_transform,
             output_transform=output_transform,
+            extra_info=extra_info,
         )
 
     def drop_one_errors(self, curvename: str = "loglog",
@@ -478,6 +475,7 @@ class EnergyCalibration:
     ph2uncertainty: Callable[[npt.ArrayLike], npt.NDArray[np.float64]]
     input_transform: Callable[[npt.ArrayLike, int], npt.NDArray[np.float64]]
     output_transform: Callable[[npt.ArrayLike, npt.ArrayLike, int, int], npt.NDArray[np.float64]] | None = None
+    extra_info: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         assert self.npts > 0
@@ -784,10 +782,3 @@ class EnergyCalibration:
         if showtext:
             for xval, name, yval in zip(x, self.names, y):
                 axis.text(xval, yval - slope * xval, name + '  ', ha='right')
-
-
-# Now a class like EnergyCalibration, but it can have attributes added for later use.
-# This is maybe not a great interface by some measures, but the OFF analysis system assumes
-# arbitrary attributes can be attached to a calibration, so here it is:
-class EnergyCalibrationWithAttributes(EnergyCalibration):
-    pass
