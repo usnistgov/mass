@@ -1,7 +1,8 @@
 import resource
-from mass.off import util, ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, NoCutInds, OffFile
+from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, OffFile
 import os
 d = os.path.dirname(os.path.realpath(__file__))
+
 
 def test_open_many_OFF_files():
     """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them.
@@ -22,7 +23,7 @@ def test_open_many_OFF_files():
         filelist = getOffFileListFromOneFile(filename, maxChans=2)
         for _ in range(NFilesToOpen):
             _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                                excludeStates=["START", "END"])
+                             excludeStates=["START", "END"])
 
         # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
         # only open it once, not twice.
@@ -30,11 +31,12 @@ def test_open_many_OFF_files():
         filelist *= NFilePairsToOpen
         for _ in range(3):
             _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                                excludeStates=["START", "END"])
+                             excludeStates=["START", "END"])
 
     # Use the try...finally to undo our reduction in the limit on number of open files.
     finally:
         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+
 
 def test_mmap_many_files():
     """Open more OFF file objects than the system allows. Test that close method closes them."""

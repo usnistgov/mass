@@ -109,7 +109,8 @@ class TestOFFTutorial:  # noqa PLR0904
         # the calibration from the plan should not be equal to the rough calibration
         rough_cal = ds.recipes["energyRough"].f
         filtValueDC_cal = ds.recipes["energy"].f
-        assert not np.allclose(rough_cal.ph, filtValueDC_cal.ph) # this fails in mass 0.8.5 due to bug introduced with energy cal refactor
+        # the following test fails in mass 0.8.5 due to bug introduced with energy cal refactor (but later fixed)
+        assert not np.allclose(rough_cal.ph, filtValueDC_cal.ph)
 
         ds.diagnoseCalibration()
 
@@ -194,10 +195,10 @@ class TestOFFTutorial:  # noqa PLR0904
     def test_acessing_calibration_object(self):
         for ds in self.data.values():
             cal = ds.recipes["energy"].f
-            cal.ph # pulse height for each fit
-            cal.dph # error on pulse height from fit
-            cal.energy # SI energy corresponding to pulse height
-            cal.de # uncertainty on SI energy 
+            cal.ph  # pulse height for each fit
+            cal.dph  # error on pulse height from fit
+            cal.energy  # SI energy corresponding to pulse height
+            cal.de  # uncertainty on SI energy
 
     def test_repeating_the_same_correction_with_new_name_doesnt_change_the_original(self):
         ds = self.ds

@@ -283,28 +283,28 @@ class EnergyCalibrationMaker:
         return np.hstack(x)
 
     def make_calibration_loglog(
-            self, approximate: bool = False, powerlaw: float = 1.15, extra_info = None) -> EnergyCalibration:
+            self, approximate: bool = False, powerlaw: float = 1.15, extra_info=None) -> EnergyCalibration:
         return self.make_calibration("loglog", approximate=approximate, powerlaw=powerlaw, extra_info=extra_info)
 
     def make_calibration_gain(
-            self, approximate: bool = False, extra_info = None) -> EnergyCalibration:
+            self, approximate: bool = False, extra_info=None) -> EnergyCalibration:
         return self.make_calibration("gain", approximate=approximate, extra_info=extra_info)
 
     def make_calibration_invgain(
-            self, approximate: bool = False, extra_info = None) -> EnergyCalibration:
+            self, approximate: bool = False, extra_info=None) -> EnergyCalibration:
         return self.make_calibration("invgain", approximate=approximate, extra_info=extra_info)
 
     def make_calibration_loggain(
-            self, approximate: bool = False, extra_info = None) -> EnergyCalibration:
+            self, approximate: bool = False, extra_info=None) -> EnergyCalibration:
         return self.make_calibration("loggain", approximate=approximate, extra_info=extra_info)
 
     def make_calibration_linear(
-            self, approximate: bool = False, addzero: bool = False, extra_info = None) -> EnergyCalibration:
+            self, approximate: bool = False, addzero: bool = False, extra_info=None) -> EnergyCalibration:
         curvename = "linear+0" if addzero else "linear"
         return self.make_calibration(curvename, approximate=approximate, extra_info=extra_info)
 
     def make_calibration(self, curvename: str = "loglog", approximate: bool = False,
-                         powerlaw: float = 1.15, extra_info = None) -> EnergyCalibration:
+                         powerlaw: float = 1.15, extra_info=None) -> EnergyCalibration:
         if approximate and self.npts < 3:
             raise ValueError(f"approximating curves require 3 or more cal anchor points, have {self.npts}")
         if curvename not in self.ALLOWED_CURVENAMES:

@@ -27,5 +27,3 @@ def test_open_file_with_mmap_projectors_and_basis():
 def test_open_file_with_base64_projectors_and_basis():
     filename = os.path.join(d, "data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
     assert OffFile(filename) is not None
-
-

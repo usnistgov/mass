@@ -660,16 +660,17 @@ class Channel(CorG):  # noqa: PLR0904
                 ph_uncertainty = result.params["peak_ph"].stderr / \
                     pre_calibration.energy2dedph(result.params["peak_ph"].value)
                 cal_factory = cal_factory.add_cal_point(ph, line.peak_energy, name=line.shortname, ph_error=ph_uncertainty)
-            new_cal_extra_info = {"calibrationPlan": plan, 
+            new_cal_extra_info = {"calibrationPlan": plan,
                                   "results": results,
-                                  "uncalibratedName": uncalibratedName,}
+                                  "uncalibratedName": uncalibratedName, }
             new_cal = cal_factory.make_calibration(curvetype, approximate, extra_info=new_cal_extra_info)
             is_last_iteration = i + 1 == n_iter
             if not is_last_iteration:
                 intermediate_calibrations.append(new_cal)
         new_cal_extra_info["intermediate_calibrations"] = intermediate_calibrations
-        new_cal_extra_info["drop_one_errors"] = cal_factory.drop_one_errors(curvetype, approximate) 
-        # drop_one_errors should ALSO be an API of the calibration, to avoid potential errors in failing to pass curvetype and approximate
+        new_cal_extra_info["drop_one_errors"] = cal_factory.drop_one_errors(curvetype, approximate)
+        # drop_one_errors should ALSO be an API of the calibration,
+        # to avoid potential errors in failing to pass arguments curvetype and approximate
         self.recipes.add(calibratedName, cal_factory.make_calibration(curvetype, approximate, extra_info=new_cal_extra_info),
                          [uncalibratedName], overwrite=overwriteRecipe)
         return results
