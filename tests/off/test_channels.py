@@ -106,6 +106,12 @@ class TestOFFTutorial:  # noqa PLR0904
         ds.linefit("W Ni-7", attr="energy", states=["W 1", "W 2"])
         ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
 
+        # the calibration from the plan should not be equal to the rough calibration
+        rough_cal = ds.recipes["energyRough"].f
+        filtValueDC_cal = ds.recipes["energy"].f
+        # the following test fails in mass 0.8.5 due to bug introduced with energy cal refactor (but later fixed)
+        assert not np.allclose(rough_cal.ph, filtValueDC_cal.ph)
+
         ds.diagnoseCalibration()
 
         data.calibrateFollowingPlan(
@@ -189,10 +195,10 @@ class TestOFFTutorial:  # noqa PLR0904
     def test_acessing_calibration_object(self):
         for ds in self.data.values():
             cal = ds.recipes["energy"].f
-            cal.ph # pulse height for each fit
-            cal.dph # error on pulse height from fit
-            cal.energy # SI energy corresponding to pulse height
-            cal.de # uncertainty on SI energy 
+            cal.ph  # pulse height for each fit
+            cal.dph  # error on pulse height from fit
+            cal.energy  # SI energy corresponding to pulse height
+            cal.de  # uncertainty on SI energy
 
     def test_repeating_the_same_correction_with_new_name_doesnt_change_the_original(self):
         ds = self.ds

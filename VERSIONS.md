@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.8.8** February 11, 2025-
+**0.8.8** May 27, 2025
 
 * Make Fourier-domain optimal filters work (issue 320).
 * Add doctests for the new filtering API (issue 323).
@@ -9,6 +9,7 @@
 * Fix external trigger processing (issue 327).
 * Better error message when opening MASS data that is longer than an existing HDF5 file (issue 329).
 * Fix problem with new flux-jump algorithm (issue 331).
+* Fix problems with OFF analysis: `calibrateFollowingPlan` didn't work with new calibration API (PR 334).
 
 **0.8.7** January 24, 2025
 
