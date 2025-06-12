@@ -1,5 +1,9 @@
 ## Note on version numbers of Mass
 
+**0.8.9** June 12, 2025-
+
+* Modernize README with Conda instructions and other setup help (issue 335).
+
 **0.8.8** May 27, 2025
 
 * Make Fourier-domain optimal filters work (issue 320).

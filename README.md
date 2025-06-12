@@ -9,7 +9,7 @@ MASS is the work of [Joe Fowler](https://github.com/joefowler/) and [Galen O'Nei
 * Jamie Titus
 * Many collaborators, who have made many bug reports, bug fixes, and feature requests.
 
-MASS was begin in November 2010, and development continues. See [Migration instructions](#migrating-from-bitbucket-to-github) for more info about the May 2024 move from Bitbucket to GitHub for hosting this project.
+MASS was begun in November 2010, and development continues. See [Migration instructions](#migrating-from-bitbucket-to-github) for more info about the May 2024 move from Bitbucket to GitHub for hosting this project.
 
 ## Introduction
 
@@ -25,15 +25,47 @@ With MASS and a little bit of Python knowledge, you can:
 * Estimate and apply accurate functions for absolute-energy calibration.
 * Win friends and influence people.
 
-As of this writing (May 10, 2024), MASS consists of nearly 12,000 lines of Python (plus over 3000 lines of test code). It has some extension modules in Cython.
+As of this writing (June 12, 2025), MASS consists of nearly 13,000 lines of Python (plus over 3500 lines of test code). It used to use extension modules in Cython, but we removed the last of these in early 2025.
 
 
 ## Installation
-Mass requires Python version 3.8 or higher. (We test it automatically with versions 3.9 and 3.12.) You have two choices. You can install inside a virtual environment or without one, but we recommend the virtual environment.
+Mass requires Python version 3.8 or higher. (We test it automatically with versions 3.9 and 3.13.) You have three choices. You can install inside a conda environment, inside a plain-Python virtual environment or without either. we recommend one of the first two. Which? If you already have Python and iPython installed and working outside of Conda, you will probably prefer a [Python virtual environment](#2-virtual-environment-recommended-approach-2-for-people-who-already-have-a-working-non-conda-python). If you lack Python and iPython on your computer, we recommend installing Miniconda. Once you have a Conda installation, you should use the [Conda environment](#1-conda-environment-recommended-approach-1-for-people-who-also-need-to-install-basic-python).
 
-### 1. Virtual environment (recommended approach)
+### 1. Conda environment (recommended approach #1, for people who also need to install basic python)
 
-Virtual environments are easy to set up. They let you keep up with separate dependencies for separate projects. However, you might want a more inclusive name, particularly on a data acquisition server. The venv you make should probably include MASS and other DAQ software. We used to use `qsp` (="quantum sensors project", though it's now a NIST division, not a project). The following assumes that you want your virtual environment to be named `analysis`
+If you are installing Python through the conda package manager, either the full Anaconda Python, or the slimmed-down Miniconda, you will install MASS into a conda environment.
+
+#### Install miniconda
+
+See [Installing miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install) for instructions on how to install miniconda. It's a 3-liner at the terminal: you download the installation script, run it, and delete it. Easy!
+
+If you have a good reason to prefer the full Anaconda Python distribution, use [Installing Anaconda](https://www.anaconda.com/docs/getting-started/anaconda/install). That is an alternative to Miniconda. They share a package manager, differing on whether to install a minimal number of packages (Miniconda) or a huge suite of scientific Python tools (Anaconda).
+
+Now, it is possible to install MASS in your base Conda environment, but you shouldn't. That would defeat a key purpose of Conda, which is to let you work on separate projects that might require conflicting versions of libraries such as `numpy`. In this example, we assume you want your Conda environment to be named `analysis`:
+```bash
+conda create --name analysis -y
+conda activate analysis
+pip install --upgrade pip
+pip install -e git+https://github.com/usnistgov/mass.git#egg=mass
+```
+
+The above (HTTPS) cloning method is probably simpler initially (no ssh setup), but users who contribute to MASS might prefer to set up password-free connections with an ssh key. For them, instead of using the last line above, contributors might want to use ssh-based cloning:
+```bash
+pip install -e git+ssh://git@github.com/usnistgov/mass.git#egg=mass
+```
+
+You'll also need to remember to activate the `analysis` environment in each terminal where you want to use MASS, via
+```bash
+conda activate analysis
+```
+This could be made automatic in your `.bashrc` or `.profile` file, if you like.
+
+When I tried this, the MASS source code was installed in `~/src/mass`.
+
+
+### 2. Virtual environment (recommended approach #2, for people who already have a working non-conda python)
+
+Python virtual environments provide some of the same benefits as a conda environments, but they are not the same. They are easy to set up. They let you keep up with separate dependencies for separate projects. However, you might want a more inclusive name, particularly on a data acquisition server. The venv you make should probably include MASS and other DAQ software. We used to use `qsp` (="quantum sensors project", though it's now a NIST division, not a project). The following assumes that you want your virtual environment to be named `analysis`
 ```bash
 python3 -m venv ~/analysis
 source ~/analysis/bin/activate
@@ -56,7 +88,7 @@ Comments on these commands:
 If you install in any virtual environment, the install location will be inside the `MYVENV/src/mass` where `MYVENV` is the name of your venv. You can switch git branches and update from GitHub in that directory and have everything take effect immediately (except for compiling changes in Cython; see below).
 
 
-### 2. No virtual environment
+### 3. No virtual environment
 
 To install mass in `~/somewhere/to/install/code` you do this:
 ```
@@ -79,16 +111,11 @@ pip install -e git+ssh://git@github.com/usnistgov/mass.git@branchname#egg=mass
 
 The same syntax `@something`
 
-### Updating the installation (or recompiling Cython)
+### Updating the installation
 
-The `-e` argument to the `pip install` command makes development really easy: you can change python files, and the next time you import mass the new files will be used. If you change _Cython files_ or other complied files, you should install again. That's as simple as a single command issued from within the source directory:
-```
-pip install -e .
-```
+The `-e` argument to the `pip install` command makes development really easy: you can change python files, and the next time you import mass the new files will be used.
 
-You would also need that command if you change the Cython code, which must be recompiled. (If you change only python code, the step above isn't required.) It's possible that the above would also help you to re-install if you do something drastic such as change from using Python 3.9 to 3.10. (Not tested!)
-
-See the [`nist-qsp-tdm README`](https://github.com/usnistgov/nist-qsp-tdm) for further instructions to install all relevant Python software simultaneously for a TDM operation, and how to setup venv.
+See the [`Microcal DAQ README`](https://github.com/usnistgov/microcal-daq) for further instructions to install all relevant Python software simultaneously for a TDM operation, and how to setup venv.
 
 **Windows users:** You may need to install Visual Studio Community Edition to run on Windows.
 
@@ -141,6 +168,83 @@ General advice on updating/creating documentation files:
 
 ## Realtime Analysis
 Realtime analysis is implemented by writing filtered values as well as "SVD components" represting the shape of each pulse to a `.off` file. This requires a substanial change is how things in mass work, thus there is a new interface that replaces larges parts of mass in `mass.off`. Look at `mass/off/test_channels.py` for a test script that shows basic usage.
+
+# User Tips
+
+## Configuring iPython and Matplotlib
+
+I like to have Matplotlib start automatic in "interactive mode" and to use the Qt5 backend. Therefore I have a file `~/.matplotlib/matplotlibrc` whose contents are 
+```yaml
+# Also see defaults, which live in a file whose partial path is
+# .../site-packages/matplotlib/mpl-data/matplotlibrc
+backend:       Qt5Agg
+interactive:   True
+timezone:      US/Mountain
+```
+
+That's for a Mac or Linux. I understand that on Windows, you'd put the file in `C:\Users\YourUsername\.matplotlib\matplotlibrc`.
+
+There are also settings I like to automatically make for any iPython session. You can create any 1+ python scripts in the `~/.ipython/profile_default/startup/` directory. They will be executed in lexical order. I have the following in mine. You'll notice that I specifically avoid importing mass, so as not to slow down iPython when I am doing something that doesn't involve MASS.
+
+File `~/.ipython/profile_default/startup/50-imports.py`
+```python
+import pylab as plt
+import numpy as np
+import scipy as sp
+import h5py
+print("Imported pylab, numpy, scipy, and h5py")
+plt.ion()  # Make pylab start in interactive mode
+
+# ENABLE AUTORELOAD
+ip = get_ipython()
+ip.run_line_magic('load_ext', 'autoreload')
+ip.run_line_magic('autoreload', '2')
+print("Imported autoreload. (Use magic '%autoreload 0' to disable,)")%                  
+```
+
+File `~/.ipython/profile_default/startup/60-favorites.py`:
+```python
+"""
+favorites.py
+
+Functions that I, Joe Fowler, want loaded in every ipython session.
+"""
+
+import os
+import numpy as np
+import pylab as plt
+
+from pylab import clf, plot, subplot, scatter, semilogy, semilogx, loglog
+
+
+def myfigure(size, fignum=9):
+    """Generate a figure #9 to replace the current figure. Do so only if
+    the requested size tuple (width,height) is different by more than 0.01 inches
+    in either dimension from the current figure's size."""
+    curr_size = plt.gcf().get_size_inches()
+    if abs(curr_size[0] - size[0]) + abs(curr_size[1] - size[1]) > .01:
+        plt.close(fignum)
+    return plt.figure(fignum, figsize=size)
+
+
+def imshow(matrix, fraction=.09, *args, **kwargs):
+    """Plot a matrix using pylab.imshow with rectangular pixels
+    and a color bar. Argument 'fraction' is passed to the colorbar.
+    All others go to pylab.imshow()"""
+    plt.clf()
+    plt.imshow(matrix, interpolation='none', *args, **kwargs)
+    plt.colorbar(fraction=fraction)
+
+
+def hist(x, bins=100, range=None, *args, **kwargs):
+    """Plot a histogram using the (non-default) 'histtype="step"' argument
+    and default bins=100.."""
+    kwargs.setdefault('histtype', 'step')
+    return plt.hist(x, bins=bins, range=range, *args, **kwargs)
+
+
+print("Loaded favorites.")
+```
 
 # Development Tips
 
