@@ -29,13 +29,42 @@ As of this writing (June 12, 2025), MASS consists of nearly 13,000 lines of Pyth
 
 
 ## Installation
-Mass requires Python version 3.8 or higher. (We test it automatically with versions 3.9 and 3.13.) You have three choices. You can install inside a conda environment, inside a plain-Python virtual environment or without either. we recommend one of the first two. Which? If you already have Python and iPython installed and working outside of Conda, you will probably prefer a [Python virtual environment](#2-virtual-environment-recommended-approach-2-for-people-who-already-have-a-working-non-conda-python). If you lack Python and iPython on your computer, we recommend installing Miniconda. Once you have a Conda installation, you should use the [Conda environment](#1-conda-environment-recommended-approach-1-for-people-who-also-need-to-install-basic-python).
+Mass requires Python version 3.8 or higher. (We test it automatically with versions 3.9 and 3.13.) You have three choices. You can install inside a virtual environment, in a conda environment, or without either. We recommend the first.
 
-### 1. Conda environment (recommended approach #1, for people who also need to install basic python)
+### 1. Virtual environment (recommended approach, for people who already have a working non-conda python)
 
-If you are installing Python through the conda package manager, either the full Anaconda Python, or the slimmed-down Miniconda, you will install MASS into a conda environment.
+Python virtual environments provide some of the same benefits as a conda environments, but they are not the same. They are easy to set up. They let you keep up with separate dependencies for separate projects. However, you might want a more inclusive name, particularly on a data acquisition server. The venv you make should probably include MASS and other DAQ software; for that case, follow the instructions at https://github.com/usnistgov/microcal-daq/
 
-#### Install miniconda
+The following assumes that you want your virtual environment to be named `analysis` and you are _not_ installing on a data acquisition computer:
+```bash
+python3 -m venv ~/analysis
+source ~/analysis/bin/activate
+pip install --upgrade pip
+pip install -e git+https://github.com/usnistgov/mass.git#egg=mass
+```
+
+
+The above (HTTPS) cloning method is probably simpler initially (no ssh setup), but users who contribute to MASS might prefer to set up password-free connections with an ssh key. For them, instead of using the last line above, contributors might want to use ssh-based cloning:
+```bash
+pip install -e git+ssh://git@github.com/usnistgov/mass.git#egg=mass
+```
+
+Comments on these commands:
+1. The first line is safe (but optional) if you already have a virtualenv at `~/analysis/`. If you don't, it creates one.
+2. The second line must be used in _every_ shell where you want that virtualenv to be active. We suggest making a short alias, or (if you're willing to work in this enviroment by default) running this among your shell startup commands.
+3. The third is optional but not a bad idea.
+4. The fourth installs mass in `~/analysis/src/mass/`, which is within your virtual environment.
+
+If you install in any virtual environment, the install location will be inside the `MYVENV/src/mass` where `MYVENV` is the name of your venv. You can switch git branches and update from GitHub in that directory and have everything take effect immediately.
+
+
+### 2. Conda environment (an approach we used to recommend, but no longer do)
+
+At NIST we are having trouble with conda under the Anaconda team's new licensing rules, so we leave our old conda advice here, but we are not using or testing it for accuracy.
+
+If you are installing Python through the conda package manager, either the full Anaconda Python, or the slimmed-down Miniconda or Miniforge, you will install MASS into a conda environment.
+
+#### Install miniconda (might cause licensing problems!)
 
 See [Installing miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install) for instructions on how to install miniconda. It's a 3-liner at the terminal: you download the installation script, run it, and delete it. Easy!
 
@@ -61,31 +90,6 @@ conda activate analysis
 This could be made automatic in your `.bashrc` or `.profile` file, if you like.
 
 When I tried this, the MASS source code was installed in `~/src/mass`.
-
-
-### 2. Virtual environment (recommended approach #2, for people who already have a working non-conda python)
-
-Python virtual environments provide some of the same benefits as a conda environments, but they are not the same. They are easy to set up. They let you keep up with separate dependencies for separate projects. However, you might want a more inclusive name, particularly on a data acquisition server. The venv you make should probably include MASS and other DAQ software. We used to use `qsp` (="quantum sensors project", though it's now a NIST division, not a project). The following assumes that you want your virtual environment to be named `analysis`
-```bash
-python3 -m venv ~/analysis
-source ~/analysis/bin/activate
-pip install --upgrade pip
-pip install -e git+https://github.com/usnistgov/mass.git#egg=mass
-```
-
-
-The above (HTTPS) cloning method is probably simpler initially (no ssh setup), but users who contribute to MASS might prefer to set up password-free connections with an ssh key. For them, instead of using the last line above, contributors might want to use ssh-based cloning:
-```bash
-pip install -e git+ssh://git@github.com/usnistgov/mass.git#egg=mass
-```
-
-Comments on these commands:
-1. The first line is safe (but optional) if you already have a virtualenv at `~/analysis/`. If you don't, it creates one.
-2. The second line must be used in _every_ shell where you want that virtualenv to be active. We suggest making a short alias, or (if you're willing to work in this enviroment by default) running this among your shell startup commands.
-3. The third is optional but not a bad idea.
-4. The fourth installs mass in `~/analysis/src/mass/`, which is within your virtual environment.
-
-If you install in any virtual environment, the install location will be inside the `MYVENV/src/mass` where `MYVENV` is the name of your venv. You can switch git branches and update from GitHub in that directory and have everything take effect immediately (except for compiling changes in Cython; see below).
 
 
 ### 3. No virtual environment
@@ -126,7 +130,7 @@ Mass installs 2 scripts (as of November 2023). These are `make_projectors` and `
 
 
 ### Python 2.7
-If you really want to use Python 2.7, know that MASS version 0.7.5 is the last one compatible with Python 2.7. You can install the tag `versions/0.7.5` with the following command:
+If you really want to use Python 2.7, you can use MASS version 0.7.5; it's the last one compatible with Python 2.7. You can install the tag `versions/0.7.5` with the following command:
 ```
 pip install -e git+ssh://git@github.com/usnistgov/mass.git@versions/0.7.5#egg=mass
 ```

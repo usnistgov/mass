@@ -2,8 +2,7 @@
 benchmark.py
 
 This is an experiment: July 11, 2023.
-Just curious how to use Numba, and also how our Cython vs Python versions of
-`summarize_data()` stack up in speed.
+Just curious how to use Numba.
 
 Save this just as a starting point for future explorations.
 """

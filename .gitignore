@@ -23,7 +23,8 @@ TAGS
 *.log
 .DS_Store
 
-# Cython produces C source files and can produce HTML
+# We don't use Cython, but we did until Jan 2025. It produces C source files, .so files, and can even produce HTML
+# Git-Ignore these types in case any are left in an old installation.
 *.c
 *.html
 *.so

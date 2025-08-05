@@ -35,7 +35,7 @@ def process_file(prefix, cuts, do_filter=True):
         data.summarize_filters(std_energy=600)
         data.filter_data()
         data.drift_correct(forceNew=True)
-        data.filter_data(forceNew=True, use_cython=True)
+        data.filter_data(forceNew=True)
 
     return data
 

@@ -52,14 +52,6 @@ mass\.core\.cut module
     :undoc-members:
     :show-inheritance:
 
-mass\.core\.cython\_channel module
-----------------------------------
-
-.. automodule:: mass.core.cython_channel
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 mass\.core\.fake\_data module
 -----------------------------
 
