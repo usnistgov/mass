@@ -1,7 +1,7 @@
 import h5py
 import numpy as np
 import os
-import os.path
+import pathlib
 import shutil
 import pytest
 
@@ -16,13 +16,15 @@ LOG = logging.getLogger("mass")
 
 # ruff: noqa: PLR0914
 
+TESTS_PATH = pathlib.Path("Tests")
+
 
 class TestFiles:
 
     @staticmethod
     def test_ljh_copy_and_append_traces(tmp_path):
         """Test copying and appending traces to LJH files."""
-        src_name = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
+        src_name = TESTS_PATH / "regression_test" / "regress_chan1.ljh"
         src = LJHFile.open(src_name)
         destfile = tmp_path / "xyz_chan1.ljh"
         dest_name = str(destfile)
@@ -54,7 +56,7 @@ class TestFiles:
     @staticmethod
     def test_ljh_truncate_wrong_format(tmp_path):
         # First a file using LJH format 2.1.0 - should raise an exception
-        src_name = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
+        src_name = TESTS_PATH / "regression_test" / "regress_chan1.ljh"
         destfile = tmp_path / "xyz_chan1.ljh"
         dest_name = str(destfile.name)
 
@@ -93,7 +95,7 @@ class TestFiles:
         # Want to make sure that we didn't screw something up with the
         # segmentation, so try various lengths
         # Tests with a file with 1230 pulses, each 1016 bytes long
-        src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
+        src_name = TESTS_PATH / "regression_test" / "regress_chan3.ljh"
         self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 1000, None)
         self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 0, None)
         self.run_test_ljh_truncate_n_pulses(tmp_path_factory, src_name, 1, None)
@@ -108,7 +110,7 @@ class TestFiles:
         # Want to make sure that we didn't screw something up with the
         # segmentation, so try various lengths
         # Tests with a file with 1230 pulses, each 1016 bytes long
-        src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
+        src_name = TESTS_PATH / "regression_test" / "regress_chan3.ljh"
         self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 1000, 1510871067891481 / 1e6, None)
         self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 100, 1510871020202899 / 1e6, 1016 * 2000)
         self.run_test_ljh_truncate_timestamp(tmp_path_factory, src_name, 49, 1510871016889751 / 1e6, 1016 * 50)
@@ -120,8 +122,8 @@ class TestFiles:
     @staticmethod
     def test_ljh_dastard_other_reading():
         "Make sure we read DASTARD vs non-DASTARD LJH files correctly"
-        src_name1 = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
-        src_name2 = os.path.join('tests', 'regression_test', 'regress_dastard_chan1.ljh')
+        src_name1 = str(TESTS_PATH / "regression_test" / "regress_chan1.ljh")
+        src_name2 = str(TESTS_PATH / "regression_test" / "regress_dastard_chan1.ljh")
         data1 = mass.TESGroup(src_name1)
         data2 = mass.TESGroup(src_name2)
         for d in (data1, data2):
@@ -150,7 +152,7 @@ class TestFiles:
     def test_peak_time_property():
         "Check that a peak during pretrigger is handled properly (issue 259)"
         # A clever trick to get pulses that peak during the pretrigger period: use noise records
-        src_name1 = os.path.join('tests', 'regression_test', 'regress_noise_chan1.ljh')
+        src_name1 = str(TESTS_PATH / "regression_test" / "regress_noise_chan1.ljh")
         data = mass.TESGroup(src_name1)
         data.summarize_data()
         ds = data.channel[1]
@@ -159,10 +161,21 @@ class TestFiles:
         assert peak_in_pretrig.sum() > 0
         assert np.all(ds.p_peak_time[peak_in_pretrig] < 0)
 
+    @staticmethod
+    def test_fix337_memmap_copies():
+        "Test that our proposal to fix #337 (PR 339) doesn't screw up the values"
+        src_name1 = TESTS_PATH / 'regression_test' / 'phase_correct_test_data_4k_pulses_chan1.ljh'
+        ljh = mass.LJHFile.open(src_name1)
+        print(ljh._mm.dtype)
+        raw = ljh._mm["posix_usec"]
+        assert np.all(raw == ljh.datatimes_raw)
+        assert np.all(raw / 1e6 == ljh.datatimes_float)
+        assert np.all(ljh._mm["subframecount"] == ljh.subframecount)
+
 
 def test_ljh_file_rownum():
     "Check for bug (issue 268) where LJH row number is read incorrectly."
-    src_name = os.path.join('tests', 'ljh_files', '20230626', '0001', '20230626_run0001_chan4109.ljh')
+    src_name = TESTS_PATH / 'ljh_files' / '20230626' / '0001' / '20230626_run0001_chan4109.ljh'
     ljh = mass.LJHFile.open(src_name)
     assert ljh.row_number == 13
     assert ljh.col_number == 0
@@ -481,8 +494,8 @@ class TestTESGroup:
 
         class Args:
             def __init__(self):
-                self.pulse_path = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
-                self.noise_path = os.path.join('tests', 'regression_test', 'regress_noise_chan1.ljh')
+                self.pulse_path = str(TESTS_PATH / "regression_test" / "regress_chan1.ljh")
+                self.noise_path = str(TESTS_PATH / "regression_test" / "regress_noise_chan1.ljh")
                 self.output_path = tmp_path / 'projectors_script_test.hdf5'
                 self.replace_output = True
                 self.max_channels = 4
@@ -613,7 +626,7 @@ class TestTESHDF5Only:
 
 def test_ljh_norows():
     """Make sure the LJH merge script works."""
-    src_name = os.path.join('tests', 'regression_test', 'partial_header_chan3.ljh')
+    src_name = str(TESTS_PATH / 'regression_test' / 'partial_header_chan3.ljh')
     data = mass.TESGroup(src_name)
     ds = data.channel[3]
     assert ds.subframe_divisions > 0
