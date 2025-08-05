@@ -55,7 +55,7 @@ make_projectors = "mass.core.projectors_script:main"
 
 
 [build-system]
-requires = ["setuptools>=61", "setuptools_scm>=8", "wheel", "Cython>=0.29", "numpy>=1.14"]
+requires = ["setuptools>=61", "setuptools_scm>=8", "wheel", "numpy>=1.14"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]

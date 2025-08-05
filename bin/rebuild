@@ -2,8 +2,8 @@
 #
 # Written by Dan Becker.
 # Updated for arbitrary install location by Joe Fowler.
-# However! I don't see the point. You should not have to remove the Cython
-# files nor the entire build directory unless something is going badly wrong.
+# However! I don't see the point. You should not have to remove
+# the entire build directory unless something is going badly wrong.
 
 
 INSTALL_DIR=`python -c "import sys; print '%s/lib/python%s/site-packages' % ( sys.prefix, sys.version[:3] )"`

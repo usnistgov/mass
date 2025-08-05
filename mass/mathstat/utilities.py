@@ -5,7 +5,6 @@ Several math and plotting utilities:
 * plot_as_stepped_hist
 * plot_stepped_hist_poisson_errors
 * savitzky_golay
-* CheckForMissingLibrary class
 
 Joe Fowler, NIST
 
@@ -20,24 +19,6 @@ __all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky
 # Create a module-local RNG. If you need to seed it to achieve repeatable tests,
 # you can replace this.
 rng = np.random.default_rng()
-
-
-class CheckForMissingLibrary:
-    """Class to raise ImportError only after python tries to use the import.
-
-    Intended for use with shared objects built from Fortran or Cython source.
-    """
-
-    def __init__(self, libname):
-        self.libname = libname
-        self.error = ImportError(f"""This copy of Mass could not import the compiled '{self.libname}'
-This happens when you run from a source tree, among other possibilities.  You can
-either try using an installed version or do a 'python setup.py build' and copy
-the .so file from build/lib*/mass/mathstat/ to mass/mathstat/  Note that this is
-a delayed error.  If it is raised, then you know that you needed the library!""")
-
-    def __getattr__(self, attr):
-        raise self.error
 
 
 def plot_as_stepped_hist(axis, data, bins, **kwargs):
