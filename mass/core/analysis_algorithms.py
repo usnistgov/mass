@@ -455,7 +455,7 @@ def unwrap_n(data, period, mask, n=3):
 
 
 @njit
-def filter_data_5lag_cython(rawdata, filter_values):
+def filter_data_5lag(rawdata, filter_values):
     """Filter the complete data file one chunk at a time."""
     nPulses = rawdata.shape[0]
     nSamples = rawdata.shape[1]

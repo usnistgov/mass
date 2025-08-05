@@ -237,9 +237,6 @@ def high_median(x, weights=None, return_index=False):
         weights = np.ones(n, dtype=float)
     else:
         weights = np.asarray(weights, dtype=float)
-
-    # If possible, use the Cython version _high_median, though it only speeds up
-    # by 15 to 20%.
     ri = _high_median(sort_idx, weights, n)
 
     if return_index:

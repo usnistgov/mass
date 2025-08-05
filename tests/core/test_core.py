@@ -193,8 +193,7 @@ class TestTESGroup:
                              experimentStateFile=experimentStateFile)
 
     def test_readonly_view(self, tmp_path):
-        """Make sure summarize_data() runs with a readonly memory view and small 'segments'.
-        Check both cython and non-cython."""
+        """Make sure summarize_data() runs with a readonly memory view and small 'segments'."""
         data = self.load_data(hdf5dir=tmp_path)
         ds = data.channel[1]
 
@@ -202,7 +201,7 @@ class TestTESGroup:
         ds.pulse_records.set_segment_size(512 * 1024)
         assert ds.pulse_records.pulses_per_seg < ds.nPulses
 
-        # Summarize with Cython
+        # Summarize data
         ds.p_pretrig_mean[:] = 0.0
         ds.summarize_data(forceNew=True)
         assert np.all(ds.p_pretrig_mean[:] > 0)

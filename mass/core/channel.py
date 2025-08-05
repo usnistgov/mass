@@ -1235,7 +1235,7 @@ Try creating with the argument mass.TESGroup(..., overwite_hdf5_file=True)
         return f
 
     @_add_group_loop()
-    def filter_data(self, transform=None, forceNew=False, use_cython=None):
+    def filter_data(self, transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
 
         Args:
@@ -1247,26 +1247,21 @@ Try creating with the argument mass.TESGroup(..., overwite_hdf5_file=True)
             LOG.info('chan %d did not filter because results were already loaded', self.channum)
             return
 
-        if use_cython is None:
-            use_cython = self._filter_type == "5lag"
-
         assert self.filter is not None
         filter_values = self.filter.values
 
-        if use_cython:
-            if self._filter_type == "ats":
-                raise ValueError("Cannot perform Arrival-Time-Safe filtering in Cython yet")
-            fdata = mass.core.analysis_algorithms.filter_data_5lag_cython
+        if self._filter_type == "5lag":
+            fdata = mass.core.analysis_algorithms.filter_data_5lag
             fv, fp = fdata(self.alldata, filter_values)
             self.p_filt_value[:] = fv[:]
             self.p_filt_phase[:] = fp[:]
             self.hdf5_group.file.flush()
             return
 
-        self._filter_data_nocython(filter_values, transform=transform)
+        self._filter_data_atsstyle(filter_values, transform=transform)
 
     @show_progress("channel.filter_data_tdm")
-    def _filter_data_nocython(self, filter_values, transform=None):
+    def _filter_data_atsstyle(self, filter_values, transform=None):
         # when dastard uses kink model for determining trigger location, we don't need to shift1
         # this code path should be followed when filters are created with the shift1=False argument
         effective_filter_length = len(filter_values) + self.filter.convolution_lags - 1
@@ -2452,7 +2447,7 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,  # noqa: PLR09
     25%% larger than the 99%%ile point of uncorrected.
 
     Possible improvements in the future:
-    * Move this routine to Cython.
+    * Use Numba to speed up.
     * Allow the parameters to be function arguments with defaults: photons per
       degree of freedom, seconds per degree of freedom, and max degrees of freedom.
     * Figure out how to span the available time with more than one set of legendre
