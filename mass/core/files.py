@@ -428,11 +428,49 @@ class LJHFile2_2(LJHFile):
 
     @property
     def subframecount(self):
-        return self._mm["subframecount"]
+        """Return a copy of the subframecount memory map.
+
+        In issue #337, we found that computing on the entire memory map at once was prohibitively
+        expensive for large files. To prevent problems, copy chunks of no more than
+        `MAXSEGMENT` records at once.
+
+        Returns
+        -------
+        np.ndarray
+            An array of subframecount values for each pulse record.
+        """
+        mmap = self._mm["subframecount"]
+        subframecount = np.zeros(self.nPulses, dtype=np.int64)
+        MAXSEGMENT = 4096
+        first = 0
+        while first < self.nPulses:
+            last = min(first + MAXSEGMENT, self.nPulses)
+            subframecount[first:last] = mmap[first:last]
+            first = last
+        return subframecount
 
     @property
     def datatimes_raw(self):
-        return self._mm["posix_usec"]
+        """Return a copy of the raw timestamp (posix usec) memory map.
+
+        In issue #337, we found that computing on the entire memory map at once was prohibitively
+        expensive for large files. To prevent problems, copy chunks of no more than
+        `MAXSEGMENT` records at once.
+
+        Returns
+        -------
+        np.ndarray
+            An array of timestamp values for each pulse record, in microseconds since the epoh (1970).
+        """
+        mmap = self._mm["posix_usec"]
+        subframecount = np.zeros(self.nPulses, dtype=np.int64)
+        MAXSEGMENT = 4096
+        first = 0
+        while first < self.nPulses:
+            last = min(first + MAXSEGMENT, self.nPulses)
+            subframecount[first:last] = mmap[first:last]
+            first = last
+        return subframecount
 
     @property
     def datatimes_float(self):
@@ -447,7 +485,7 @@ class LJHFile2_2(LJHFile):
         np.ndarray
             An array of pulse record times in floating-point (seconds since the 1970 epoch).
         """
-        raw = self.datatimes_raw
+        raw = self._mm["posix_usec"]
         datatimes_float = np.zeros(self.nPulses, dtype=np.float64)
         MAXSEGMENT = 4096
         first = 0
