@@ -5,6 +5,7 @@
 * Modernize README with Conda instructions and other setup help (issue 335).
 * Disfavor Conda installation in the README.
 * Remove misleading use of the word "cython" in code and docstrings.
+* Don't return memmapped objects from `LJHFile` properties, but copies (issue 337). 
 
 **0.8.8** May 27, 2025
 
