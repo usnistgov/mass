@@ -436,7 +436,26 @@ class LJHFile2_2(LJHFile):
 
     @property
     def datatimes_float(self):
-        return self.datatimes_raw / 1e6
+        """Compute pulse record times in floating-point (seconds since the 1970 epoch).
+
+        In issue #337, we found that computing on the entire memory map at once was prohibitively
+        expensive for large files. To prevent problems, compute on chunks of no more than
+        `MAXSEGMENT` records at once.
+
+        Returns
+        -------
+        np.ndarray
+            An array of pulse record times in floating-point (seconds since the 1970 epoch).
+        """
+        raw = self.datatimes_raw
+        datatimes_float = np.zeros(self.nPulses, dtype=np.float64)
+        MAXSEGMENT = 4096
+        first = 0
+        while first < self.nPulses:
+            last = min(first + MAXSEGMENT, self.nPulses)
+            datatimes_float[first:last] = raw[first:last] / 1e6
+            first = last
+        return datatimes_float
 
 
 def make_ljh_header(header_dict):
