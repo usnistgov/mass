@@ -159,6 +159,17 @@ class TestFiles:
         assert peak_in_pretrig.sum() > 0
         assert np.all(ds.p_peak_time[peak_in_pretrig] < 0)
 
+    @staticmethod
+    def test_fix337_memmap_copies():
+        "Test that our proposal to fix #337 (PR 339) doesn't screw up the values"
+        src_name1 = os.path.join('tests', 'regression_test', 'phase_correct_test_data_4k_pulses_chan1.ljh')
+        ljh = mass.LJHFile.open(src_name1)
+        print(ljh._mm.dtype)
+        raw = ljh._mm["posix_usec"]
+        assert np.all(raw == ljh.datatimes_raw)
+        assert np.all(raw / 1e6 == ljh.datatimes_float)
+        assert np.all(ljh._mm["subframecount"] == ljh.subframecount)
+
 
 def test_ljh_file_rownum():
     "Check for bug (issue 268) where LJH row number is read incorrectly."
