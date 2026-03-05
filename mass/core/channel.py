@@ -2009,17 +2009,23 @@ Try creating with the argument mass.TESGroup(..., overwite_hdf5_file=True)
         peak_time_ms = (MARGIN + self.peak_samplenumber - self.nPresamples) * self.timebase * 1000
 
         # Step 2: analyze *noise* so we know how to cut on pretrig rms postpeak_deriv
-        pretrigger_rms = np.zeros(self.noise_records.nPulses)
-        for i in range(self.noise_records.nPulses):
-            data = self.noise_records.datafile.alldata[i]
-            pretrigger_rms[i] = data[:self.nPresamples].std()
-        max_deriv = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
+        # Define the full ensemble once to avoid repeated attribute access and variable shadowing
+        all_noise_records_data = self.noise_records.datafile.alldata
 
-        # Multiply MAD by 1.4826 to get into terms of sigma, if distribution were Gaussian.
-        md_med = np.median(max_deriv)
-        pt_med = np.median(pretrigger_rms)
-        md_madn = np.median(np.abs(max_deriv - md_med)) * 1.4826
-        pt_madn = np.median(np.abs(pretrigger_rms - pt_med)) * 1.4826
+        # Calculate max derivatives and pre-trigger RMS for the entire noise ensemble at once
+        # We are not cutting noise records that contain accidental pulses, but use of medians and
+        # median absolute deviations as summary statistics should make the appearance of a few
+        # accidental pulses irrelevant.
+        max_deriv_values = mass.analysis_algorithms.compute_max_deriv(all_noise_records_data, ignore_leading=0)
+        pretrigger_rms_values = all_noise_records_data[:, :self.nPresamples].std(axis=1)
+
+        # Cut value will be equal to the median plus the requested limits times the normalized
+        # median absolute deviation (MADN) of the values observed from noise data. "Normalized" here uses
+        # a scale factor such that if the distribution were Gaussian, then MADN would equal the rms.
+        md_med = np.median(max_deriv_values)
+        pt_med = np.median(pretrigger_rms_values)
+        md_madn = mass.mathstat.robust.median_abs_dev(max_deriv_values, normalize=True)
+        pt_madn = mass.mathstat.robust.median_abs_dev(pretrigger_rms_values, normalize=True)
         md_max = md_med + md_madn * nsigma_max_deriv
         pt_max = max(0.0, pt_med + pt_madn * nsigma_pt_rms)
 

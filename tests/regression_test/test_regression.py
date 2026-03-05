@@ -103,6 +103,17 @@ class TestSummaries:
         ds.summarize_data(forceNew=True, peak_time_microsec=None)
         nt.assert_allclose(ppd1, ppd2)
 
+    def test_issue340_buggy_noise_analysis(self):
+        """Check that the noise is being properly used to find the typical derivative and range of derivatives.
+
+        Bug noted in https://github.com/usnistgov/mass/issues/340
+        """
+        ds = self.data.datasets[0]
+        _ = ds.auto_cuts()
+        # When we erroneously computed derivative from noise data using only the last record, there were only 216
+        # good pulses. With the bug (issue 340) fixed, 298 pulses are good.
+        assert ds.good().sum() > 297
+
 
 def test_filters_in_old_hdf5_files():
     """Make sure we can read filters stored by MASS v0.7.0"""
