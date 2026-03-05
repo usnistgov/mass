@@ -2011,16 +2011,13 @@ Try creating with the argument mass.TESGroup(..., overwite_hdf5_file=True)
         # Step 2: analyze *noise* so we know how to cut on pretrig rms postpeak_deriv
         # Define the full ensemble once to avoid repeated attribute access and variable shadowing
         all_noise_records_data = self.noise_records.datafile.alldata
-        num_noise_pulses = self.noise_records.nPulses
-        
-        # Calculate max derivatives for the entire noise ensemble at once
-        max_deriv_values = mass.analysis_algorithms.compute_max_deriv(all_noise_records_data, ignore_leading=0)
 
-        # Calculate Pre-trigger RMS for each individual noise record
-        pretrigger_rms_values = np.zeros(num_noise_pulses)
-        for i in range(num_noise_pulses):
-            single_noise_record_data = all_noise_records_data[i]
-            pretrigger_rms_values[i] = single_noise_record_data[:self.nPresamples].std()
+        # Calculate max derivatives and pre-trigger RMS for the entire noise ensemble at once
+        # We are not cutting noise records that contain accidental pulses, but use of medians and
+        # median absolute deviations as summary statistics should make the appearance of a few
+        # accidental pulses irrelevant.
+        max_deriv_values = mass.analysis_algorithms.compute_max_deriv(all_noise_records_data, ignore_leading=0)
+        pretrigger_rms_values = all_noise_records_data[:, :self.nPresamples].std(axis=1)
 
         # Cut value will be equal to the median plus the requested limits times the normalized
         # median absolute deviation (MADN) of the values observed from noise data. "Normalized" here uses
