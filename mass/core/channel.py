@@ -2013,6 +2013,7 @@ Try creating with the argument mass.TESGroup(..., overwite_hdf5_file=True)
         for i in range(self.noise_records.nPulses):
             data = self.noise_records.datafile.alldata[i]
             pretrigger_rms[i] = data[:self.nPresamples].std()
+        data = self.noise_records.datafile.alldata
         max_deriv = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
 
         # Multiply MAD by 1.4826 to get into terms of sigma, if distribution were Gaussian.
