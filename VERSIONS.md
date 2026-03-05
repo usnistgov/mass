@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.8.9** June 12, 2025-
+**0.8.9** March 5, 2026
 
 * Modernize README with Conda instructions and other setup help (issue 335).
 * Disfavor Conda installation in the README.
