@@ -2009,18 +2009,24 @@ Try creating with the argument mass.TESGroup(..., overwite_hdf5_file=True)
         peak_time_ms = (MARGIN + self.peak_samplenumber - self.nPresamples) * self.timebase * 1000
 
         # Step 2: analyze *noise* so we know how to cut on pretrig rms postpeak_deriv
-        pretrigger_rms = np.zeros(self.noise_records.nPulses)
-        for i in range(self.noise_records.nPulses):
-            data = self.noise_records.datafile.alldata[i]
-            pretrigger_rms[i] = data[:self.nPresamples].std()
-        data = self.noise_records.datafile.alldata
-        max_deriv = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
+        # Define the full ensemble once to avoid repeated attribute access and variable shadowing
+        all_noise_records_data = self.noise_records.datafile.alldata
+        num_noise_pulses = self.noise_records.nPulses
+        
+        # Calculate max derivatives for the entire noise ensemble at once
+        max_deriv_values = mass.analysis_algorithms.compute_max_deriv(all_noise_records_data, ignore_leading=0)
+
+        # Calculate Pre-trigger RMS for each individual noise record
+        pretrigger_rms_values = np.zeros(num_noise_pulses)
+        for i in range(num_noise_pulses):
+            single_noise_record_data = all_noise_records_data[i]
+            pretrigger_rms_values[i] = single_noise_record_data[:self.nPresamples].std()
 
         # Multiply MAD by 1.4826 to get into terms of sigma, if distribution were Gaussian.
-        md_med = np.median(max_deriv)
-        pt_med = np.median(pretrigger_rms)
-        md_madn = np.median(np.abs(max_deriv - md_med)) * 1.4826
-        pt_madn = np.median(np.abs(pretrigger_rms - pt_med)) * 1.4826
+        md_med = np.median(max_deriv_values)
+        pt_med = np.median(pretrigger_rms_values)
+        md_madn = np.median(np.abs(max_deriv_values - md_med)) * 1.4826
+        pt_madn = np.median(np.abs(pretrigger_rms_values - pt_med)) * 1.4826
         md_max = md_med + md_madn * nsigma_max_deriv
         pt_max = max(0.0, pt_med + pt_madn * nsigma_pt_rms)
 
